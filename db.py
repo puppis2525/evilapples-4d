@@ -549,12 +549,87 @@ async def delete_store_listing(listing_id: int):
 async def record_store_purchase(discord_user_id, listing_id, stripe_session_id):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
+        result = await conn.fetchrow(
             """INSERT INTO store_purchases (discord_user_id, listing_id, stripe_session_id)
                VALUES ($1, $2, $3)
-               ON CONFLICT (stripe_session_id) DO NOTHING""",
+               ON CONFLICT (stripe_session_id) DO NOTHING
+               RETURNING id""",
             discord_user_id, listing_id, stripe_session_id
         )
+        return result is not None
+
+
+async def fulfill_store_purchase(discord_user_id: str, listing_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        listing = await conn.fetchrow(
+            "SELECT * FROM store_listings WHERE id = $1", listing_id
+        )
+        if not listing:
+            logger.warning(f"Fulfill: listing {listing_id} not found")
+            return
+
+        deck_ids_str = listing.get("deck_ids", "")
+        if not deck_ids_str:
+            logger.warning(f"Fulfill: listing {listing_id} has no deck_ids")
+            return
+
+        source_deck_ids = []
+        for part in deck_ids_str.split(","):
+            part = part.strip()
+            if part.isdigit():
+                source_deck_ids.append(int(part))
+
+        if not source_deck_ids:
+            logger.warning(f"Fulfill: listing {listing_id} has no valid deck_ids")
+            return
+
+        for source_id in source_deck_ids:
+            source_deck = await conn.fetchrow(
+                "SELECT * FROM custom_decks WHERE id = $1", source_id
+            )
+            if not source_deck:
+                logger.warning(f"Fulfill: source deck {source_id} not found")
+                continue
+
+            existing = await conn.fetchrow(
+                """SELECT id FROM custom_decks
+                   WHERE LOWER(name) = LOWER($1) AND discord_user_id = $2""",
+                source_deck["name"], discord_user_id
+            )
+            if existing:
+                logger.info(f"Fulfill: user {discord_user_id} already has deck '{source_deck['name']}'")
+                continue
+
+            new_deck = await conn.fetchrow(
+                """INSERT INTO custom_decks (name, description, creator_name, discord_user_id)
+                   VALUES ($1, $2, $3, $4) RETURNING id""",
+                source_deck["name"],
+                source_deck.get("description", ""),
+                source_deck.get("creator_name", "Store"),
+                discord_user_id
+            )
+            new_deck_id = new_deck["id"]
+
+            cards = await conn.fetch(
+                "SELECT card_type, card_text FROM custom_cards WHERE deck_id = $1",
+                source_id
+            )
+
+            if cards:
+                await conn.executemany(
+                    "INSERT INTO custom_cards (deck_id, card_type, card_text) VALUES ($1, $2, $3)",
+                    [(new_deck_id, c["card_type"], c["card_text"]) for c in cards]
+                )
+
+                prompt_count = sum(1 for c in cards if c["card_type"] == "prompt")
+                answer_count = sum(1 for c in cards if c["card_type"] == "answer")
+                await conn.execute(
+                    "UPDATE custom_decks SET prompt_count = $2, answer_count = $3 WHERE id = $1",
+                    new_deck_id, prompt_count, answer_count
+                )
+
+            logger.info(f"Fulfill: copied deck '{source_deck['name']}' ({len(cards)} cards) to user {discord_user_id}")
 
 
 async def get_user_purchases(discord_user_id):

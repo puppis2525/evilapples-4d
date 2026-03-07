@@ -104,9 +104,13 @@ async def stripe_webhook(request: Request):
                     discord_user_id = metadata.get("discord_user_id", "")
                     session_id = session.get("id", "")
                     if listing_id and discord_user_id:
-                        from db import record_store_purchase
-                        await record_store_purchase(discord_user_id, int(listing_id), session_id)
-                        logger.info(f"Deck purchase recorded: user={discord_user_id} listing={listing_id}")
+                        from db import record_store_purchase, fulfill_store_purchase
+                        was_new = await record_store_purchase(discord_user_id, int(listing_id), session_id)
+                        if was_new:
+                            await fulfill_store_purchase(discord_user_id, int(listing_id))
+                            logger.info(f"Deck purchase fulfilled: user={discord_user_id} listing={listing_id}")
+                        else:
+                            logger.info(f"Deck purchase already recorded (duplicate webhook): session={session_id}")
                 else:
                     logger.warning(f"Deck purchase session not paid: status={payment_status}")
             else:

@@ -385,6 +385,94 @@ async def store_checkout(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
+@app.post("/api/admin/upload-deck")
+async def admin_upload_deck(request: Request):
+    import csv
+    import io
+    from db import create_deck, add_cards_to_deck
+
+    try:
+        form = await request.form()
+        token = form.get("token", "").strip()
+        if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+            return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+
+        name = form.get("name", "").strip()
+        description = form.get("description", "").strip()
+        file = form.get("file")
+
+        if not name:
+            return JSONResponse(content={"error": "Deck name is required"}, status_code=400)
+        if not file:
+            return JSONResponse(content={"error": "CSV file is required"}, status_code=400)
+
+        content = await file.read()
+        if len(content) > 2 * 1024 * 1024:
+            return JSONResponse(content={"error": "File too large (max 2MB)"}, status_code=400)
+
+        text = content.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+
+        cards = []
+        for row in reader:
+            card_type_raw = (row.get("type") or row.get("Type") or row.get("TYPE") or "").strip().lower()
+            card_text = (row.get("text") or row.get("Text") or row.get("TEXT") or "").strip()
+            if not card_text:
+                continue
+            if card_type_raw in ("prompt", "black", "question", "b"):
+                card_type = "prompt"
+            elif card_type_raw in ("answer", "white", "response", "w", "a"):
+                card_type = "answer"
+            else:
+                continue
+            cards.append({"type": card_type, "text": card_text})
+
+        if not cards:
+            return JSONResponse(content={"error": "No valid cards found"}, status_code=400)
+
+        deck_id = await create_deck(name, description, "Store", discord_user_id=None)
+        await add_cards_to_deck(deck_id, cards)
+
+        prompt_count = sum(1 for c in cards if c["type"] == "prompt")
+        answer_count = sum(1 for c in cards if c["type"] == "answer")
+
+        return JSONResponse(content={
+            "success": True,
+            "deck_id": deck_id,
+            "name": name,
+            "prompt_count": prompt_count,
+            "answer_count": answer_count,
+            "total": len(cards),
+        })
+    except Exception as e:
+        logger.error(f"Admin deck upload error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.get("/api/admin/template-decks")
+async def admin_template_decks(request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+    try:
+        from db import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT id, name, description, creator_name, prompt_count, answer_count, created_at
+                   FROM custom_decks WHERE discord_user_id IS NULL
+                   ORDER BY created_at DESC"""
+            )
+            data = [dict(r) for r in rows]
+        for item in data:
+            if "created_at" in item and item["created_at"]:
+                item["created_at"] = item["created_at"].isoformat()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Template decks error: {e}")
+        return JSONResponse(content=[], status_code=200)
+
+
 @app.post("/api/admin/upload-image")
 async def admin_upload_image(request: Request):
     try:

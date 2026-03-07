@@ -42,9 +42,17 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - Bot checks `is_premium_server()` before enforcing free tier limits
 - Webhook handles: checkout.session.completed, subscription.deleted, subscription.updated
 
+### Deck Store & Fulfillment
+- Admins upload "template" decks (CSV) via admin panel — these have `discord_user_id=NULL`
+- Store listings reference template deck IDs via `deck_ids` field
+- When a user purchases a listing via Stripe, the webhook records the purchase and triggers fulfillment
+- Fulfillment copies all cards from the template deck(s) into a new personal deck owned by the buyer
+- Purchased decks persist across all sessions — buyers use `!deck list` and `!deck use` in Discord
+- Idempotent: duplicate webhooks are ignored (UNIQUE on stripe_session_id), duplicate deck copies are skipped
+
 ### Database (db.py)
 - **PostgreSQL** via asyncpg
-- Tables: `game_rounds`, `leaderboard`, `tournaments`, `tournament_players`, `tournament_rounds`, `premium_servers`
+- Tables: `game_rounds`, `leaderboard`, `tournaments`, `tournament_players`, `tournament_rounds`, `premium_servers`, `custom_decks`, `custom_cards`, `store_listings`, `store_purchases`
 - Shared between bot and web frontend
 - Connection pool with auto-reconnect
 
@@ -83,6 +91,8 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `PUT /api/admin/listings/{id}` - Update listing (admin-only)
 - `DELETE /api/admin/listings/{id}` - Delete listing (admin-only)
 - `POST /api/admin/upload-image` - Upload listing image (admin-only)
+- `POST /api/admin/upload-deck` - Upload template deck CSV (admin-only)
+- `GET /api/admin/template-decks` - List template decks (admin-only)
 - `POST /api/stripe/create-checkout` - Create Stripe checkout session (Pro)
 - `POST /api/stripe/webhook` - Stripe webhook handler (handles both Pro and deck purchases)
 - `GET /api/stripe/config` - Stripe publishable key
