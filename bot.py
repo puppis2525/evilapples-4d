@@ -10,7 +10,8 @@ from db import (
     create_tournament, get_active_tournament, join_tournament,
     get_tournament_players, get_tournament_player_count,
     start_tournament, end_tournament,
-    is_premium_server, get_premium_server
+    is_premium_server, get_premium_server,
+    get_all_decks, get_deck_by_name, get_random_cards
 )
 from tournament import (
     active_tournament_rounds, run_tournament_round,
@@ -130,14 +131,35 @@ async def deal_cards(ctx):
     game["state"] = "dealing"
     game["submissions"] = {}
 
-    await ctx.send("Generating evil cards and dealing hands... This may take a moment.")
+    deck_info = channel_decks.get(ctx.channel.id)
+    if deck_info:
+        await ctx.send(f"Drawing cards from **{deck_info['name']}**...")
+    else:
+        await ctx.send("Generating evil cards and dealing hands... This may take a moment.")
 
     try:
-        prompt = await generate_prompt()
+        if deck_info:
+            prompts = await get_random_cards(deck_info["id"], "prompt", 1)
+            if not prompts:
+                await ctx.send("Deck has no prompt cards! Falling back to AI generation.")
+                prompt = await generate_prompt()
+            else:
+                prompt = prompts[0]
+        else:
+            prompt = await generate_prompt()
         game["prompt"] = prompt
 
         player_ids = list(game["players"].keys())
-        hands = await asyncio.gather(*(generate_hand(5) for _ in player_ids))
+        if deck_info:
+            total_needed = len(player_ids) * 5
+            all_answers = await get_random_cards(deck_info["id"], "answer", total_needed)
+            if len(all_answers) < total_needed:
+                await ctx.send(f"Not enough answer cards in deck (need {total_needed}, have {len(all_answers)}). Falling back to AI.")
+                hands = await asyncio.gather(*(generate_hand(5) for _ in player_ids))
+            else:
+                hands = [all_answers[i*5:(i+1)*5] for i in range(len(player_ids))]
+        else:
+            hands = await asyncio.gather(*(generate_hand(5) for _ in player_ids))
         for player_id, hand in zip(player_ids, hands):
             game["hands"][player_id] = hand
 
@@ -370,6 +392,8 @@ async def tournament_end_cmd(ctx):
         del active_tournament_rounds[ctx.channel.id]
 
 
+channel_decks = {}
+
 FREE_DAILY_GAME_LIMIT = 3
 daily_game_counts = {}
 
@@ -377,6 +401,122 @@ daily_game_counts = {}
 def get_daily_key(guild_id):
     from datetime import date
     return f"{guild_id}:{date.today().isoformat()}"
+
+
+@bot.group(name="deck", invoke_without_command=True)
+async def deck_group(ctx):
+    embed = discord.Embed(
+        title="Evil Apples 4D — Card Decks",
+        description="Use custom card decks or AI-generated cards!",
+        color=discord.Color.purple()
+    )
+    embed.add_field(name="Commands", value=(
+        "`!deck list` — View all available decks\n"
+        "`!deck use <name>` — Use a custom deck for this channel\n"
+        "`!deck ai` — Switch back to AI-generated cards\n"
+        "`!deck info <name>` — View deck details"
+    ), inline=False)
+
+    current = channel_decks.get(ctx.channel.id)
+    if current:
+        embed.add_field(
+            name="Current Deck",
+            value=f"**{current['name']}** ({current['prompt_count']} prompts, {current['answer_count']} answers)",
+            inline=False
+        )
+    else:
+        embed.add_field(name="Current Mode", value="AI-Generated Cards (Venice.ai)", inline=False)
+
+    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+    embed.set_footer(text=f"Upload decks at https://{host}/decks")
+    await ctx.send(embed=embed)
+
+
+@deck_group.command(name="list")
+async def deck_list(ctx):
+    decks = await get_all_decks()
+    if not decks:
+        host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+        await ctx.send(f"No custom decks available yet. Upload one at https://{host}/decks")
+        return
+
+    deck_text = "\n".join(
+        f"**{d['name']}** — {d['prompt_count']} prompts, {d['answer_count']} answers (by {d['creator_name']})"
+        for d in decks
+    )
+
+    embed = discord.Embed(
+        title="Available Card Decks",
+        description=deck_text,
+        color=discord.Color.purple()
+    )
+    embed.set_footer(text="Use !deck use <name> to select a deck")
+    await ctx.send(embed=embed)
+
+
+@deck_group.command(name="use")
+async def deck_use(ctx, *, name: str = ""):
+    if not name:
+        await ctx.send("Please specify a deck name: `!deck use <name>`")
+        return
+
+    deck = await get_deck_by_name(name)
+    if not deck:
+        await ctx.send(f"Deck **{name}** not found. Use `!deck list` to see available decks.")
+        return
+
+    if deck["prompt_count"] < 1:
+        await ctx.send(f"Deck **{deck['name']}** has no prompt cards. You need at least 1 prompt to play.")
+        return
+    if deck["answer_count"] < 5:
+        await ctx.send(f"Deck **{deck['name']}** only has {deck['answer_count']} answer cards. You need at least 5 to deal a hand.")
+        return
+
+    channel_decks[ctx.channel.id] = {
+        "id": deck["id"],
+        "name": deck["name"],
+        "prompt_count": deck["prompt_count"],
+        "answer_count": deck["answer_count"],
+    }
+
+    embed = discord.Embed(
+        title=f"Deck Selected: {deck['name']}",
+        description=f"**{deck['prompt_count']}** prompts and **{deck['answer_count']}** answers loaded.\nCards will now be drawn from this deck instead of AI generation.",
+        color=discord.Color.green()
+    )
+    embed.set_footer(text="Use !deck ai to switch back to AI-generated cards")
+    await ctx.send(embed=embed)
+
+
+@deck_group.command(name="ai")
+async def deck_ai(ctx):
+    if ctx.channel.id in channel_decks:
+        old = channel_decks.pop(ctx.channel.id)
+        await ctx.send(f"Switched from **{old['name']}** back to **AI-generated cards** (Venice.ai).")
+    else:
+        await ctx.send("Already using AI-generated cards!")
+
+
+@deck_group.command(name="info")
+async def deck_info(ctx, *, name: str = ""):
+    if not name:
+        await ctx.send("Please specify a deck name: `!deck info <name>`")
+        return
+
+    deck = await get_deck_by_name(name)
+    if not deck:
+        await ctx.send(f"Deck **{name}** not found. Use `!deck list` to see available decks.")
+        return
+
+    embed = discord.Embed(
+        title=deck["name"],
+        description=deck.get("description", "") or "No description",
+        color=discord.Color.purple()
+    )
+    embed.add_field(name="Prompts", value=str(deck["prompt_count"]), inline=True)
+    embed.add_field(name="Answers", value=str(deck["answer_count"]), inline=True)
+    embed.add_field(name="Created By", value=deck["creator_name"], inline=True)
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="premium")

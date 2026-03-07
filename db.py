@@ -316,6 +316,113 @@ async def get_tournament_details(tournament_id: int):
         }
 
 
+async def init_deck_tables():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS custom_decks (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(128) NOT NULL,
+                description TEXT DEFAULT '',
+                creator_name VARCHAR(128) DEFAULT 'Unknown',
+                prompt_count INTEGER DEFAULT 0,
+                answer_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS custom_cards (
+                id SERIAL PRIMARY KEY,
+                deck_id INTEGER REFERENCES custom_decks(id) ON DELETE CASCADE,
+                card_type VARCHAR(16) NOT NULL,
+                card_text TEXT NOT NULL
+            );
+        """)
+
+
+async def create_deck(name: str, description: str, creator_name: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO custom_decks (name, description, creator_name)
+               VALUES ($1, $2, $3) RETURNING id""",
+            name, description, creator_name
+        )
+        return row["id"]
+
+
+async def add_cards_to_deck(deck_id: int, cards: list):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        for card in cards:
+            await conn.execute(
+                "INSERT INTO custom_cards (deck_id, card_type, card_text) VALUES ($1, $2, $3)",
+                deck_id, card["type"], card["text"]
+            )
+        prompt_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM custom_cards WHERE deck_id = $1 AND card_type = 'prompt'",
+            deck_id
+        )
+        answer_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM custom_cards WHERE deck_id = $1 AND card_type = 'answer'",
+            deck_id
+        )
+        await conn.execute(
+            "UPDATE custom_decks SET prompt_count = $2, answer_count = $3 WHERE id = $1",
+            deck_id, prompt_count, answer_count
+        )
+
+
+async def get_all_decks():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, name, description, creator_name, prompt_count, answer_count, created_at FROM custom_decks ORDER BY created_at DESC"
+        )
+        return [dict(r) for r in rows]
+
+
+async def get_deck_cards(deck_id: int, card_type: str = None):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        if card_type:
+            rows = await conn.fetch(
+                "SELECT card_text FROM custom_cards WHERE deck_id = $1 AND card_type = $2",
+                deck_id, card_type
+            )
+        else:
+            rows = await conn.fetch(
+                "SELECT card_type, card_text FROM custom_cards WHERE deck_id = $1",
+                deck_id
+            )
+        return [dict(r) for r in rows]
+
+
+async def delete_deck(deck_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM custom_decks WHERE id = $1", deck_id)
+
+
+async def get_deck_by_name(name: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM custom_decks WHERE LOWER(name) = LOWER($1)", name
+        )
+        return dict(row) if row else None
+
+
+async def get_random_cards(deck_id: int, card_type: str, count: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT card_text FROM custom_cards WHERE deck_id = $1 AND card_type = $2 ORDER BY RANDOM() LIMIT $3",
+            deck_id, card_type, count
+        )
+        return [r["card_text"] for r in rows]
+
+
 async def is_premium_server(guild_id: str) -> bool:
     pool = await get_db_pool()
     async with pool.acquire() as conn:

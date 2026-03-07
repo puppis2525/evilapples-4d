@@ -34,8 +34,9 @@ async def lifespan(app: FastAPI):
     logger.info("Application starting up...")
 
     try:
-        from db import init_db
+        from db import init_db, init_deck_tables
         await init_db()
+        await init_deck_tables()
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Database init failed (will retry on first request): {e}")
@@ -172,6 +173,132 @@ async def round_page(request: Request, slug: str):
     except Exception:
         round_data = None
     return templates.TemplateResponse("index.html", {"request": request, "round": round_data})
+
+
+@app.get("/decks", response_class=HTMLResponse)
+async def decks_page(request: Request):
+    return templates.TemplateResponse("decks.html", {"request": request})
+
+
+@app.get("/api/decks")
+async def api_decks():
+    from db import get_all_decks
+    try:
+        data = await get_all_decks()
+        for item in data:
+            if "created_at" in item and item["created_at"]:
+                item["created_at"] = item["created_at"].isoformat()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Decks error: {e}")
+        return JSONResponse(content=[], status_code=200)
+
+
+@app.get("/api/decks/{deck_id}")
+async def api_deck_detail(deck_id: int):
+    from db import get_deck_cards
+    try:
+        cards = await get_deck_cards(deck_id)
+        return JSONResponse(content=cards)
+    except Exception as e:
+        logger.error(f"Deck detail error: {e}")
+        return JSONResponse(content={"error": "Server error"}, status_code=500)
+
+
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024
+MAX_CARDS_PER_DECK = 5000
+ADMIN_TOKEN = os.environ.get("SESSION_SECRET", "")
+
+
+@app.post("/api/decks/upload")
+async def upload_deck(request: Request):
+    import csv
+    import io
+    from db import create_deck, add_cards_to_deck
+
+    try:
+        form = await request.form()
+        token = form.get("token", "").strip()
+        if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+            return JSONResponse(content={"error": "Unauthorized. Admin token required."}, status_code=403)
+
+        name = form.get("name", "").strip()
+        description = form.get("description", "").strip()
+        creator = form.get("creator", "Unknown").strip()
+        file = form.get("file")
+
+        if not name:
+            return JSONResponse(content={"error": "Deck name is required"}, status_code=400)
+        if not file:
+            return JSONResponse(content={"error": "CSV file is required"}, status_code=400)
+
+        content = await file.read()
+        if len(content) > MAX_UPLOAD_SIZE:
+            return JSONResponse(content={"error": f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024*1024)}MB."}, status_code=400)
+
+        text = content.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+
+        cards = []
+        for row in reader:
+            card_type_raw = (row.get("type") or row.get("Type") or row.get("TYPE") or "").strip().lower()
+            card_text = (row.get("text") or row.get("Text") or row.get("TEXT") or row.get("card") or row.get("Card") or "").strip()
+
+            if not card_text:
+                continue
+
+            if card_type_raw in ("prompt", "black", "question", "b"):
+                card_type = "prompt"
+            elif card_type_raw in ("answer", "white", "response", "w", "a"):
+                card_type = "answer"
+            else:
+                continue
+
+            cards.append({"type": card_type, "text": card_text})
+
+        if not cards:
+            return JSONResponse(
+                content={"error": "No valid cards found. CSV needs 'type' and 'text' columns. Type should be 'prompt' or 'answer'."},
+                status_code=400
+            )
+
+        if len(cards) > MAX_CARDS_PER_DECK:
+            return JSONResponse(
+                content={"error": f"Too many cards. Maximum is {MAX_CARDS_PER_DECK} per deck."},
+                status_code=400
+            )
+
+        deck_id = await create_deck(name, description, creator)
+        await add_cards_to_deck(deck_id, cards)
+
+        prompt_count = sum(1 for c in cards if c["type"] == "prompt")
+        answer_count = sum(1 for c in cards if c["type"] == "answer")
+
+        return JSONResponse(content={
+            "success": True,
+            "deck_id": deck_id,
+            "name": name,
+            "prompt_count": prompt_count,
+            "answer_count": answer_count,
+            "total": len(cards),
+        })
+    except Exception as e:
+        logger.error(f"Deck upload error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.delete("/api/decks/{deck_id}")
+async def api_delete_deck(deck_id: int, request: Request):
+    from db import delete_deck
+    try:
+        token = request.headers.get("x-admin-token", "")
+        if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+            return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+        await delete_deck(deck_id)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        logger.error(f"Delete deck error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 if __name__ == "__main__":
