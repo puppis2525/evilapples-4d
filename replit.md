@@ -64,7 +64,7 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `GET /` - Main leaderboard page
 - `GET /premium` - Premium pricing page
 - `GET /premium/success` - Post-checkout success page
-- `GET /decks` - Card deck management page (upload CSV, view decks)
+- `GET /decks` - Card deck info page (how to upload, user lookup)
 - `GET /api/leaderboard` - JSON leaderboard data
 - `GET /api/rounds` - JSON recent rounds data
 - `GET /api/rounds/{slug}` - JSON single round detail
@@ -72,10 +72,7 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `GET /api/tournaments/{id}` - JSON tournament detail with players/rounds
 - `GET /api/generate?card_type=white|black` - Generate a card via Venice.ai
 - `GET /rounds/{slug}` - Individual round page
-- `GET /api/decks` - JSON list of all custom decks
-- `GET /api/decks/{id}` - JSON cards in a specific deck
-- `POST /api/decks/upload` - Upload a CSV deck (multipart form)
-- `DELETE /api/decks/{id}` - Delete a deck
+- `GET /api/decks?user_id=X` - JSON list of user's custom decks (requires user_id)
 - `POST /api/stripe/create-checkout` - Create Stripe checkout session
 - `POST /api/stripe/webhook` - Stripe webhook handler
 - `GET /api/stripe/config` - Stripe publishable key

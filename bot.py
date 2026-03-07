@@ -11,7 +11,8 @@ from db import (
     get_tournament_players, get_tournament_player_count,
     start_tournament, end_tournament,
     is_premium_server, get_premium_server,
-    get_all_decks, get_deck_by_name, get_random_cards
+    get_all_decks, get_deck_by_name, get_deck_by_id,
+    get_random_cards, create_deck, add_cards_to_deck
 )
 from tournament import (
     active_tournament_rounds, run_tournament_round,
@@ -396,6 +397,8 @@ channel_decks = {}
 
 FREE_DAILY_GAME_LIMIT = 3
 daily_game_counts = {}
+MAX_UPLOAD_SIZE_BOT = 2 * 1024 * 1024
+MAX_CARDS_PER_DECK = 5000
 
 
 def get_daily_key(guild_id):
@@ -403,18 +406,36 @@ def get_daily_key(guild_id):
     return f"{guild_id}:{date.today().isoformat()}"
 
 
+async def check_pro_for_decks(ctx):
+    if not ctx.guild:
+        await ctx.send("Deck commands can only be used in a server.")
+        return False
+    premium = await is_premium_server(str(ctx.guild.id))
+    if not premium:
+        host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+        await ctx.send(
+            f"**Custom decks are a Pro feature!**\n"
+            f"Upgrade your server to Pro to upload and use custom card decks.\n"
+            f"Use `!premium` or visit https://{host}/premium"
+        )
+        return False
+    return True
+
+
 @bot.group(name="deck", invoke_without_command=True)
 async def deck_group(ctx):
     embed = discord.Embed(
-        title="Evil Apples 4D — Card Decks",
-        description="Use custom card decks or AI-generated cards!",
+        title="Evil Apples 4D — Card Decks (Pro)",
+        description="Upload and use your own custom card decks! *(Pro feature)*",
         color=discord.Color.purple()
     )
     embed.add_field(name="Commands", value=(
-        "`!deck list` — View all available decks\n"
-        "`!deck use <name>` — Use a custom deck for this channel\n"
+        "`!deck upload <name>` — Upload a CSV deck (attach file)\n"
+        "`!deck list` — View your decks\n"
+        "`!deck use <name>` — Use one of your decks for this channel\n"
         "`!deck ai` — Switch back to AI-generated cards\n"
-        "`!deck info <name>` — View deck details"
+        "`!deck info <name>` — View deck details\n"
+        "`!deck delete <name>` — Delete one of your decks"
     ), inline=False)
 
     current = channel_decks.get(ctx.channel.id)
@@ -427,26 +448,111 @@ async def deck_group(ctx):
     else:
         embed.add_field(name="Current Mode", value="AI-Generated Cards (Venice.ai)", inline=False)
 
-    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
-    embed.set_footer(text=f"Upload decks at https://{host}/decks")
     await ctx.send(embed=embed)
+
+
+@deck_group.command(name="upload")
+async def deck_upload(ctx, *, name: str = ""):
+    if not await check_pro_for_decks(ctx):
+        return
+
+    if not name:
+        await ctx.send("Usage: `!deck upload <deck name>` — attach a CSV file to your message.")
+        return
+
+    if not ctx.message.attachments:
+        await ctx.send("Please attach a CSV file to your message.\n"
+                       "CSV format: `type,text` columns. Types: `prompt` or `answer`.")
+        return
+
+    attachment = ctx.message.attachments[0]
+    if not attachment.filename.lower().endswith(".csv"):
+        await ctx.send("Please attach a **.csv** file.")
+        return
+
+    if attachment.size > MAX_UPLOAD_SIZE_BOT:
+        await ctx.send(f"File too large! Maximum size is {MAX_UPLOAD_SIZE_BOT // (1024*1024)}MB.")
+        return
+
+    user_id = str(ctx.author.id)
+
+    existing = await get_deck_by_name(name, discord_user_id=user_id)
+    if existing:
+        await ctx.send(f"You already have a deck named **{name}**. Delete it first with `!deck delete {name}`.")
+        return
+
+    await ctx.send("Processing your deck...")
+
+    try:
+        import csv
+        import io
+
+        content = await attachment.read()
+        text = content.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+
+        cards = []
+        for row in reader:
+            card_type_raw = (row.get("type") or row.get("Type") or row.get("TYPE") or "").strip().lower()
+            card_text = (row.get("text") or row.get("Text") or row.get("TEXT") or "").strip()
+
+            if not card_type_raw or not card_text:
+                continue
+
+            if card_type_raw in ("prompt", "black", "question", "b"):
+                card_type = "prompt"
+            elif card_type_raw in ("answer", "white", "response", "w", "a"):
+                card_type = "answer"
+            else:
+                continue
+
+            cards.append({"type": card_type, "text": card_text})
+
+        if not cards:
+            await ctx.send("No valid cards found. CSV needs `type` and `text` columns.\n"
+                           "Types: `prompt`/`black` or `answer`/`white`.")
+            return
+
+        if len(cards) > MAX_CARDS_PER_DECK:
+            await ctx.send(f"Too many cards! Maximum is {MAX_CARDS_PER_DECK} per deck.")
+            return
+
+        deck_id = await create_deck(name, "", ctx.author.display_name, discord_user_id=user_id)
+        await add_cards_to_deck(deck_id, cards)
+
+        prompt_count = sum(1 for c in cards if c["type"] == "prompt")
+        answer_count = sum(1 for c in cards if c["type"] == "answer")
+
+        embed = discord.Embed(
+            title=f"Deck Uploaded: {name}",
+            description=f"**{prompt_count}** prompts and **{answer_count}** answers loaded!",
+            color=discord.Color.green()
+        )
+        embed.set_footer(text=f"Use !deck use {name} to play with this deck")
+        await ctx.send(embed=embed)
+
+    except Exception as e:
+        await ctx.send(f"Failed to process CSV: {str(e)}")
 
 
 @deck_group.command(name="list")
 async def deck_list(ctx):
-    decks = await get_all_decks()
+    if not await check_pro_for_decks(ctx):
+        return
+
+    user_id = str(ctx.author.id)
+    decks = await get_all_decks(discord_user_id=user_id)
     if not decks:
-        host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
-        await ctx.send(f"No custom decks available yet. Upload one at https://{host}/decks")
+        await ctx.send("You don't have any custom decks yet. Upload one with `!deck upload <name>` and attach a CSV file.")
         return
 
     deck_text = "\n".join(
-        f"**{d['name']}** — {d['prompt_count']} prompts, {d['answer_count']} answers (by {d['creator_name']})"
+        f"**{d['name']}** — {d['prompt_count']} prompts, {d['answer_count']} answers"
         for d in decks
     )
 
     embed = discord.Embed(
-        title="Available Card Decks",
+        title="Your Card Decks",
         description=deck_text,
         color=discord.Color.purple()
     )
@@ -456,13 +562,17 @@ async def deck_list(ctx):
 
 @deck_group.command(name="use")
 async def deck_use(ctx, *, name: str = ""):
+    if not await check_pro_for_decks(ctx):
+        return
+
     if not name:
         await ctx.send("Please specify a deck name: `!deck use <name>`")
         return
 
-    deck = await get_deck_by_name(name)
+    user_id = str(ctx.author.id)
+    deck = await get_deck_by_name(name, discord_user_id=user_id)
     if not deck:
-        await ctx.send(f"Deck **{name}** not found. Use `!deck list` to see available decks.")
+        await ctx.send(f"Deck **{name}** not found in your decks. Use `!deck list` to see your decks.")
         return
 
     if deck["prompt_count"] < 1:
@@ -499,13 +609,17 @@ async def deck_ai(ctx):
 
 @deck_group.command(name="info")
 async def deck_info(ctx, *, name: str = ""):
+    if not await check_pro_for_decks(ctx):
+        return
+
     if not name:
         await ctx.send("Please specify a deck name: `!deck info <name>`")
         return
 
-    deck = await get_deck_by_name(name)
+    user_id = str(ctx.author.id)
+    deck = await get_deck_by_name(name, discord_user_id=user_id)
     if not deck:
-        await ctx.send(f"Deck **{name}** not found. Use `!deck list` to see available decks.")
+        await ctx.send(f"Deck **{name}** not found in your decks. Use `!deck list` to see your decks.")
         return
 
     embed = discord.Embed(
@@ -517,6 +631,26 @@ async def deck_info(ctx, *, name: str = ""):
     embed.add_field(name="Answers", value=str(deck["answer_count"]), inline=True)
     embed.add_field(name="Created By", value=deck["creator_name"], inline=True)
     await ctx.send(embed=embed)
+
+
+@deck_group.command(name="delete")
+async def deck_delete(ctx, *, name: str = ""):
+    if not await check_pro_for_decks(ctx):
+        return
+
+    if not name:
+        await ctx.send("Please specify a deck name: `!deck delete <name>`")
+        return
+
+    user_id = str(ctx.author.id)
+    deck = await get_deck_by_name(name, discord_user_id=user_id)
+    if not deck:
+        await ctx.send(f"Deck **{name}** not found in your decks.")
+        return
+
+    from db import delete_deck
+    await delete_deck(deck["id"])
+    await ctx.send(f"Deck **{name}** has been deleted.")
 
 
 @bot.command(name="premium")

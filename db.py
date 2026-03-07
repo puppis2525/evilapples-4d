@@ -325,6 +325,7 @@ async def init_deck_tables():
                 name VARCHAR(128) NOT NULL,
                 description TEXT DEFAULT '',
                 creator_name VARCHAR(128) DEFAULT 'Unknown',
+                discord_user_id VARCHAR(64),
                 prompt_count INTEGER DEFAULT 0,
                 answer_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT NOW()
@@ -338,15 +339,21 @@ async def init_deck_tables():
                 card_text TEXT NOT NULL
             );
         """)
+        try:
+            await conn.execute(
+                "ALTER TABLE custom_decks ADD COLUMN IF NOT EXISTS discord_user_id VARCHAR(64)"
+            )
+        except Exception:
+            pass
 
 
-async def create_deck(name: str, description: str, creator_name: str):
+async def create_deck(name: str, description: str, creator_name: str, discord_user_id: str = None):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO custom_decks (name, description, creator_name)
-               VALUES ($1, $2, $3) RETURNING id""",
-            name, description, creator_name
+            """INSERT INTO custom_decks (name, description, creator_name, discord_user_id)
+               VALUES ($1, $2, $3, $4) RETURNING id""",
+            name, description, creator_name, discord_user_id
         )
         return row["id"]
 
@@ -373,12 +380,18 @@ async def add_cards_to_deck(deck_id: int, cards: list):
         )
 
 
-async def get_all_decks():
+async def get_all_decks(discord_user_id: str = None):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            "SELECT id, name, description, creator_name, prompt_count, answer_count, created_at FROM custom_decks ORDER BY created_at DESC"
-        )
+        if discord_user_id:
+            rows = await conn.fetch(
+                "SELECT id, name, description, creator_name, discord_user_id, prompt_count, answer_count, created_at FROM custom_decks WHERE discord_user_id = $1 ORDER BY created_at DESC",
+                discord_user_id
+            )
+        else:
+            rows = await conn.fetch(
+                "SELECT id, name, description, creator_name, discord_user_id, prompt_count, answer_count, created_at FROM custom_decks ORDER BY created_at DESC"
+            )
         return [dict(r) for r in rows]
 
 
@@ -404,11 +417,26 @@ async def delete_deck(deck_id: int):
         await conn.execute("DELETE FROM custom_decks WHERE id = $1", deck_id)
 
 
-async def get_deck_by_name(name: str):
+async def get_deck_by_name(name: str, discord_user_id: str = None):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        if discord_user_id:
+            row = await conn.fetchrow(
+                "SELECT * FROM custom_decks WHERE LOWER(name) = LOWER($1) AND discord_user_id = $2",
+                name, discord_user_id
+            )
+        else:
+            row = await conn.fetchrow(
+                "SELECT * FROM custom_decks WHERE LOWER(name) = LOWER($1)", name
+            )
+        return dict(row) if row else None
+
+
+async def get_deck_by_id(deck_id: int):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT * FROM custom_decks WHERE LOWER(name) = LOWER($1)", name
+            "SELECT * FROM custom_decks WHERE id = $1", deck_id
         )
         return dict(row) if row else None
 

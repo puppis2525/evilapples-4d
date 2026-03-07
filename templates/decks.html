@@ -66,92 +66,99 @@
 
     <header class="text-center py-12 px-6">
         <img src="/static/logo.png" alt="" class="w-16 h-16 mx-auto mb-4 logo-float drop-shadow-2xl">
-        <h2 class="font-brand text-4xl md:text-5xl mb-3 purple-glow text-evil-300">Card Decks</h2>
+        <h2 class="font-brand text-4xl md:text-5xl mb-3 purple-glow text-evil-300">Custom Card Decks</h2>
         <p class="text-evil-200/60 text-lg max-w-2xl mx-auto">
-            Upload custom prompt and answer cards via CSV. Use them in Discord with <code class="bg-evil-card px-2 py-1 rounded text-evil-300 font-mono text-sm">!deck use &lt;name&gt;</code>
+            Upload your own card decks via Discord and play with them in-game.
+            <span class="text-yellow-400 font-semibold">Pro feature</span> — each deck is private to you.
         </p>
     </header>
 
     <main class="max-w-4xl mx-auto px-6 pb-20">
         <section class="mb-12">
             <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8">
-                <h3 class="font-brand text-2xl text-evil-300 mb-6">Upload a New Deck</h3>
+                <h3 class="font-brand text-2xl text-evil-300 mb-4">How to Upload a Deck</h3>
                 <div class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-start gap-4">
+                        <div class="w-8 h-8 rounded-full bg-evil-500 flex items-center justify-center text-white font-bold shrink-0 mt-0.5">1</div>
                         <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-2">Deck Name</label>
-                            <input type="text" id="deck-name" placeholder="My Evil Deck"
-                                class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
-                        </div>
-                        <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-2">Your Name</label>
-                            <input type="text" id="deck-creator" placeholder="CardMaster"
-                                class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                            <p class="text-white font-semibold">Prepare your CSV file</p>
+                            <p class="text-evil-400 text-sm">Create a CSV with <code class="text-evil-300">type</code> and <code class="text-evil-300">text</code> columns.</p>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-evil-400 text-sm font-semibold mb-2">Description (optional)</label>
-                        <input type="text" id="deck-description" placeholder="A collection of the most unhinged cards ever created"
-                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                    <div class="flex items-start gap-4">
+                        <div class="w-8 h-8 rounded-full bg-evil-500 flex items-center justify-center text-white font-bold shrink-0 mt-0.5">2</div>
+                        <div>
+                            <p class="text-white font-semibold">Upload in Discord</p>
+                            <p class="text-evil-400 text-sm">Use <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300 font-mono">!deck upload My Deck Name</code> and attach the CSV file to your message.</p>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-evil-400 text-sm font-semibold mb-2">CSV File</label>
-                        <input type="file" id="deck-file" accept=".csv"
-                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-evil-500 file:text-white hover:file:bg-evil-400 file:cursor-pointer">
+                    <div class="flex items-start gap-4">
+                        <div class="w-8 h-8 rounded-full bg-evil-500 flex items-center justify-center text-white font-bold shrink-0 mt-0.5">3</div>
+                        <div>
+                            <p class="text-white font-semibold">Play with your deck</p>
+                            <p class="text-evil-400 text-sm">Use <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300 font-mono">!deck use My Deck Name</code> to activate it for your next game.</p>
+                        </div>
                     </div>
-                    <div class="bg-evil-card rounded-xl p-4 text-sm text-evil-400">
-                        <p class="font-semibold text-evil-300 mb-2">CSV Format:</p>
-                        <code class="block bg-evil-bg/50 rounded-lg p-3 text-evil-300 font-mono text-xs">
-                            type,text<br>
-                            prompt,Why did _ get banned from the store?<br>
-                            prompt,I can't believe _ happened at the wedding.<br>
-                            answer,A suspiciously large bag of cheese<br>
-                            answer,My therapist's worst nightmare<br>
-                            answer,Three raccoons in a trenchcoat
-                        </code>
-                        <p class="mt-2">
-                            <strong>type</strong> column: <code class="text-evil-300">prompt</code> (or black/question) for prompts, <code class="text-evil-300">answer</code> (or white/response) for answers.<br>
-                            <strong>text</strong> column: The card text. Use <code class="text-evil-300">_</code> for blanks in prompts.
-                        </p>
-                    </div>
-                    <button id="upload-btn"
-                        class="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-evil-500 to-evil-600 text-white font-bold text-lg hover:from-evil-400 hover:to-evil-500 transition-all transform hover:scale-[1.02] shadow-lg">
-                        Upload Deck
-                    </button>
-                    <p id="upload-status" class="text-center text-sm hidden"></p>
                 </div>
+
+                <div class="bg-evil-card rounded-xl p-4 text-sm text-evil-400 mt-6">
+                    <p class="font-semibold text-evil-300 mb-2">CSV Format Example:</p>
+                    <code class="block bg-evil-bg/50 rounded-lg p-3 text-evil-300 font-mono text-xs">
+                        type,text<br>
+                        prompt,Why did _ get banned from the store?<br>
+                        prompt,I can't believe _ happened at the wedding.<br>
+                        answer,A suspiciously large bag of cheese<br>
+                        answer,My therapist's worst nightmare<br>
+                        answer,Three raccoons in a trenchcoat
+                    </code>
+                    <p class="mt-2">
+                        <strong>type</strong>: <code class="text-evil-300">prompt</code> (or black/question) for prompts, <code class="text-evil-300">answer</code> (or white/response) for answers.<br>
+                        <strong>text</strong>: The card text. Use <code class="text-evil-300">_</code> for blanks in prompts.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-12">
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                <h3 class="font-brand text-lg text-evil-300 mb-3">Look Up Your Decks</h3>
+                <p class="text-evil-400 text-sm mb-3">Enter your Discord User ID to view your uploaded decks.</p>
+                <div class="flex gap-3">
+                    <input type="text" id="user-id-input" placeholder="Your Discord User ID (e.g. 123456789012345678)"
+                        class="flex-1 px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                    <button id="lookup-btn"
+                        class="px-6 py-3 rounded-xl bg-evil-500 text-white font-bold hover:bg-evil-400 transition">
+                        Look Up
+                    </button>
+                </div>
+                <p class="text-evil-500 text-xs mt-2">To find your Discord User ID: enable Developer Mode in Discord settings, then right-click your name and select "Copy User ID".</p>
             </div>
         </section>
 
         <section>
             <h3 class="font-brand text-2xl text-evil-300 mb-6 flex items-center gap-3">
-                <span class="text-evil-400">&#127183;</span> Available Decks
+                <span class="text-evil-400">&#127183;</span> Your Decks
             </h3>
             <div id="decks-list" class="space-y-4">
-                <div class="text-center text-evil-400 py-12">Loading decks...</div>
-            </div>
-        </section>
-
-        <section class="mt-12 mb-12">
-            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
-                <h3 class="font-brand text-lg text-evil-300 mb-3">Admin Token</h3>
-                <p class="text-evil-400 text-sm mb-3">Required to upload or delete decks.</p>
-                <input type="password" id="admin-token" placeholder="Enter admin token"
-                    class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                <div class="text-center text-evil-400 py-12">Enter your Discord User ID above to see your decks.</div>
             </div>
         </section>
 
         <section class="mt-12">
             <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8">
-                <h3 class="font-brand text-xl text-evil-300 mb-4">Discord Commands</h3>
+                <h3 class="font-brand text-xl text-evil-300 mb-4">Discord Commands <span class="text-yellow-400 text-sm font-normal">(Pro only)</span></h3>
                 <div class="space-y-3 text-sm">
                     <div class="flex gap-3">
+                        <code class="bg-evil-card px-3 py-1 rounded-lg text-evil-300 font-mono whitespace-nowrap">!deck upload &lt;name&gt;</code>
+                        <span class="text-evil-400">Upload a CSV deck (attach the file to your message)</span>
+                    </div>
+                    <div class="flex gap-3">
                         <code class="bg-evil-card px-3 py-1 rounded-lg text-evil-300 font-mono whitespace-nowrap">!deck list</code>
-                        <span class="text-evil-400">View all available card decks</span>
+                        <span class="text-evil-400">View your uploaded card decks</span>
                     </div>
                     <div class="flex gap-3">
                         <code class="bg-evil-card px-3 py-1 rounded-lg text-evil-300 font-mono whitespace-nowrap">!deck use &lt;name&gt;</code>
-                        <span class="text-evil-400">Switch to a custom deck for your next game</span>
+                        <span class="text-evil-400">Use one of your decks for your next game</span>
                     </div>
                     <div class="flex gap-3">
                         <code class="bg-evil-card px-3 py-1 rounded-lg text-evil-300 font-mono whitespace-nowrap">!deck ai</code>
@@ -159,7 +166,11 @@
                     </div>
                     <div class="flex gap-3">
                         <code class="bg-evil-card px-3 py-1 rounded-lg text-evil-300 font-mono whitespace-nowrap">!deck info &lt;name&gt;</code>
-                        <span class="text-evil-400">See details about a specific deck</span>
+                        <span class="text-evil-400">See details about one of your decks</span>
+                    </div>
+                    <div class="flex gap-3">
+                        <code class="bg-evil-card px-3 py-1 rounded-lg text-evil-300 font-mono whitespace-nowrap">!deck delete &lt;name&gt;</code>
+                        <span class="text-evil-400">Delete one of your decks</span>
                     </div>
                 </div>
             </div>
@@ -175,89 +186,33 @@
     </footer>
 
     <script>
-        document.getElementById('upload-btn').addEventListener('click', async () => {
-            const name = document.getElementById('deck-name').value.trim();
-            const creator = document.getElementById('deck-creator').value.trim();
-            const description = document.getElementById('deck-description').value.trim();
-            const fileInput = document.getElementById('deck-file');
-            const statusEl = document.getElementById('upload-status');
-
-            statusEl.classList.add('hidden');
-
-            if (!name) {
-                statusEl.textContent = 'Please enter a deck name.';
-                statusEl.className = 'text-center text-sm text-red-400';
-                statusEl.classList.remove('hidden');
-                return;
-            }
-
-            if (!fileInput.files.length) {
-                statusEl.textContent = 'Please select a CSV file.';
-                statusEl.className = 'text-center text-sm text-red-400';
-                statusEl.classList.remove('hidden');
-                return;
-            }
-
-            const btn = document.getElementById('upload-btn');
-            btn.textContent = 'Uploading...';
-            btn.disabled = true;
-
-            const adminToken = document.getElementById('admin-token').value.trim();
-            if (!adminToken) {
-                statusEl.textContent = 'Admin token is required. Enter it in the Admin Token section below.';
-                statusEl.className = 'text-center text-sm text-red-400';
-                statusEl.classList.remove('hidden');
-                btn.textContent = 'Upload Deck';
-                btn.disabled = false;
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('name', name);
-            formData.append('description', description);
-            formData.append('creator', creator || 'Anonymous');
-            formData.append('file', fileInput.files[0]);
-            formData.append('token', adminToken);
-
-            try {
-                const resp = await fetch('/api/decks/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-                const data = await resp.json();
-
-                if (data.success) {
-                    statusEl.textContent = `Deck "${data.name}" uploaded! ${data.prompt_count} prompts, ${data.answer_count} answers (${data.total} total cards)`;
-                    statusEl.className = 'text-center text-sm text-green-400';
-                    document.getElementById('deck-name').value = '';
-                    document.getElementById('deck-description').value = '';
-                    fileInput.value = '';
-                    loadDecks();
-                } else {
-                    statusEl.textContent = data.error || 'Upload failed.';
-                    statusEl.className = 'text-center text-sm text-red-400';
-                }
-            } catch (e) {
-                statusEl.textContent = 'Connection error. Please try again.';
-                statusEl.className = 'text-center text-sm text-red-400';
-            }
-
-            statusEl.classList.remove('hidden');
-            btn.textContent = 'Upload Deck';
-            btn.disabled = false;
+        document.getElementById('lookup-btn').addEventListener('click', loadDecks);
+        document.getElementById('user-id-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadDecks();
         });
 
         async function loadDecks() {
+            const userId = document.getElementById('user-id-input').value.trim();
+            const container = document.getElementById('decks-list');
+
+            if (!userId) {
+                container.innerHTML = '<div class="text-center text-evil-400 py-12">Enter your Discord User ID above to see your decks.</div>';
+                return;
+            }
+
+            if (!/^\d{17,20}$/.test(userId)) {
+                container.innerHTML = '<div class="text-center text-red-400 py-12">Invalid Discord User ID. It should be a 17-20 digit number.</div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="text-center text-evil-400 py-12">Loading your decks...</div>';
+
             try {
-                const resp = await fetch('/api/decks');
+                const resp = await fetch(`/api/decks?user_id=${userId}`);
                 const data = await resp.json();
-                const container = document.getElementById('decks-list');
 
                 if (data.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center text-evil-400 py-12">
-                            No custom decks yet. Upload one above!
-                        </div>`;
+                    container.innerHTML = '<div class="text-center text-evil-400 py-12">No decks found for this user. Upload one in Discord with <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300 font-mono">!deck upload &lt;name&gt;</code></div>';
                     return;
                 }
 
@@ -269,10 +224,6 @@
                         <div class="card-hover bg-evil-surface border border-evil-800/40 rounded-2xl p-6 animate-fade-in" style="animation-delay: ${i * 0.05}s">
                             <div class="flex items-center justify-between mb-3">
                                 <h4 class="font-brand text-xl text-white">${deck.name}</h4>
-                                <button onclick="deleteDeck(${deck.id}, '${deck.name.replace(/'/g, "\\'")}')"
-                                    class="text-evil-500 hover:text-red-400 transition text-sm px-3 py-1 rounded-lg hover:bg-red-400/10">
-                                    Delete
-                                </button>
                             </div>
                             ${deck.description ? `<p class="text-evil-400 text-sm mb-3">${deck.description}</p>` : ''}
                             <div class="grid grid-cols-3 gap-4 text-center mb-3">
@@ -300,33 +251,9 @@
                 }).join('');
             } catch (e) {
                 console.error('Failed to load decks:', e);
+                container.innerHTML = '<div class="text-center text-red-400 py-12">Failed to load decks. Please try again.</div>';
             }
         }
-
-        async function deleteDeck(id, name) {
-            if (!confirm(`Delete deck "${name}"? This cannot be undone.`)) return;
-            const adminToken = document.getElementById('admin-token').value.trim();
-            if (!adminToken) {
-                alert('Enter your admin token first.');
-                return;
-            }
-            try {
-                const resp = await fetch(`/api/decks/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'x-admin-token': adminToken }
-                });
-                const data = await resp.json();
-                if (data.error) {
-                    alert(data.error);
-                } else {
-                    loadDecks();
-                }
-            } catch (e) {
-                alert('Failed to delete deck.');
-            }
-        }
-
-        loadDecks();
     </script>
 </body>
 </html>
