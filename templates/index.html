@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cards Against Humanity - AI Edition | Live Leaderboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+        .glow { text-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeInUp 0.5s ease forwards; }
+    </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+    <nav class="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <h1 class="text-2xl font-black tracking-tight">
+                <span class="text-red-500">CAH</span>
+                <span class="text-gray-400 font-normal text-lg ml-1">AI Edition</span>
+            </h1>
+            <div class="flex gap-4 text-sm text-gray-400">
+                <a href="#leaderboard" class="hover:text-white transition">Leaderboard</a>
+                <a href="#hall-of-fame" class="hover:text-white transition">Hall of Fame</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="text-center py-20 px-6">
+        <h2 class="text-5xl md:text-6xl font-black mb-4 glow">Live Leaderboard</h2>
+        <p class="text-gray-400 text-lg max-w-2xl mx-auto">
+            The funniest, most unhinged AI-generated card combinations from our Discord games.
+            Updated in real-time as rounds are played.
+        </p>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 pb-20">
+        <section id="leaderboard" class="mb-20">
+            <h3 class="text-3xl font-bold mb-8 flex items-center gap-3">
+                <span class="text-yellow-400">&#127942;</span> Top Players
+            </h3>
+            <div class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-800 text-left text-gray-400 text-sm uppercase tracking-wider">
+                            <th class="px-6 py-4 w-16">Rank</th>
+                            <th class="px-6 py-4">Player</th>
+                            <th class="px-6 py-4 text-center">Wins</th>
+                            <th class="px-6 py-4 text-center">Games</th>
+                            <th class="px-6 py-4 text-right">Win Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                                Loading leaderboard...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="hall-of-fame">
+            <h3 class="text-3xl font-bold mb-8 flex items-center gap-3">
+                <span class="text-red-400">&#9829;</span> Hall of Fame
+            </h3>
+            <p class="text-gray-400 mb-8">The winning prompt + answer combos that made everyone lose it.</p>
+            <div id="rounds-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="col-span-full text-center text-gray-500 py-12">
+                    Loading rounds...
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-gray-800 py-8 text-center text-gray-500 text-sm">
+        <p>Cards Against Humanity - AI Edition. Powered by Venice.ai and Discord.</p>
+    </footer>
+
+    <script>
+        function getRankBadge(rank) {
+            if (rank === 1) return '<span class="text-yellow-400 font-bold text-lg">&#127942;</span>';
+            if (rank === 2) return '<span class="text-gray-300 font-bold text-lg">&#129352;</span>';
+            if (rank === 3) return '<span class="text-orange-400 font-bold text-lg">&#129353;</span>';
+            return `<span class="text-gray-500 font-semibold">${rank}</span>`;
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const resp = await fetch('/api/leaderboard');
+                const data = await resp.json();
+                const tbody = document.getElementById('leaderboard-body');
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                                No games played yet. Start a game on Discord with <code class="bg-gray-800 px-2 py-1 rounded">!startgame</code>
+                            </td>
+                        </tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.map((player, i) => {
+                    const winRate = player.games_played > 0
+                        ? Math.round((player.wins / player.games_played) * 100)
+                        : 0;
+                    return `
+                        <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition animate-fade-in" style="animation-delay: ${i * 0.05}s">
+                            <td class="px-6 py-4">${getRankBadge(i + 1)}</td>
+                            <td class="px-6 py-4 font-semibold">${player.discord_name}</td>
+                            <td class="px-6 py-4 text-center text-yellow-400 font-bold">${player.wins}</td>
+                            <td class="px-6 py-4 text-center text-gray-400">${player.games_played}</td>
+                            <td class="px-6 py-4 text-right text-gray-300">${winRate}%</td>
+                        </tr>`;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load leaderboard:', e);
+            }
+        }
+
+        async function loadRounds() {
+            try {
+                const resp = await fetch('/api/rounds');
+                const data = await resp.json();
+                const grid = document.getElementById('rounds-grid');
+
+                if (data.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full text-center text-gray-500 py-12">
+                            No rounds played yet. The Hall of Fame awaits its first entry!
+                        </div>`;
+                    return;
+                }
+
+                grid.innerHTML = data.map((round, i) => {
+                    const date = new Date(round.created_at).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric'
+                    });
+                    return `
+                        <div class="card-hover bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col animate-fade-in" style="animation-delay: ${i * 0.08}s">
+                            <div class="bg-gray-950 rounded-lg p-4 mb-4 border border-gray-700 flex-1">
+                                <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Prompt</p>
+                                <p class="text-white font-semibold">${round.prompt}</p>
+                            </div>
+                            <div class="bg-white text-black rounded-lg p-4 mb-4 border-2 border-gray-300 flex-1">
+                                <p class="text-gray-500 text-xs uppercase tracking-wider mb-2">Winning Card</p>
+                                <p class="font-bold text-lg">${round.winning_card}</p>
+                            </div>
+                            <div class="flex items-center justify-between text-sm text-gray-400 mt-auto">
+                                <span>Winner: <span class="text-white font-medium">${round.winner_name}</span></span>
+                                <span>${date}</span>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load rounds:', e);
+            }
+        }
+
+        loadLeaderboard();
+        loadRounds();
+
+        setInterval(loadLeaderboard, 15000);
+        setInterval(loadRounds, 15000);
+    </script>
+</body>
+</html>

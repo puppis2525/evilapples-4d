@@ -1,0 +1,91 @@
+import os
+import json
+import httpx
+from rapidfuzz import fuzz
+
+VENICE_API_KEY = os.environ.get("VENICE_API_KEY", "")
+VENICE_API_URL = "https://api.venice.ai/api/v1/chat/completions"
+
+with open("classic_cards.json", "r") as f:
+    CLASSIC_CARDS = json.load(f)
+
+ALL_CLASSIC = CLASSIC_CARDS["black_cards"] + CLASSIC_CARDS["white_cards"]
+
+SYSTEM_PROMPT_WHITE = """You are a Divergent Comedy card generator for an adult party game similar to Cards Against Humanity.
+Generate a single short, funny, edgy, and original answer card (white card).
+Rules:
+- Keep it under 15 words
+- Be creative, dark, absurd, or shocking
+- Do NOT copy or closely paraphrase any existing Cards Against Humanity cards
+- Return ONLY the card text, no quotes, no numbering, no explanation"""
+
+SYSTEM_PROMPT_BLACK = """You are a Divergent Comedy card generator for an adult party game similar to Cards Against Humanity.
+Generate a single short, funny prompt card (black card) with a blank represented by _.
+Rules:
+- Keep it under 20 words
+- Include exactly one _ where the answer goes
+- Be creative, dark, absurd, or provocative
+- Do NOT copy or closely paraphrase any existing Cards Against Humanity cards
+- Return ONLY the card text, no quotes, no numbering, no explanation"""
+
+SIMILARITY_THRESHOLD = 75
+
+
+def is_duplicate(card_text: str) -> bool:
+    for classic in ALL_CLASSIC:
+        if fuzz.token_sort_ratio(card_text.lower(), classic.lower()) > SIMILARITY_THRESHOLD:
+            return True
+    return False
+
+
+async def generate_card(card_type: str = "white") -> str:
+    system_prompt = SYSTEM_PROMPT_WHITE if card_type == "white" else SYSTEM_PROMPT_BLACK
+    user_msg = "Generate one answer card." if card_type == "white" else "Generate one prompt card."
+
+    headers = {
+        "Authorization": f"Bearer {VENICE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "llama-3.3-70b",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_msg},
+        ],
+        "max_tokens": 100,
+        "temperature": 1.1,
+    }
+
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(VENICE_API_URL, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                card_text = data["choices"][0]["message"]["content"].strip().strip('"').strip("'")
+
+                if not is_duplicate(card_text):
+                    return card_text
+
+                if attempt == 0:
+                    payload["temperature"] = 1.3
+                    continue
+        except Exception as e:
+            if attempt == 0:
+                continue
+            raise e
+
+    return card_text
+
+
+async def generate_hand(count: int = 5) -> list[str]:
+    cards = []
+    for _ in range(count):
+        card = await generate_card("white")
+        cards.append(card)
+    return cards
+
+
+async def generate_prompt() -> str:
+    return await generate_card("black")
