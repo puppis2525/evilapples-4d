@@ -1,5 +1,6 @@
 import os
 import random
+import time
 import discord
 from discord.ext import commands
 import asyncio
@@ -28,6 +29,11 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 active_games = {}
+channel_timers = {}
+timer_tasks = {}
+
+
+round_counter = {}
 
 
 class GameSession:
@@ -40,6 +46,7 @@ class GameSession:
             "hands": {},
             "submissions": {},
             "prompt": "",
+            "round_id": 0,
         }
 
     def to_dict(self):
@@ -69,6 +76,7 @@ async def start_game(ctx):
     embed.add_field(name="Commands", value=(
         "`!join` - Join the game\n"
         "`!deal` - Deal cards and start the round (Judge only)\n"
+        "`!timer <10-60>` - Set a countdown timer in seconds (Judge only)\n"
         "`!endgame` - End the current game"
     ), inline=False)
 
@@ -129,8 +137,14 @@ async def deal_cards(ctx):
                 return
             daily_game_counts[key] = count + 1
 
+    if ctx.channel.id in timer_tasks:
+        timer_tasks[ctx.channel.id].cancel()
+        timer_tasks.pop(ctx.channel.id, None)
+
     game["state"] = "dealing"
     game["submissions"] = {}
+    game["round_id"] = game.get("round_id", 0) + 1
+    current_round_id = game["round_id"]
 
     deck_info = channel_decks.get(ctx.channel.id)
     if deck_info:
@@ -183,13 +197,33 @@ async def deal_cards(ctx):
 
         game["state"] = "submitting"
 
+        timer_seconds = channel_timers.get(ctx.channel.id)
+        timer_text = ""
+        if timer_seconds:
+            deadline = int(time.time()) + timer_seconds
+            timer_text = f"\n\n**Timer:** <t:{deadline}:R> to submit!"
+
         embed = discord.Embed(
             title="Round Started!",
-            description=f"**Prompt:** {prompt}\n\nCheck your DMs for your cards! Reply to the bot's DM with a number (1-5) to submit.",
+            description=f"**Prompt:** {prompt}\n\nCheck your DMs for your cards! Reply to the bot's DM with a number (1-5) to submit.{timer_text}",
             color=discord.Color.green()
         )
         embed.set_footer(text=f"Waiting for {len(game['players'])} submissions...")
         await ctx.send(embed=embed)
+
+        if timer_seconds:
+            async def timer_countdown(ch_id, secs, rid):
+                try:
+                    await asyncio.sleep(secs)
+                    await handle_timer_expiry(ch_id, rid)
+                except asyncio.CancelledError:
+                    pass
+                finally:
+                    timer_tasks.pop(ch_id, None)
+
+            timer_tasks[ctx.channel.id] = asyncio.create_task(
+                timer_countdown(ctx.channel.id, timer_seconds, current_round_id)
+            )
 
     except Exception as e:
         game["state"] = "waiting_for_players"
@@ -199,10 +233,119 @@ async def deal_cards(ctx):
 @bot.command(name="endgame")
 async def end_game(ctx):
     if ctx.channel.id in active_games:
+        if ctx.channel.id in timer_tasks:
+            timer_tasks[ctx.channel.id].cancel()
+            del timer_tasks[ctx.channel.id]
         del active_games[ctx.channel.id]
         await ctx.send("Game ended. Start a new one with `!startgame`.")
     else:
         await ctx.send("No active game to end.")
+
+
+@bot.command(name="timer")
+async def set_timer(ctx, seconds: int = None):
+    game = active_games.get(ctx.channel.id)
+    if not game:
+        await ctx.send("No active game. Use `!startgame` first.")
+        return
+
+    if str(ctx.author.id) != game["judge_id"]:
+        await ctx.send("Only the Judge can set the timer!")
+        return
+
+    if seconds is None:
+        current = channel_timers.get(ctx.channel.id)
+        if current:
+            await ctx.send(f"Current timer: **{current} seconds** per round. Use `!timer off` to disable.")
+        else:
+            await ctx.send("No timer set. Use `!timer <10-60>` to set one, e.g. `!timer 30`.")
+        return
+
+    if seconds < 10 or seconds > 60:
+        await ctx.send("Timer must be between **10** and **60** seconds.")
+        return
+
+    channel_timers[ctx.channel.id] = seconds
+    await ctx.send(f"Timer set to **{seconds} seconds** per round. Players who don't submit in time will be skipped.")
+
+@set_timer.error
+async def timer_error(ctx, error):
+    if isinstance(error, commands.BadArgument):
+        arg = ctx.message.content.split()[-1].strip().lower()
+        if arg in ("off", "none", "disable", "0"):
+            channel_timers.pop(ctx.channel.id, None)
+            await ctx.send("Timer disabled. Players have unlimited time to submit.")
+        else:
+            await ctx.send("Usage: `!timer <10-60>` to set or `!timer off` to disable.")
+    else:
+        raise error
+
+@bot.command(name="settimer")
+async def set_timer_alias(ctx, seconds: str = None):
+    if seconds and seconds.lower() in ("off", "none", "disable", "0"):
+        channel_timers.pop(ctx.channel.id, None)
+        await ctx.send("Timer disabled. Players have unlimited time to submit.")
+        return
+    try:
+        val = int(seconds) if seconds else None
+    except ValueError:
+        await ctx.send("Usage: `!timer <10-60>` to set or `!timer off` to disable.")
+        return
+    await set_timer(ctx, val)
+
+
+async def handle_timer_expiry(channel_id, expected_round_id):
+    game = active_games.get(channel_id)
+    if not game or game["state"] != "submitting":
+        return
+    if game.get("round_id", 0) != expected_round_id:
+        return
+
+    channel = bot.get_channel(channel_id)
+    if not channel:
+        return
+
+    if game["state"] != "submitting" or game.get("round_id", 0) != expected_round_id:
+        return
+
+    submitted = set(game["submissions"].keys())
+    all_players = set(game["players"].keys())
+    missing = all_players - submitted
+
+    if not game["submissions"]:
+        game["state"] = "finished"
+        embed = discord.Embed(
+            title="Time's Up!",
+            description="Nobody submitted a card in time. The round is void.\nThe Judge can `!deal` again to start a new round.",
+            color=discord.Color.red()
+        )
+        await channel.send(embed=embed)
+        return
+
+    game["state"] = "judging"
+
+    missing_names = [game["players"][pid] for pid in missing if pid in game["players"]]
+    if missing_names:
+        await channel.send(f"**Time's up!** {', '.join(missing_names)} didn't submit in time and will be skipped this round.")
+
+    players_in_round = {
+        pid: game["players"][pid] for pid in game["players"]
+    }
+    await batch_update_games_played(players_in_round)
+
+    submission_text = "\n".join(
+        f"**Card {i+1}:** {card}"
+        for i, (_, card) in enumerate(list(game["submissions"].items()))
+    )
+
+    embed = discord.Embed(
+        title="Time's Up! Time to Judge!",
+        description=f"**Prompt:** {game['prompt']}\n\n{submission_text}",
+        color=discord.Color.purple()
+    )
+
+    view = JudgingView(game, channel)
+    await channel.send(embed=embed, view=view)
 
 
 @bot.group(name="tournament", invoke_without_command=True)
@@ -740,6 +883,10 @@ async def on_message(message):
         await message.channel.send(f"Card submitted: **{selected_card}**\nCheck the main channel for results!")
 
         if len(game["submissions"]) == len(game["players"]):
+            if channel_id in timer_tasks:
+                timer_tasks[channel_id].cancel()
+                del timer_tasks[channel_id]
+
             players_in_round = {
                 pid: game["players"][pid] for pid in game["players"]
             }

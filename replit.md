@@ -13,10 +13,11 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 
 ### Discord Bot (bot.py)
 - **discord.py** bot running as a daemon thread
-- Quick game commands: `!startgame`, `!join`, `!deal`, `!endgame`
+- Quick game commands: `!startgame`, `!join`, `!deal`, `!timer`, `!endgame`
 - Tournament commands: `!tournament create/join/start/status/end`
 - Premium command: `!premium` — shows Pro status or upgrade link
 - Free tier: 3 games/day per server; Pro: unlimited
+- Configurable countdown timer: `!timer <10-60>` — Judge sets per-channel, skips non-submitters on expiry
 - DM-based card distribution and submission
 - Interactive judging with Discord Buttons (ui_components.py)
 - Purple-themed embeds matching Evil Apples branding
