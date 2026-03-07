@@ -11,6 +11,9 @@ router = APIRouter(prefix="/api/stripe")
 
 PREMIUM_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "")
 
+if not PREMIUM_PRICE_ID:
+    logger.warning("STRIPE_PRICE_ID not set — checkout will not work until it is configured")
+
 
 @router.get("/config")
 async def stripe_config():
@@ -24,6 +27,12 @@ async def stripe_config():
 
 @router.post("/create-checkout")
 async def create_checkout(request: Request):
+    if not PREMIUM_PRICE_ID:
+        return JSONResponse(
+            content={"error": "Premium pricing not configured. Contact the admin."},
+            status_code=503
+        )
+
     try:
         body = await request.json()
         guild_id = body.get("guild_id", "")
@@ -33,6 +42,10 @@ async def create_checkout(request: Request):
 
         if not guild_id or not user_id:
             return JSONResponse(content={"error": "Missing guild_id or user_id"}, status_code=400)
+
+        import re
+        if not re.match(r'^\d{17,20}$', guild_id):
+            return JSONResponse(content={"error": "Invalid guild_id format"}, status_code=400)
 
         stripe_mod = await get_stripe_client()
 
@@ -51,9 +64,9 @@ async def create_checkout(request: Request):
             cancel_url=f"{base_url}/premium",
             metadata={
                 "guild_id": guild_id,
-                "guild_name": guild_name,
+                "guild_name": guild_name[:256],
                 "user_id": user_id,
-                "user_name": user_name,
+                "user_name": user_name[:128],
             },
         )
 
@@ -72,11 +85,11 @@ async def stripe_webhook(request: Request):
         stripe_mod = await get_stripe_client()
         webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
-        if webhook_secret:
-            event = stripe_mod.Webhook.construct_event(payload, sig, webhook_secret)
-        else:
-            import json
-            event = json.loads(payload)
+        if not webhook_secret:
+            logger.error("STRIPE_WEBHOOK_SECRET not set — rejecting webhook for security")
+            return JSONResponse(content={"error": "Webhook not configured"}, status_code=500)
+
+        event = stripe_mod.Webhook.construct_event(payload, sig, webhook_secret)
 
         event_type = event.get("type", "") if isinstance(event, dict) else event["type"]
 
@@ -111,16 +124,32 @@ async def stripe_webhook(request: Request):
 
         elif event_type == "customer.subscription.updated":
             subscription = event["data"]["object"]
-            if subscription.get("status") in ("canceled", "unpaid", "past_due"):
-                subscription_id = subscription.get("id", "")
+            status = subscription.get("status", "")
+            subscription_id = subscription.get("id", "")
+
+            if status in ("canceled", "unpaid", "past_due", "paused"):
                 if subscription_id:
                     await deactivate_premium(subscription_id)
-                    logger.info(f"Premium deactivated (status change) for subscription {subscription_id}")
+                    logger.info(f"Premium deactivated (status={status}) for subscription {subscription_id}")
+            elif status == "active":
+                if subscription_id:
+                    await reactivate_premium(subscription_id)
+                    logger.info(f"Premium reactivated for subscription {subscription_id}")
 
         return JSONResponse(content={"received": True})
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=400)
+
+
+async def reactivate_premium(subscription_id: str):
+    from db import get_db_pool
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE premium_servers SET active = TRUE WHERE stripe_subscription_id = $1",
+            subscription_id
+        )
 
 
 @router.get("/premium-status/{guild_id}")

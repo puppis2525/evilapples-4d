@@ -49,6 +49,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
+
+from stripe_routes import router as stripe_router
+app.include_router(stripe_router)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -61,6 +65,16 @@ async def favicon():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/premium", response_class=HTMLResponse)
+async def premium_page(request: Request):
+    return templates.TemplateResponse("premium.html", {"request": request})
+
+
+@app.get("/premium/success", response_class=HTMLResponse)
+async def premium_success_page(request: Request):
+    return templates.TemplateResponse("premium_success.html", {"request": request})
 
 
 @app.get("/api/leaderboard")
