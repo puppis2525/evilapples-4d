@@ -1,0 +1,24 @@
+Layer 1: The "Uncensored Intelligence" (Venice.ai + Deduplicator)
+Objective: Ensure the bot can generate cards and doesn't steal from CAH.
+
+Prompt: "Let's build the intelligence layer. In api_client.py, create a function that calls Venice.ai. Use the system prompt we discussed to ensure a 'Divergent Comedy' tone. Then, implement the deduplication logic: load a JSON of classic CAH cards and use a similarity check (or simple fuzzy matching) to reject any AI-generated cards that are too similar. If a card is rejected, the function should automatically retry once to get a unique one."
+
+Layer 2: The "Private Hand" (DM & State Management)
+Objective: Get the bot talking to users privately without breaking the game state.
+
+Prompt: "Now for the game state. In bot.py, implement the DM logic. When a round starts, the bot should DM each player their hand of 5 cards. Use an on_message listener to detect when a player replies to the bot's DM with a number. Validate that the number is within range, map it to the card text, and store it in our active game session. Send a confirmation DM back to the player: 'Card submitted! Check the main channel for the results.'"
+
+Layer 3: The "Judge's Throne" (Interactive Buttons)
+Objective: Build the interactive UI for the public channel.
+
+Prompt: "Build the Judging Phase UI in ui_components.py. Once all players have submitted, the bot should post a message in the main channel with the prompt and a list of the submitted cards (shuffled!). Use discord.ui.View to create buttons labeled 'Card 1', 'Card 2', etc. Ensure only the designated Judge can click these. When clicked, the view should disable all buttons and trigger the winner_reveal logic."
+
+Layer 4: The "Marketing & AEO" (Data Persistence)
+Objective: Turn game rounds into landing pages and leads.
+
+Prompt: "Let's connect the database. Every time a winner is picked, save the Prompt, Winning Card, and Winner's Discord ID to our Replit PostgreSQL database. Generate a unique 'Slug' for this round (e.g., /rounds/hilarious-ai-roast-123). Update the index.html landing page to show a 'Recent Hall of Fame' section that pulls this data dynamically from the DB so the website is always fresh for SEO."
+
+Layer 5: The "Monetization & Agency Funnel" (Payments & CRM)
+Objective: Connect the money and the leads.
+
+Prompt: "Final layer: monetization and lead gen. Add a /premium command to the bot that sends a link to our Lemon Squeezy checkout. Also, add a webhook in our winner logic: if a user wins 3 rounds, check if we have their email in the DB. If not, have the bot DM them a link to 'Claim their Prize' on our website. On that website, use a simple form to capture their email and push it to a leads table for our Instantly.ai outreach."
