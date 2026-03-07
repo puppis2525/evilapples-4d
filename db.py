@@ -1,20 +1,26 @@
 import os
+import logging
 import asyncpg
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-
-async def get_pool():
-    return await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
-
+logger = logging.getLogger("db")
 
 _pool = None
 
 
 async def get_db_pool():
     global _pool
-    if _pool is None:
-        _pool = await get_pool()
+    if _pool is None or _pool._closed:
+        logger.info("Creating database connection pool...")
+        _pool = await asyncpg.create_pool(
+            DATABASE_URL,
+            min_size=1,
+            max_size=5,
+            command_timeout=30,
+            server_settings={"application_name": "evil_apples_4d"}
+        )
+        logger.info("Database pool created successfully")
     return _pool
 
 

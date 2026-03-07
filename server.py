@@ -1,7 +1,9 @@
 import os
+import sys
 import asyncio
 import threading
 import logging
+import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
@@ -9,27 +11,41 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
 
-from db import init_db, get_recent_rounds, get_leaderboard, get_round_by_slug, get_recent_tournaments, get_tournament_details
-from api_client import generate_card, is_duplicate
-from bot import run_bot
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger("server")
 
-logger = logging.getLogger(__name__)
+
+def delayed_bot_start():
+    time.sleep(5)
+    try:
+        from bot import run_bot
+        logger.info("Starting Discord bot...")
+        run_bot()
+    except Exception as e:
+        logger.error(f"Discord bot failed to start: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    logger.info("Application starting up...")
 
-    def start_bot():
-        try:
-            run_bot()
-        except Exception as e:
-            logger.error(f"Discord bot failed to start: {e}")
+    try:
+        from db import init_db
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database init failed (will retry on first request): {e}")
 
-    bot_thread = threading.Thread(target=start_bot, daemon=True)
+    bot_thread = threading.Thread(target=delayed_bot_start, daemon=True)
     bot_thread.start()
+    logger.info("Bot thread launched (will connect after 5s delay)")
 
     yield
+    logger.info("Application shutting down...")
 
 
 app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
@@ -49,21 +65,32 @@ async def index(request: Request):
 
 @app.get("/api/leaderboard")
 async def api_leaderboard():
-    data = await get_leaderboard(20)
-    return JSONResponse(content=data)
+    from db import get_leaderboard
+    try:
+        data = await get_leaderboard(20)
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Leaderboard error: {e}")
+        return JSONResponse(content=[], status_code=200)
 
 
 @app.get("/api/rounds")
 async def api_rounds():
-    data = await get_recent_rounds(20)
-    for item in data:
-        if "created_at" in item and item["created_at"]:
-            item["created_at"] = item["created_at"].isoformat()
-    return JSONResponse(content=data)
+    from db import get_recent_rounds
+    try:
+        data = await get_recent_rounds(20)
+        for item in data:
+            if "created_at" in item and item["created_at"]:
+                item["created_at"] = item["created_at"].isoformat()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Rounds error: {e}")
+        return JSONResponse(content=[], status_code=200)
 
 
 @app.get("/api/generate")
 async def api_generate(card_type: str = "white"):
+    from api_client import generate_card, is_duplicate
     if card_type not in ("white", "black"):
         return JSONResponse(content={"error": "card_type must be 'white' or 'black'"}, status_code=400)
     card = await generate_card(card_type)
@@ -72,47 +99,67 @@ async def api_generate(card_type: str = "white"):
 
 @app.get("/api/tournaments")
 async def api_tournaments():
-    data = await get_recent_tournaments(20)
-    for item in data:
-        for key in ("created_at", "completed_at"):
-            if key in item and item[key]:
-                item[key] = item[key].isoformat()
-    return JSONResponse(content=data)
+    from db import get_recent_tournaments
+    try:
+        data = await get_recent_tournaments(20)
+        for item in data:
+            for key in ("created_at", "completed_at"):
+                if key in item and item[key]:
+                    item[key] = item[key].isoformat()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Tournaments error: {e}")
+        return JSONResponse(content=[], status_code=200)
 
 
 @app.get("/api/tournaments/{tournament_id}")
 async def api_tournament_detail(tournament_id: int):
-    data = await get_tournament_details(tournament_id)
-    if not data:
-        return JSONResponse(content={"error": "Tournament not found"}, status_code=404)
-    t = data["tournament"]
-    for key in ("created_at", "completed_at"):
-        if key in t and t[key]:
-            t[key] = t[key].isoformat()
-    for r in data["rounds"]:
-        if "completed_at" in r and r["completed_at"]:
-            r["completed_at"] = r["completed_at"].isoformat()
-    for p in data["players"]:
-        if "joined_at" in p and p["joined_at"]:
-            p["joined_at"] = p["joined_at"].isoformat()
-    return JSONResponse(content=data)
+    from db import get_tournament_details
+    try:
+        data = await get_tournament_details(tournament_id)
+        if not data:
+            return JSONResponse(content={"error": "Tournament not found"}, status_code=404)
+        t = data["tournament"]
+        for key in ("created_at", "completed_at"):
+            if key in t and t[key]:
+                t[key] = t[key].isoformat()
+        for r in data["rounds"]:
+            if "completed_at" in r and r["completed_at"]:
+                r["completed_at"] = r["completed_at"].isoformat()
+        for p in data["players"]:
+            if "joined_at" in p and p["joined_at"]:
+                p["joined_at"] = p["joined_at"].isoformat()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Tournament detail error: {e}")
+        return JSONResponse(content={"error": "Server error"}, status_code=500)
 
 
 @app.get("/api/rounds/{slug}")
 async def api_round_detail(slug: str):
-    round_data = await get_round_by_slug(slug)
-    if not round_data:
-        return JSONResponse(content={"error": "Round not found"}, status_code=404)
-    if "created_at" in round_data and round_data["created_at"]:
-        round_data["created_at"] = round_data["created_at"].isoformat()
-    return JSONResponse(content=round_data)
+    from db import get_round_by_slug
+    try:
+        round_data = await get_round_by_slug(slug)
+        if not round_data:
+            return JSONResponse(content={"error": "Round not found"}, status_code=404)
+        if "created_at" in round_data and round_data["created_at"]:
+            round_data["created_at"] = round_data["created_at"].isoformat()
+        return JSONResponse(content=round_data)
+    except Exception as e:
+        logger.error(f"Round detail error: {e}")
+        return JSONResponse(content={"error": "Server error"}, status_code=500)
 
 
 @app.get("/rounds/{slug}")
 async def round_page(request: Request, slug: str):
-    round_data = await get_round_by_slug(slug)
+    from db import get_round_by_slug
+    try:
+        round_data = await get_round_by_slug(slug)
+    except Exception:
+        round_data = None
     return templates.TemplateResponse("index.html", {"request": request, "round": round_data})
 
 
 if __name__ == "__main__":
+    logger.info("Starting Evil Apples 4D server on port 5000...")
     uvicorn.run(app, host="0.0.0.0", port=5000)
