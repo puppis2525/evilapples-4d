@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
 
-from db import init_db, get_recent_rounds, get_leaderboard, get_round_by_slug
+from db import init_db, get_recent_rounds, get_leaderboard, get_round_by_slug, get_recent_tournaments, get_tournament_details
 from api_client import generate_card, is_duplicate
 from bot import run_bot
 
@@ -68,6 +68,34 @@ async def api_generate(card_type: str = "white"):
         return JSONResponse(content={"error": "card_type must be 'white' or 'black'"}, status_code=400)
     card = await generate_card(card_type)
     return JSONResponse(content={"card": card, "is_duplicate": is_duplicate(card)})
+
+
+@app.get("/api/tournaments")
+async def api_tournaments():
+    data = await get_recent_tournaments(20)
+    for item in data:
+        for key in ("created_at", "completed_at"):
+            if key in item and item[key]:
+                item[key] = item[key].isoformat()
+    return JSONResponse(content=data)
+
+
+@app.get("/api/tournaments/{tournament_id}")
+async def api_tournament_detail(tournament_id: int):
+    data = await get_tournament_details(tournament_id)
+    if not data:
+        return JSONResponse(content={"error": "Tournament not found"}, status_code=404)
+    t = data["tournament"]
+    for key in ("created_at", "completed_at"):
+        if key in t and t[key]:
+            t[key] = t[key].isoformat()
+    for r in data["rounds"]:
+        if "completed_at" in r and r["completed_at"]:
+            r["completed_at"] = r["completed_at"].isoformat()
+    for p in data["players"]:
+        if "joined_at" in p and p["joined_at"]:
+            p["joined_at"] = p["joined_at"].isoformat()
+    return JSONResponse(content=data)
 
 
 @app.get("/api/rounds/{slug}")

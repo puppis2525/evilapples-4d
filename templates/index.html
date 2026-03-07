@@ -79,6 +79,7 @@
             </a>
             <div class="flex gap-6 text-sm">
                 <a href="#leaderboard" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="#tournaments" class="text-evil-300 hover:text-white transition font-semibold">Tournaments</a>
                 <a href="#hall-of-fame" class="text-evil-300 hover:text-white transition font-semibold">Hall of Fame</a>
             </div>
         </div>
@@ -122,6 +123,17 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        <section id="tournaments" class="mb-20">
+            <h3 class="font-brand text-3xl mb-8 flex items-center gap-3 text-evil-300">
+                <span class="text-purple-400">&#9876;</span> Tournaments
+            </h3>
+            <div id="tournaments-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="col-span-full text-center text-evil-400 py-12">
+                    Loading tournaments...
+                </div>
             </div>
         </section>
 
@@ -227,10 +239,74 @@
             }
         }
 
+        async function loadTournaments() {
+            try {
+                const resp = await fetch('/api/tournaments');
+                const data = await resp.json();
+                const container = document.getElementById('tournaments-list');
+
+                if (data.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-span-full text-center text-evil-400 py-12">
+                            No tournaments yet. Start one on Discord with <code class="bg-evil-card px-2 py-1 rounded text-evil-300 font-mono">!tournament create</code>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = data.map((t, i) => {
+                    const date = new Date(t.created_at).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric'
+                    });
+                    const statusColors = {
+                        'registration': 'text-green-400 bg-green-400/10 border-green-400/30',
+                        'active': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+                        'completed': 'text-evil-400 bg-evil-400/10 border-evil-400/30'
+                    };
+                    const statusLabels = {
+                        'registration': 'Open',
+                        'active': `Round ${t.current_round}/${t.rounds_total}`,
+                        'completed': 'Completed'
+                    };
+                    const sc = statusColors[t.status] || statusColors['completed'];
+                    const sl = statusLabels[t.status] || t.status;
+
+                    return `
+                        <div class="card-hover bg-evil-surface border border-evil-800/40 rounded-2xl p-6 animate-fade-in" style="animation-delay: ${i * 0.08}s">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="font-brand text-xl text-white">${t.name}</h4>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full border ${sc}">${sl}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-4 text-center mb-4">
+                                <div>
+                                    <p class="text-evil-400 text-xs uppercase tracking-widest">Players</p>
+                                    <p class="text-white font-bold text-lg">${t.player_count}</p>
+                                </div>
+                                <div>
+                                    <p class="text-evil-400 text-xs uppercase tracking-widest">Rounds</p>
+                                    <p class="text-white font-bold text-lg">${t.rounds_total}</p>
+                                </div>
+                                <div>
+                                    <p class="text-evil-400 text-xs uppercase tracking-widest">Progress</p>
+                                    <p class="text-white font-bold text-lg">${t.current_round}/${t.rounds_total}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between text-sm text-evil-400">
+                                <span>By: <span class="text-evil-300">${t.creator_name}</span></span>
+                                <span class="text-evil-500">${date}</span>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load tournaments:', e);
+            }
+        }
+
         loadLeaderboard();
+        loadTournaments();
         loadRounds();
 
         setInterval(loadLeaderboard, 15000);
+        setInterval(loadTournaments, 15000);
         setInterval(loadRounds, 15000);
     </script>
 </body>
