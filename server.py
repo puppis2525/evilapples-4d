@@ -34,9 +34,10 @@ async def lifespan(app: FastAPI):
     logger.info("Application starting up...")
 
     try:
-        from db import init_db, init_deck_tables
+        from db import init_db, init_deck_tables, init_store_tables
         await init_db()
         await init_deck_tables()
+        await init_store_tables()
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Database init failed (will retry on first request): {e}")
@@ -52,6 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
 
 from stripe_routes import router as stripe_router
+from stripe_client import get_stripe_client
 app.include_router(stripe_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -196,6 +198,223 @@ async def api_decks(request: Request):
     except Exception as e:
         logger.error(f"Decks error: {e}")
         return JSONResponse(content=[], status_code=200)
+
+
+ADMIN_TOKEN = os.environ.get("SESSION_SECRET", "")
+
+
+@app.get("/store", response_class=HTMLResponse)
+async def store_page(request: Request):
+    return templates.TemplateResponse("store.html", {"request": request})
+
+
+@app.get("/store/success", response_class=HTMLResponse)
+async def store_success_page(request: Request):
+    return templates.TemplateResponse("store_success.html", {"request": request})
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request})
+
+
+@app.get("/api/store/listings")
+async def api_store_listings():
+    from db import get_store_listings
+    try:
+        data = await get_store_listings(active_only=True)
+        for item in data:
+            if "created_at" in item and item["created_at"]:
+                item["created_at"] = item["created_at"].isoformat()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Store listings error: {e}")
+        return JSONResponse(content=[], status_code=200)
+
+
+@app.get("/api/admin/listings")
+async def api_admin_listings(request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+    from db import get_store_listings
+    try:
+        data = await get_store_listings(active_only=False)
+        for item in data:
+            if "created_at" in item and item["created_at"]:
+                item["created_at"] = item["created_at"].isoformat()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Admin listings error: {e}")
+        return JSONResponse(content=[], status_code=200)
+
+
+@app.post("/api/admin/listings")
+async def api_admin_create_listing(request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+    from db import create_store_listing
+    try:
+        body = await request.json()
+        listing_id = await create_store_listing(
+            name=body.get("name", "Untitled Deck"),
+            description=body.get("description", ""),
+            image_url=body.get("image_url", ""),
+            price_cents=int(body.get("price_cents", 99)),
+            bundle_size=int(body.get("bundle_size", 1)),
+            deck_ids=body.get("deck_ids", ""),
+            featured=bool(body.get("featured", False)),
+        )
+        return JSONResponse(content={"success": True, "id": listing_id})
+    except Exception as e:
+        logger.error(f"Create listing error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.put("/api/admin/listings/{listing_id}")
+async def api_admin_update_listing(listing_id: int, request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+    from db import update_store_listing
+    try:
+        body = await request.json()
+        kwargs = {}
+        if "name" in body:
+            kwargs["name"] = body["name"]
+        if "description" in body:
+            kwargs["description"] = body["description"]
+        if "image_url" in body:
+            kwargs["image_url"] = body["image_url"]
+        if "price_cents" in body:
+            kwargs["price_cents"] = int(body["price_cents"])
+        if "bundle_size" in body:
+            kwargs["bundle_size"] = int(body["bundle_size"])
+        if "deck_ids" in body:
+            kwargs["deck_ids"] = body["deck_ids"]
+        if "active" in body:
+            kwargs["active"] = bool(body["active"])
+        if "featured" in body:
+            kwargs["featured"] = bool(body["featured"])
+        if "sort_order" in body:
+            kwargs["sort_order"] = int(body["sort_order"])
+        await update_store_listing(listing_id, **kwargs)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        logger.error(f"Update listing error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.delete("/api/admin/listings/{listing_id}")
+async def api_admin_delete_listing(listing_id: int, request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+    from db import delete_store_listing
+    try:
+        await delete_store_listing(listing_id)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        logger.error(f"Delete listing error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.post("/api/store/checkout")
+async def store_checkout(request: Request):
+    try:
+        body = await request.json()
+        listing_id = body.get("listing_id")
+        discord_user_id = body.get("discord_user_id", "")
+
+        if not listing_id or not discord_user_id:
+            return JSONResponse(content={"error": "Missing listing_id or discord_user_id"}, status_code=400)
+
+        import re
+        if not re.match(r'^\d{17,20}$', discord_user_id):
+            return JSONResponse(content={"error": "Invalid Discord User ID"}, status_code=400)
+
+        from db import get_store_listing, has_purchased
+        listing = await get_store_listing(int(listing_id))
+        if not listing or not listing.get("active"):
+            return JSONResponse(content={"error": "Listing not found"}, status_code=404)
+
+        already = await has_purchased(discord_user_id, int(listing_id))
+        if already:
+            return JSONResponse(content={"error": "You already own this deck!"}, status_code=400)
+
+        stripe_mod = await get_stripe_client()
+
+        host = request.headers.get("host", "localhost:5000")
+        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
+        base_url = f"{protocol}://{host}"
+
+        price_cents = listing["price_cents"]
+        name = listing["name"]
+        bundle = listing["bundle_size"]
+        desc = f"{name}"
+        if bundle > 1:
+            desc = f"{name} (Bundle of {bundle})"
+
+        session = stripe_mod.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": price_cents,
+                    "product_data": {
+                        "name": desc,
+                        "description": listing.get("description", "")[:500],
+                    },
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=f"{base_url}/store/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}/store",
+            metadata={
+                "type": "deck_purchase",
+                "listing_id": str(listing_id),
+                "discord_user_id": discord_user_id,
+            },
+        )
+
+        return JSONResponse(content={"url": session.url})
+    except Exception as e:
+        logger.error(f"Store checkout error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.post("/api/admin/upload-image")
+async def admin_upload_image(request: Request):
+    try:
+        form = await request.form()
+        token = form.get("token", "").strip()
+        if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+            return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+
+        file = form.get("file")
+        if not file:
+            return JSONResponse(content={"error": "No file uploaded"}, status_code=400)
+
+        import uuid
+        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
+        if ext not in ("png", "jpg", "jpeg", "webp", "gif"):
+            return JSONResponse(content={"error": "Invalid image format"}, status_code=400)
+
+        content = await file.read()
+        if len(content) > 5 * 1024 * 1024:
+            return JSONResponse(content={"error": "File too large (max 5MB)"}, status_code=400)
+
+        filename = f"deck_{uuid.uuid4().hex[:8]}.{ext}"
+        filepath = f"static/{filename}"
+        with open(filepath, "wb") as f:
+            f.write(content)
+
+        return JSONResponse(content={"success": True, "url": f"/static/{filename}"})
+    except Exception as e:
+        logger.error(f"Upload image error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 if __name__ == "__main__":

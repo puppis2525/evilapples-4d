@@ -451,6 +451,134 @@ async def get_random_cards(deck_id: int, card_type: str, count: int):
         return [r["card_text"] for r in rows]
 
 
+async def init_store_tables():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS store_listings (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(256) NOT NULL,
+                description TEXT DEFAULT '',
+                image_url VARCHAR(512) DEFAULT '',
+                price_cents INTEGER DEFAULT 99,
+                bundle_size INTEGER DEFAULT 1,
+                deck_ids TEXT DEFAULT '',
+                active BOOLEAN DEFAULT TRUE,
+                featured BOOLEAN DEFAULT FALSE,
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS store_purchases (
+                id SERIAL PRIMARY KEY,
+                discord_user_id VARCHAR(64) NOT NULL,
+                listing_id INTEGER REFERENCES store_listings(id),
+                stripe_session_id VARCHAR(256) UNIQUE,
+                status VARCHAR(32) DEFAULT 'completed',
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        try:
+            await conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_store_purchases_session ON store_purchases(stripe_session_id)"
+            )
+        except Exception:
+            pass
+
+
+async def get_store_listings(active_only: bool = True):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        if active_only:
+            rows = await conn.fetch(
+                "SELECT * FROM store_listings WHERE active = TRUE ORDER BY sort_order, created_at DESC"
+            )
+        else:
+            rows = await conn.fetch(
+                "SELECT * FROM store_listings ORDER BY sort_order, created_at DESC"
+            )
+        return [dict(r) for r in rows]
+
+
+async def get_store_listing(listing_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM store_listings WHERE id = $1", listing_id
+        )
+        return dict(row) if row else None
+
+
+async def create_store_listing(name, description, image_url, price_cents, bundle_size, deck_ids, featured):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO store_listings (name, description, image_url, price_cents, bundle_size, deck_ids, featured)
+               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
+            name, description, image_url, price_cents, bundle_size, deck_ids, featured
+        )
+        return row["id"]
+
+
+async def update_store_listing(listing_id, **kwargs):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        allowed = ["name", "description", "image_url", "price_cents", "bundle_size", "deck_ids", "active", "featured", "sort_order"]
+        sets = []
+        vals = []
+        idx = 1
+        for key in allowed:
+            if key in kwargs:
+                sets.append(f"{key} = ${idx}")
+                vals.append(kwargs[key])
+                idx += 1
+        if not sets:
+            return
+        vals.append(listing_id)
+        query = f"UPDATE store_listings SET {', '.join(sets)} WHERE id = ${idx}"
+        await conn.execute(query, *vals)
+
+
+async def delete_store_listing(listing_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM store_listings WHERE id = $1", listing_id)
+
+
+async def record_store_purchase(discord_user_id, listing_id, stripe_session_id):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO store_purchases (discord_user_id, listing_id, stripe_session_id)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (stripe_session_id) DO NOTHING""",
+            discord_user_id, listing_id, stripe_session_id
+        )
+
+
+async def get_user_purchases(discord_user_id):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT sp.*, sl.name as listing_name FROM store_purchases sp
+               JOIN store_listings sl ON sp.listing_id = sl.id
+               WHERE sp.discord_user_id = $1 ORDER BY sp.created_at DESC""",
+            discord_user_id
+        )
+        return [dict(r) for r in rows]
+
+
+async def has_purchased(discord_user_id, listing_id):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id FROM store_purchases WHERE discord_user_id = $1 AND listing_id = $2",
+            discord_user_id, listing_id
+        )
+        return row is not None
+
+
 async def is_premium_server(guild_id: str) -> bool:
     pool = await get_db_pool()
     async with pool.acquire() as conn:

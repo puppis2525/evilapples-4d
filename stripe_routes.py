@@ -96,24 +96,38 @@ async def stripe_webhook(request: Request):
         if event_type == "checkout.session.completed":
             session = event["data"]["object"]
             metadata = session.get("metadata", {})
-            guild_id = metadata.get("guild_id", "")
-            guild_name = metadata.get("guild_name", "Unknown")
-            user_id = metadata.get("user_id", "")
-            user_name = metadata.get("user_name", "Unknown")
-            customer_id = session.get("customer", "")
-            subscription_id = session.get("subscription", "")
 
-            if guild_id:
-                await activate_premium(
-                    guild_id=guild_id,
-                    guild_name=guild_name,
-                    plan="pro",
-                    stripe_customer_id=customer_id,
-                    stripe_subscription_id=subscription_id,
-                    activated_by=user_id,
-                    activated_by_name=user_name,
-                )
-                logger.info(f"Premium activated for guild {guild_id} ({guild_name})")
+            if metadata.get("type") == "deck_purchase":
+                payment_status = session.get("payment_status", "")
+                if payment_status == "paid":
+                    listing_id = metadata.get("listing_id", "")
+                    discord_user_id = metadata.get("discord_user_id", "")
+                    session_id = session.get("id", "")
+                    if listing_id and discord_user_id:
+                        from db import record_store_purchase
+                        await record_store_purchase(discord_user_id, int(listing_id), session_id)
+                        logger.info(f"Deck purchase recorded: user={discord_user_id} listing={listing_id}")
+                else:
+                    logger.warning(f"Deck purchase session not paid: status={payment_status}")
+            else:
+                guild_id = metadata.get("guild_id", "")
+                guild_name = metadata.get("guild_name", "Unknown")
+                user_id = metadata.get("user_id", "")
+                user_name = metadata.get("user_name", "Unknown")
+                customer_id = session.get("customer", "")
+                subscription_id = session.get("subscription", "")
+
+                if guild_id:
+                    await activate_premium(
+                        guild_id=guild_id,
+                        guild_name=guild_name,
+                        plan="pro",
+                        stripe_customer_id=customer_id,
+                        stripe_subscription_id=subscription_id,
+                        activated_by=user_id,
+                        activated_by_name=user_name,
+                    )
+                    logger.info(f"Premium activated for guild {guild_id} ({guild_name})")
 
         elif event_type == "customer.subscription.deleted":
             subscription = event["data"]["object"]

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D | Deck Store</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .logo-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .card-hover:hover { transform: translateY(-8px); box-shadow: 0 20px 60px rgba(124, 58, 237, 0.4); }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeInUp 0.5s ease forwards; }
+        .deck-image { aspect-ratio: 5/7; object-fit: cover; }
+        .featured-badge {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+        }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="/store" class="text-white transition font-semibold">Store</a>
+                <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
+                <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="text-center py-12 px-6">
+        <img src="/static/logo.png" alt="" class="w-16 h-16 mx-auto mb-4 logo-float drop-shadow-2xl">
+        <h2 class="font-brand text-4xl md:text-5xl mb-3 purple-glow text-evil-300">Deck Store</h2>
+        <p class="text-evil-200/60 text-lg max-w-2xl mx-auto">
+            Grab premium card decks to spice up your games. Each deck is packed with unique prompts and answers.
+        </p>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 pb-20">
+        <section class="mb-8">
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-4 flex items-center gap-4">
+                <label class="text-evil-400 text-sm font-semibold shrink-0">Your Discord User ID</label>
+                <input type="text" id="user-id" placeholder="Enter your Discord User ID to purchase"
+                    class="flex-1 px-4 py-2 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+            </div>
+        </section>
+
+        <div id="store-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div class="col-span-full text-center text-evil-400 py-16">Loading store...</div>
+        </div>
+
+        <div id="empty-store" class="hidden text-center py-20">
+            <div class="text-6xl mb-4">&#127183;</div>
+            <h3 class="font-brand text-2xl text-evil-300 mb-2">No Decks Available Yet</h3>
+            <p class="text-evil-400">Check back soon for new card decks!</p>
+        </div>
+    </main>
+
+    <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+        <p>Expand your evil card collection.</p>
+    </footer>
+
+    <div id="buy-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 max-w-md w-full">
+            <h3 id="modal-title" class="font-brand text-2xl text-evil-300 mb-4"></h3>
+            <p id="modal-desc" class="text-evil-400 text-sm mb-4"></p>
+            <div class="flex items-center justify-between mb-6">
+                <span id="modal-price" class="font-brand text-3xl text-green-400"></span>
+                <span id="modal-bundle" class="text-evil-400 text-sm"></span>
+            </div>
+            <div id="modal-error" class="text-red-400 text-sm mb-4 hidden"></div>
+            <div class="flex gap-3">
+                <button onclick="closeBuyModal()" class="flex-1 px-4 py-3 rounded-xl border border-evil-800/50 text-evil-300 hover:bg-evil-card transition">Cancel</button>
+                <button id="modal-buy-btn" onclick="confirmPurchase()" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold hover:from-green-400 hover:to-emerald-500 transition">Buy Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentListingId = null;
+
+        async function loadStore() {
+            try {
+                const resp = await fetch('/api/store/listings');
+                const listings = await resp.json();
+                const grid = document.getElementById('store-grid');
+                const empty = document.getElementById('empty-store');
+
+                if (listings.length === 0) {
+                    grid.classList.add('hidden');
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                grid.innerHTML = listings.map((item, i) => {
+                    const price = (item.price_cents / 100).toFixed(2);
+                    const bundleLabel = item.bundle_size > 1 ? `Bundle of ${item.bundle_size}` : '';
+                    const featuredBadge = item.featured ? '<div class="featured-badge absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg">FEATURED</div>' : '';
+
+                    return `
+                        <div class="card-hover animate-fade-in" style="animation-delay: ${i * 0.1}s">
+                            <div class="bg-evil-surface border border-evil-800/40 rounded-2xl overflow-hidden relative">
+                                ${featuredBadge}
+                                <div class="relative">
+                                    ${item.image_url
+                                        ? `<img src="${item.image_url}" alt="${item.name}" class="w-full deck-image">`
+                                        : `<div class="w-full deck-image bg-evil-card flex items-center justify-center">
+                                            <span class="text-6xl">&#127183;</span>
+                                          </div>`
+                                    }
+                                </div>
+                                <div class="p-5">
+                                    <h3 class="font-brand text-xl text-white mb-1">${item.name}</h3>
+                                    ${item.description ? `<p class="text-evil-400 text-sm mb-3 line-clamp-2">${item.description}</p>` : '<div class="mb-3"></div>'}
+                                    ${bundleLabel ? `<p class="text-evil-500 text-xs mb-2">${bundleLabel}</p>` : ''}
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-brand text-2xl text-green-400">$${price}</span>
+                                        <button onclick="openBuyModal(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${(item.description || '').replace(/'/g, "\\'")}', ${item.price_cents}, ${item.bundle_size})"
+                                            class="px-5 py-2 rounded-xl bg-gradient-to-r from-evil-500 to-evil-600 text-white font-bold text-sm hover:from-evil-400 hover:to-evil-500 transition-all transform hover:scale-105">
+                                            Buy
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load store:', e);
+            }
+        }
+
+        function openBuyModal(id, name, desc, priceCents, bundleSize) {
+            currentListingId = id;
+            document.getElementById('modal-title').textContent = name;
+            document.getElementById('modal-desc').textContent = desc || 'A premium card deck for Evil Apples 4D.';
+            document.getElementById('modal-price').textContent = '$' + (priceCents / 100).toFixed(2);
+            document.getElementById('modal-bundle').textContent = bundleSize > 1 ? `Bundle of ${bundleSize} decks` : 'Single deck';
+            document.getElementById('modal-error').classList.add('hidden');
+            document.getElementById('buy-modal').classList.remove('hidden');
+        }
+
+        function closeBuyModal() {
+            document.getElementById('buy-modal').classList.add('hidden');
+            currentListingId = null;
+        }
+
+        async function confirmPurchase() {
+            const userId = document.getElementById('user-id').value.trim();
+            const errorEl = document.getElementById('modal-error');
+
+            if (!userId) {
+                errorEl.textContent = 'Please enter your Discord User ID first.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            if (!/^\d{17,20}$/.test(userId)) {
+                errorEl.textContent = 'Invalid Discord User ID. It should be a 17-20 digit number.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            const btn = document.getElementById('modal-buy-btn');
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch('/api/store/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        listing_id: currentListingId,
+                        discord_user_id: userId,
+                    }),
+                });
+                const data = await resp.json();
+
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    errorEl.textContent = data.error || 'Checkout failed.';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.classList.remove('hidden');
+            }
+
+            btn.textContent = 'Buy Now';
+            btn.disabled = false;
+        }
+
+        document.getElementById('buy-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'buy-modal') closeBuyModal();
+        });
+
+        loadStore();
+    </script>
+</body>
+</html>

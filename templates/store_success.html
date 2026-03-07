@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D | Purchase Complete</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        @keyframes checkmark {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-check { animation: checkmark 0.6s ease forwards; }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid flex items-center justify-center">
+    <div class="text-center px-6 max-w-lg">
+        <div class="w-24 h-24 rounded-full bg-green-500/20 border-2 border-green-400 flex items-center justify-center mx-auto mb-6 animate-check">
+            <svg class="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
+        <h1 class="font-brand text-4xl text-evil-300 mb-4 purple-glow">Purchase Complete!</h1>
+        <p class="text-evil-200/60 text-lg mb-8">Your new deck is ready to use. Head to Discord and start playing with your new cards!</p>
+        <div class="flex gap-4 justify-center">
+            <a href="/store" class="px-6 py-3 rounded-xl border border-evil-800/50 text-evil-300 hover:bg-evil-card transition font-semibold">Back to Store</a>
+            <a href="/" class="px-6 py-3 rounded-xl bg-gradient-to-r from-evil-500 to-evil-600 text-white font-bold hover:from-evil-400 hover:to-evil-500 transition">Home</a>
+        </div>
+    </div>
+</body>
+</html>

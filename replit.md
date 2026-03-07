@@ -65,6 +65,9 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `GET /premium` - Premium pricing page
 - `GET /premium/success` - Post-checkout success page
 - `GET /decks` - Card deck info page (how to upload, user lookup)
+- `GET /store` - Deck store (purchase decks via Stripe)
+- `GET /store/success` - Post-purchase success page
+- `GET /admin` - Admin panel (token-gated, manage store listings)
 - `GET /api/leaderboard` - JSON leaderboard data
 - `GET /api/rounds` - JSON recent rounds data
 - `GET /api/rounds/{slug}` - JSON single round detail
@@ -73,8 +76,15 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `GET /api/generate?card_type=white|black` - Generate a card via Venice.ai
 - `GET /rounds/{slug}` - Individual round page
 - `GET /api/decks?user_id=X` - JSON list of user's custom decks (requires user_id)
-- `POST /api/stripe/create-checkout` - Create Stripe checkout session
-- `POST /api/stripe/webhook` - Stripe webhook handler
+- `GET /api/store/listings` - JSON active store listings
+- `POST /api/store/checkout` - Create Stripe checkout for deck purchase
+- `GET /api/admin/listings` - JSON all listings (admin-only)
+- `POST /api/admin/listings` - Create listing (admin-only)
+- `PUT /api/admin/listings/{id}` - Update listing (admin-only)
+- `DELETE /api/admin/listings/{id}` - Delete listing (admin-only)
+- `POST /api/admin/upload-image` - Upload listing image (admin-only)
+- `POST /api/stripe/create-checkout` - Create Stripe checkout session (Pro)
+- `POST /api/stripe/webhook` - Stripe webhook handler (handles both Pro and deck purchases)
 - `GET /api/stripe/config` - Stripe publishable key
 - `GET /api/stripe/premium-status/{guild_id}` - Check server premium status
 
@@ -92,16 +102,20 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `tournament.py` - Tournament game loop and UI components
 - `api_client.py` - Venice.ai integration + deduplication
 - `ui_components.py` - Discord UI components (judging buttons)
-- `db.py` - Database operations (games + tournaments + premium + decks)
+- `db.py` - Database operations (games + tournaments + premium + decks + store)
 - `stripe_client.py` - Stripe credential fetching via Replit Connectors
-- `stripe_routes.py` - Stripe checkout and webhook routes
+- `stripe_routes.py` - Stripe checkout and webhook routes (Pro subs + deck purchases)
 - `seed_products.py` - Script to create Stripe products and prices
 - `classic_cards.json` - Classic CAH cards for deduplication
 - `templates/index.html` - Web frontend (Evil Apples 4D themed)
 - `templates/premium.html` - Premium pricing page
 - `templates/premium_success.html` - Checkout success page
-- `templates/decks.html` - Card deck upload and management page
+- `templates/decks.html` - Card deck info and user lookup page
+- `templates/store.html` - Deck store (browse & purchase)
+- `templates/store_success.html` - Purchase success page
+- `templates/admin.html` - Admin panel (manage store listings, pricing, bundling)
 - `static/logo.png` - Brand logo
+- `static/surreal-dali-deck.png` - Sample deck artwork (5:7 portrait)
 
 ## Dependencies
 - fastapi, uvicorn, jinja2
