@@ -38,3 +38,8 @@ externalPort = 80
 [deployment]
 deploymentTarget = "vm"
 run = ["python", "server.py"]
+
+[userenv]
+
+[userenv.shared]
+STRIPE_PRICE_ID = "price_1T8SN1IacFZgLtySudO62Iz6"
