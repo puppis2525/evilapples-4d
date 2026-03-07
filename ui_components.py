@@ -38,7 +38,7 @@ class JudgingView(discord.ui.View):
 
         embed = discord.Embed(
             title="We Have a Winner!",
-            color=discord.Color.gold()
+            color=discord.Color.purple()
         )
         embed.add_field(name="Prompt", value=prompt, inline=False)
         embed.add_field(name="Winning Card", value=winning_card, inline=False)

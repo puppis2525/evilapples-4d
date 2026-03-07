@@ -3,52 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cards Against Humanity - AI Edition | Live Leaderboard</title>
+    <title>Evil Apples 4D | Live Leaderboard</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff',
+                            100: '#e5deff',
+                            200: '#cdbbff',
+                            300: '#b08dff',
+                            400: '#9055ff',
+                            500: '#7c3aed',
+                            600: '#6d28d9',
+                            700: '#5b21b6',
+                            800: '#4c1d95',
+                            900: '#3b1578',
+                            950: '#1a0a3e',
+                            bg: '#0d0520',
+                            surface: '#170e30',
+                            card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
         .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
-        .glow { text-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+        .card-hover:hover { transform: translateY(-6px) rotate(-1deg); box-shadow: 0 16px 50px rgba(124, 58, 237, 0.3); }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .logo-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in { animation: fadeInUp 0.5s ease forwards; }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.4); }
+        }
+        .pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .black-card {
+            background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+            border: 2px solid #2a2a4a;
+        }
+        .white-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f0f0f5 100%);
+        }
     </style>
 </head>
-<body class="bg-gray-950 text-white min-h-screen">
-    <nav class="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <h1 class="text-2xl font-black tracking-tight">
-                <span class="text-red-500">CAH</span>
-                <span class="text-gray-400 font-normal text-lg ml-1">AI Edition</span>
-            </h1>
-            <div class="flex gap-4 text-sm text-gray-400">
-                <a href="#leaderboard" class="hover:text-white transition">Leaderboard</a>
-                <a href="#hall-of-fame" class="hover:text-white transition">Hall of Fame</a>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex gap-6 text-sm">
+                <a href="#leaderboard" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="#hall-of-fame" class="text-evil-300 hover:text-white transition font-semibold">Hall of Fame</a>
             </div>
         </div>
     </nav>
 
-    <header class="text-center py-20 px-6">
-        <h2 class="text-5xl md:text-6xl font-black mb-4 glow">Live Leaderboard</h2>
-        <p class="text-gray-400 text-lg max-w-2xl mx-auto">
-            The funniest, most unhinged AI-generated card combinations from our Discord games.
-            Updated in real-time as rounds are played.
-        </p>
+    <header class="text-center py-16 px-6 relative overflow-hidden">
+        <div class="absolute inset-0 flex items-center justify-center opacity-5">
+            <img src="/static/logo.png" alt="" class="w-96 h-96">
+        </div>
+        <div class="relative z-10">
+            <img src="/static/logo.png" alt="Evil Apples 4D" class="w-24 h-24 mx-auto mb-6 logo-float drop-shadow-2xl">
+            <h2 class="font-brand text-5xl md:text-7xl mb-4 purple-glow text-evil-300">Live Leaderboard</h2>
+            <p class="text-evil-200/60 text-lg max-w-2xl mx-auto">
+                The most devilishly funny AI-generated card combos from our Discord games.
+                Updated in real-time. Play to get on the board.
+            </p>
+        </div>
     </header>
 
     <main class="max-w-6xl mx-auto px-6 pb-20">
         <section id="leaderboard" class="mb-20">
-            <h3 class="text-3xl font-bold mb-8 flex items-center gap-3">
+            <h3 class="font-brand text-3xl mb-8 flex items-center gap-3 text-evil-300">
                 <span class="text-yellow-400">&#127942;</span> Top Players
             </h3>
-            <div class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+            <div class="bg-evil-surface rounded-2xl border border-evil-800/50 overflow-hidden pulse-glow">
                 <table class="w-full">
                     <thead>
-                        <tr class="border-b border-gray-800 text-left text-gray-400 text-sm uppercase tracking-wider">
+                        <tr class="border-b border-evil-800/50 text-left text-evil-400 text-xs uppercase tracking-widest">
                             <th class="px-6 py-4 w-16">Rank</th>
                             <th class="px-6 py-4">Player</th>
                             <th class="px-6 py-4 text-center">Wins</th>
@@ -58,7 +116,7 @@
                     </thead>
                     <tbody id="leaderboard-body">
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                            <td colspan="5" class="px-6 py-12 text-center text-evil-400">
                                 Loading leaderboard...
                             </td>
                         </tr>
@@ -68,28 +126,32 @@
         </section>
 
         <section id="hall-of-fame">
-            <h3 class="text-3xl font-bold mb-8 flex items-center gap-3">
-                <span class="text-red-400">&#9829;</span> Hall of Fame
+            <h3 class="font-brand text-3xl mb-4 flex items-center gap-3 text-evil-300">
+                <img src="/static/logo.png" alt="" class="w-8 h-8"> Hall of Fame
             </h3>
-            <p class="text-gray-400 mb-8">The winning prompt + answer combos that made everyone lose it.</p>
+            <p class="text-evil-200/50 mb-8">The winning prompt + answer combos that had everyone dying.</p>
             <div id="rounds-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="col-span-full text-center text-gray-500 py-12">
+                <div class="col-span-full text-center text-evil-400 py-12">
                     Loading rounds...
                 </div>
             </div>
         </section>
     </main>
 
-    <footer class="border-t border-gray-800 py-8 text-center text-gray-500 text-sm">
-        <p>Cards Against Humanity - AI Edition. Powered by Venice.ai and Discord.</p>
+    <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+        <p>Powered by Venice.ai and Discord. Be evil. Be funny.</p>
     </footer>
 
     <script>
         function getRankBadge(rank) {
-            if (rank === 1) return '<span class="text-yellow-400 font-bold text-lg">&#127942;</span>';
-            if (rank === 2) return '<span class="text-gray-300 font-bold text-lg">&#129352;</span>';
-            if (rank === 3) return '<span class="text-orange-400 font-bold text-lg">&#129353;</span>';
-            return `<span class="text-gray-500 font-semibold">${rank}</span>`;
+            if (rank === 1) return '<span class="text-yellow-400 font-bold text-xl">&#127942;</span>';
+            if (rank === 2) return '<span class="text-gray-300 font-bold text-xl">&#129352;</span>';
+            if (rank === 3) return '<span class="text-orange-400 font-bold text-xl">&#129353;</span>';
+            return `<span class="text-evil-400 font-semibold">${rank}</span>`;
         }
 
         async function loadLeaderboard() {
@@ -101,8 +163,8 @@
                 if (data.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                                No games played yet. Start a game on Discord with <code class="bg-gray-800 px-2 py-1 rounded">!startgame</code>
+                            <td colspan="5" class="px-6 py-12 text-center text-evil-400">
+                                No games played yet. Start a game on Discord with <code class="bg-evil-card px-2 py-1 rounded text-evil-300 font-mono">!startgame</code>
                             </td>
                         </tr>`;
                     return;
@@ -113,12 +175,12 @@
                         ? Math.round((player.wins / player.games_played) * 100)
                         : 0;
                     return `
-                        <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition animate-fade-in" style="animation-delay: ${i * 0.05}s">
+                        <tr class="border-b border-evil-800/30 hover:bg-evil-card/50 transition animate-fade-in" style="animation-delay: ${i * 0.05}s">
                             <td class="px-6 py-4">${getRankBadge(i + 1)}</td>
-                            <td class="px-6 py-4 font-semibold">${player.discord_name}</td>
-                            <td class="px-6 py-4 text-center text-yellow-400 font-bold">${player.wins}</td>
-                            <td class="px-6 py-4 text-center text-gray-400">${player.games_played}</td>
-                            <td class="px-6 py-4 text-right text-gray-300">${winRate}%</td>
+                            <td class="px-6 py-4 font-bold text-white">${player.discord_name}</td>
+                            <td class="px-6 py-4 text-center text-evil-300 font-bold text-lg">${player.wins}</td>
+                            <td class="px-6 py-4 text-center text-evil-400">${player.games_played}</td>
+                            <td class="px-6 py-4 text-right font-semibold text-evil-200">${winRate}%</td>
                         </tr>`;
                 }).join('');
             } catch (e) {
@@ -134,8 +196,8 @@
 
                 if (data.length === 0) {
                     grid.innerHTML = `
-                        <div class="col-span-full text-center text-gray-500 py-12">
-                            No rounds played yet. The Hall of Fame awaits its first entry!
+                        <div class="col-span-full text-center text-evil-400 py-12">
+                            No rounds played yet. The Hall of Fame awaits its first evil entry!
                         </div>`;
                     return;
                 }
@@ -145,18 +207,18 @@
                         month: 'short', day: 'numeric', year: 'numeric'
                     });
                     return `
-                        <div class="card-hover bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col animate-fade-in" style="animation-delay: ${i * 0.08}s">
-                            <div class="bg-gray-950 rounded-lg p-4 mb-4 border border-gray-700 flex-1">
-                                <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Prompt</p>
-                                <p class="text-white font-semibold">${round.prompt}</p>
+                        <div class="card-hover bg-evil-surface border border-evil-800/40 rounded-2xl p-5 flex flex-col animate-fade-in" style="animation-delay: ${i * 0.08}s">
+                            <div class="black-card rounded-xl p-4 mb-4 flex-1">
+                                <p class="text-evil-400 text-xs uppercase tracking-widest mb-2 font-semibold">Prompt</p>
+                                <p class="text-white font-bold text-lg leading-snug">${round.prompt}</p>
                             </div>
-                            <div class="bg-white text-black rounded-lg p-4 mb-4 border-2 border-gray-300 flex-1">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider mb-2">Winning Card</p>
-                                <p class="font-bold text-lg">${round.winning_card}</p>
+                            <div class="white-card text-black rounded-xl p-4 mb-4 flex-1 shadow-lg">
+                                <p class="text-gray-400 text-xs uppercase tracking-widest mb-2 font-semibold">Winning Card</p>
+                                <p class="font-black text-xl leading-snug">${round.winning_card}</p>
                             </div>
-                            <div class="flex items-center justify-between text-sm text-gray-400 mt-auto">
-                                <span>Winner: <span class="text-white font-medium">${round.winner_name}</span></span>
-                                <span>${date}</span>
+                            <div class="flex items-center justify-between text-sm text-evil-400 mt-auto pt-2">
+                                <span>Winner: <span class="text-evil-300 font-bold">${round.winner_name}</span></span>
+                                <span class="text-evil-500">${date}</span>
                             </div>
                         </div>`;
                 }).join('');

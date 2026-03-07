@@ -4,7 +4,8 @@ import threading
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
 
@@ -31,13 +32,14 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Cards Against Humanity - AI Edition", lifespan=lifespan)
+app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
 @app.get("/favicon.ico")
 async def favicon():
-    return Response(content=b"", media_type="image/x-icon", status_code=204)
+    return FileResponse("static/logo.png", media_type="image/png")
 
 
 @app.get("/", response_class=HTMLResponse)

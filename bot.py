@@ -48,9 +48,9 @@ async def start_game(ctx):
     active_games[ctx.channel.id] = session.to_dict()
 
     embed = discord.Embed(
-        title="Cards Against Humanity - AI Edition",
-        description="A new game is starting! React with \u2705 to join.\nThe game starts when the Judge types `!deal`.",
-        color=discord.Color.dark_red()
+        title="Evil Apples 4D",
+        description="A new game is starting! Type `!join` to play.\nThe game starts when the Judge types `!deal`.",
+        color=discord.Color.purple()
     )
     embed.add_field(name="Judge", value=ctx.author.mention, inline=False)
     embed.add_field(name="Commands", value=(
@@ -104,7 +104,7 @@ async def deal_cards(ctx):
     game["state"] = "dealing"
     game["submissions"] = {}
 
-    await ctx.send("Generating AI cards and dealing hands... This may take a moment.")
+    await ctx.send("Generating evil cards and dealing hands... This may take a moment.")
 
     try:
         prompt = await generate_prompt()
