@@ -9,7 +9,8 @@ from db import (
     batch_update_games_played,
     create_tournament, get_active_tournament, join_tournament,
     get_tournament_players, get_tournament_player_count,
-    start_tournament, end_tournament
+    start_tournament, end_tournament,
+    is_premium_server, get_premium_server
 )
 from tournament import (
     active_tournament_rounds, run_tournament_round,
@@ -110,6 +111,21 @@ async def deal_cards(ctx):
     if game["state"] not in ("waiting_for_players", "finished"):
         await ctx.send("A round is already in progress!")
         return
+
+    if ctx.guild:
+        premium = await is_premium_server(str(ctx.guild.id))
+        if not premium:
+            key = get_daily_key(str(ctx.guild.id))
+            count = daily_game_counts.get(key, 0)
+            if count >= FREE_DAILY_GAME_LIMIT:
+                host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+                await ctx.send(
+                    f"**Free tier limit reached!** ({FREE_DAILY_GAME_LIMIT} games/day)\n"
+                    f"Upgrade to Pro for unlimited games: https://{host}/premium\n"
+                    f"Or use `!premium` for details."
+                )
+                return
+            daily_game_counts[key] = count + 1
 
     game["state"] = "dealing"
     game["submissions"] = {}
@@ -352,6 +368,66 @@ async def tournament_end_cmd(ctx):
 
     if ctx.channel.id in active_tournament_rounds:
         del active_tournament_rounds[ctx.channel.id]
+
+
+FREE_DAILY_GAME_LIMIT = 3
+daily_game_counts = {}
+
+
+def get_daily_key(guild_id):
+    from datetime import date
+    return f"{guild_id}:{date.today().isoformat()}"
+
+
+@bot.command(name="premium")
+async def premium_cmd(ctx):
+    if not ctx.guild:
+        await ctx.send("This command can only be used in a server.")
+        return
+
+    premium = await get_premium_server(str(ctx.guild.id))
+
+    if premium and premium.get("active"):
+        embed = discord.Embed(
+            title="Evil Apples 4D Pro — Active",
+            description=(
+                f"This server has **Pro** status!\n\n"
+                f"**Plan:** {premium['plan'].title()}\n"
+                f"**Activated by:** {premium['activated_by_name']}\n\n"
+                "**Pro Features:**\n"
+                "- Unlimited games per day\n"
+                "- Unlimited tournaments\n"
+                "- Priority AI card generation\n"
+                "- Premium card packs (coming soon)"
+            ),
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text="Thank you for supporting Evil Apples 4D!")
+        await ctx.send(embed=embed)
+    else:
+        host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+        upgrade_url = f"https://{host}/premium"
+
+        embed = discord.Embed(
+            title="Evil Apples 4D Pro",
+            description=(
+                "Upgrade your server to **Pro** for unlimited evil fun!\n\n"
+                "**Free Tier:**\n"
+                f"- {FREE_DAILY_GAME_LIMIT} games per day\n"
+                "- 1 tournament at a time\n"
+                "- Standard AI cards\n\n"
+                "**Pro — $5.99/month:**\n"
+                "- Unlimited games per day\n"
+                "- Unlimited tournaments\n"
+                "- Priority AI card generation\n"
+                "- Premium card packs (coming soon)\n"
+                "- Support the developer!\n\n"
+                f"**[Upgrade Now]({upgrade_url})**"
+            ),
+            color=discord.Color.purple()
+        )
+        embed.set_footer(text="Use the link above to upgrade your server")
+        await ctx.send(embed=embed)
 
 
 @bot.event

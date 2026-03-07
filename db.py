@@ -89,6 +89,21 @@ async def init_db():
                 UNIQUE(tournament_id, round_number)
             );
         """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS premium_servers (
+                id SERIAL PRIMARY KEY,
+                guild_id VARCHAR(64) UNIQUE NOT NULL,
+                guild_name VARCHAR(256) NOT NULL DEFAULT 'Unknown',
+                plan VARCHAR(32) NOT NULL DEFAULT 'pro',
+                stripe_customer_id VARCHAR(128),
+                stripe_subscription_id VARCHAR(128),
+                activated_by VARCHAR(64),
+                activated_by_name VARCHAR(128),
+                active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                expires_at TIMESTAMP
+            );
+        """)
 
 
 async def save_round(prompt: str, winning_card: str, winner_discord_id: str, winner_name: str, slug: str):
@@ -299,3 +314,60 @@ async def get_tournament_details(tournament_id: int):
             "players": [dict(p) for p in players],
             "rounds": [dict(r) for r in rounds]
         }
+
+
+async def is_premium_server(guild_id: str) -> bool:
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT active FROM premium_servers WHERE guild_id = $1 AND active = TRUE",
+            guild_id
+        )
+        return row is not None
+
+
+async def get_premium_server(guild_id: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM premium_servers WHERE guild_id = $1",
+            guild_id
+        )
+        return dict(row) if row else None
+
+
+async def activate_premium(guild_id: str, guild_name: str, plan: str,
+                           stripe_customer_id: str, stripe_subscription_id: str,
+                           activated_by: str, activated_by_name: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO premium_servers
+               (guild_id, guild_name, plan, stripe_customer_id, stripe_subscription_id,
+                activated_by, activated_by_name, active)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+               ON CONFLICT (guild_id) DO UPDATE SET
+                   guild_name = $2, plan = $3, stripe_customer_id = $4,
+                   stripe_subscription_id = $5, activated_by = $6,
+                   activated_by_name = $7, active = TRUE""",
+            guild_id, guild_name, plan, stripe_customer_id,
+            stripe_subscription_id, activated_by, activated_by_name
+        )
+
+
+async def deactivate_premium(stripe_subscription_id: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE premium_servers SET active = FALSE WHERE stripe_subscription_id = $1",
+            stripe_subscription_id
+        )
+
+
+async def get_premium_stats():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active = TRUE) as active FROM premium_servers"
+        )
+        return dict(row) if row else {"total": 0, "active": 0}

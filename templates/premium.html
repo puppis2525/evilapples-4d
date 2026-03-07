@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D Pro | Upgrade Your Server</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .logo-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.5); }
+        }
+        .pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+        @keyframes goldGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(234, 179, 8, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(234, 179, 8, 0.4); }
+        }
+        .gold-glow { animation: goldGlow 2s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="text-center py-16 px-6">
+        <img src="/static/logo.png" alt="Evil Apples 4D" class="w-20 h-20 mx-auto mb-6 logo-float drop-shadow-2xl">
+        <h2 class="font-brand text-5xl md:text-6xl mb-4 purple-glow text-evil-300">Go Pro</h2>
+        <p class="text-evil-200/60 text-lg max-w-2xl mx-auto">
+            Unlock unlimited games, tournaments, and premium features for your Discord server.
+        </p>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 pb-20">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 pulse-glow">
+                <div class="text-center mb-6">
+                    <h3 class="font-brand text-2xl text-evil-300 mb-2">Free</h3>
+                    <p class="text-4xl font-black text-white">$0</p>
+                    <p class="text-evil-400 text-sm">forever</p>
+                </div>
+                <ul class="space-y-3 mb-8">
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-green-400">&#10003;</span> 3 games per day
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-green-400">&#10003;</span> 1 tournament at a time
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-green-400">&#10003;</span> Standard AI cards
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-green-400">&#10003;</span> Leaderboard & Hall of Fame
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-400">
+                        <span class="text-evil-600">&#10007;</span> Limited daily games
+                    </li>
+                </ul>
+                <div class="text-center">
+                    <span class="inline-block px-6 py-3 rounded-xl bg-evil-card text-evil-400 font-semibold">
+                        Current Plan
+                    </span>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-b from-evil-surface to-evil-card border-2 border-yellow-500/30 rounded-2xl p-8 gold-glow relative">
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider">
+                    Most Popular
+                </div>
+                <div class="text-center mb-6">
+                    <h3 class="font-brand text-2xl text-yellow-400 mb-2">Pro</h3>
+                    <p class="text-4xl font-black text-white">$5.99</p>
+                    <p class="text-evil-400 text-sm">per month / per server</p>
+                </div>
+                <ul class="space-y-3 mb-8">
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-yellow-400">&#9733;</span> Unlimited games per day
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-yellow-400">&#9733;</span> Unlimited tournaments
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-yellow-400">&#9733;</span> Priority AI card generation
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-yellow-400">&#9733;</span> Premium card packs (coming soon)
+                    </li>
+                    <li class="flex items-center gap-3 text-evil-200">
+                        <span class="text-yellow-400">&#9733;</span> Support the developer
+                    </li>
+                </ul>
+                <div class="text-center">
+                    <button id="checkout-btn"
+                        class="px-8 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold text-lg hover:from-yellow-400 hover:to-yellow-500 transition-all transform hover:scale-105 shadow-lg">
+                        Upgrade Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 mb-12">
+            <h3 class="font-brand text-2xl text-evil-300 mb-6 text-center">How It Works</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="text-center">
+                    <div class="text-3xl mb-3">1&#65039;&#8419;</div>
+                    <h4 class="font-bold text-white mb-2">Enter Server Info</h4>
+                    <p class="text-evil-400 text-sm">Provide your Discord Server ID below to link the subscription.</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl mb-3">2&#65039;&#8419;</div>
+                    <h4 class="font-bold text-white mb-2">Complete Payment</h4>
+                    <p class="text-evil-400 text-sm">Secure checkout powered by Stripe. Cancel anytime.</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl mb-3">3&#65039;&#8419;</div>
+                    <h4 class="font-bold text-white mb-2">Instant Activation</h4>
+                    <p class="text-evil-400 text-sm">Pro features activate immediately. Use !premium to verify.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="checkout-form" class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 max-w-lg mx-auto">
+            <h3 class="font-brand text-xl text-evil-300 mb-6 text-center">Enter Your Server Details</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-evil-400 text-sm font-semibold mb-2">Discord Server ID</label>
+                    <input type="text" id="guild-id" placeholder="e.g. 123456789012345678"
+                        class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                    <p class="text-evil-500 text-xs mt-1">Right-click your server name in Discord > Copy Server ID</p>
+                </div>
+                <div>
+                    <label class="block text-evil-400 text-sm font-semibold mb-2">Server Name</label>
+                    <input type="text" id="guild-name" placeholder="My Discord Server"
+                        class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                </div>
+                <div>
+                    <label class="block text-evil-400 text-sm font-semibold mb-2">Your Discord Username</label>
+                    <input type="text" id="user-name" placeholder="YourName#1234"
+                        class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                </div>
+                <button id="start-checkout"
+                    class="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold text-lg hover:from-yellow-400 hover:to-yellow-500 transition-all transform hover:scale-105 shadow-lg mt-4">
+                    Proceed to Checkout
+                </button>
+                <p id="checkout-error" class="text-red-400 text-sm text-center hidden"></p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+        <p>Secure payments powered by Stripe. Cancel anytime.</p>
+    </footer>
+
+    <script>
+        document.getElementById('checkout-btn').addEventListener('click', () => {
+            document.getElementById('checkout-form').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('start-checkout').addEventListener('click', async () => {
+            const guildId = document.getElementById('guild-id').value.trim();
+            const guildName = document.getElementById('guild-name').value.trim();
+            const userName = document.getElementById('user-name').value.trim();
+            const errorEl = document.getElementById('checkout-error');
+
+            errorEl.classList.add('hidden');
+
+            if (!guildId || !guildName) {
+                errorEl.textContent = 'Please enter your Discord Server ID and Server Name.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            if (!/^\d{17,20}$/.test(guildId)) {
+                errorEl.textContent = 'Server ID should be a 17-20 digit number. Right-click your server name > Copy Server ID.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            const btn = document.getElementById('start-checkout');
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch('/api/stripe/create-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        guild_id: guildId,
+                        guild_name: guildName,
+                        user_id: guildId,
+                        user_name: userName || 'Unknown',
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.classList.remove('hidden');
+            }
+
+            btn.textContent = 'Proceed to Checkout';
+            btn.disabled = false;
+        });
+    </script>
+</body>
+</html>
