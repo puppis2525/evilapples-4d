@@ -203,7 +203,7 @@ async def deal_cards(ctx):
             color=discord.Color.green()
         )
         embed.set_footer(text=f"Waiting for {len(game['players'])} submissions...")
-        view = HandView(game, mode="multiplayer")
+        view = HandView(game, mode="multiplayer", channel=ctx.channel)
         await ctx.send(embed=embed, view=view)
 
         if timer_seconds:
@@ -502,7 +502,7 @@ async def solo_deal(ctx):
                 color=discord.Color.dark_purple()
             )
             embed.set_footer(text=f"Playing against {', '.join(game['ai_opponents'])}")
-            view = HandView(game, mode="solo")
+            view = HandView(game, mode="solo", channel=ctx.channel)
             await ctx.send(embed=embed, view=view)
 
             if timer_seconds:
@@ -1192,6 +1192,12 @@ async def on_message(message):
 
         await message.channel.send(f"Card submitted: **{selected_card}**\nCheck the main channel for results!")
 
+        game_channel = bot.get_channel(channel_id)
+        if game_channel:
+            card_num = len(game["submissions"])
+            total = len(game["players"])
+            await game_channel.send(f"\U0001F0CF **Card {card_num}** submitted! ({card_num}/{total})")
+
         if len(game["submissions"]) == len(game["players"]):
             if channel_id in timer_tasks:
                 timer_tasks[channel_id].cancel()
@@ -1243,6 +1249,12 @@ async def on_message(message):
         round_data["submissions"][player_id] = selected_card
 
         await message.channel.send(f"Card submitted: **{selected_card}**\nCheck the tournament channel for results!")
+
+        t_channel = bot.get_channel(channel_id)
+        if t_channel:
+            card_num = len(round_data["submissions"])
+            total = len(round_data["players"])
+            await t_channel.send(f"\U0001F0CF **Card {card_num}** submitted! ({card_num}/{total})")
 
         if len(round_data["submissions"]) == len(round_data["players"]):
             channel = bot.get_channel(channel_id)

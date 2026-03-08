@@ -10,10 +10,11 @@ def format_prompt(prompt_text):
 
 
 class HandView(discord.ui.View):
-    def __init__(self, game_session, mode="multiplayer"):
+    def __init__(self, game_session, mode="multiplayer", channel=None):
         super().__init__(timeout=300)
         self.game_session = game_session
         self.mode = mode
+        self.channel = channel
 
     @discord.ui.button(label="View My Hand", style=discord.ButtonStyle.green, emoji="\U0001F0CF")
     async def view_hand(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -50,16 +51,18 @@ class HandView(discord.ui.View):
         )
         embed.set_footer(text="Click a numbered button below to submit your card!")
 
-        submit_view = SubmitCardView(self.game_session, hand, self.mode)
+        game_channel = self.channel or interaction.channel
+        submit_view = SubmitCardView(self.game_session, hand, self.mode, channel=game_channel)
         await interaction.response.send_message(embed=embed, view=submit_view, ephemeral=True)
 
 
 class SubmitCardView(discord.ui.View):
-    def __init__(self, game_session, hand, mode="multiplayer"):
+    def __init__(self, game_session, hand, mode="multiplayer", channel=None):
         super().__init__(timeout=300)
         self.game_session = game_session
         self.hand = hand
         self.mode = mode
+        self.channel = channel
 
         for i, card in enumerate(hand):
             label = f"{i+1}"
@@ -121,6 +124,12 @@ class SubmitCardButton(discord.ui.Button):
                 embed=None,
                 view=self.view_ref
             )
+
+            channel = self.view_ref.channel
+            if channel:
+                card_num = len(game["submissions"])
+                total = len(game.get("players", {}))
+                await channel.send(f"🃏 **Card {card_num}** submitted! ({card_num}/{total})")
 
             from bot import check_all_submitted
             await check_all_submitted(game, interaction)
@@ -269,6 +278,11 @@ class TournamentSubmitButton(discord.ui.Button):
             embed=None,
             view=self.view_ref
         )
+
+        if channel:
+            card_num = len(round_data["submissions"])
+            total = len(round_data.get("players", {}))
+            await channel.send(f"\U0001F0CF **Card {card_num}** submitted! ({card_num}/{total})")
 
         if len(round_data["submissions"]) == len(round_data["players"]):
             from tournament import TournamentJudgingView
