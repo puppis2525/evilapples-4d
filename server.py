@@ -59,7 +59,9 @@ app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
 
 from stripe_routes import router as stripe_router
 from stripe_client import get_stripe_client
+from discord_auth import router as auth_router, get_discord_user
 app.include_router(stripe_router)
+app.include_router(auth_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")

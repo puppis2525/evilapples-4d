@@ -59,11 +59,12 @@
                     <span class="text-evil-300 text-lg ml-1">4D</span>
                 </h1>
             </a>
-            <div class="flex gap-6 text-sm">
+            <div class="flex items-center gap-6 text-sm">
                 <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
                 <a href="/store" class="text-evil-300 hover:text-white transition font-semibold">Store</a>
                 <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
                 <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+                <div id="auth-btn"></div>
             </div>
         </div>
     </nav>
@@ -200,7 +201,10 @@
         <p>Secure payments powered by Stripe. Cancel anytime.</p>
     </footer>
 
+    <script src="/static/auth.js"></script>
     <script>
+        initAuth();
+
         document.getElementById('checkout-btn').addEventListener('click', () => {
             document.getElementById('checkout-form').scrollIntoView({ behavior: 'smooth' });
         });

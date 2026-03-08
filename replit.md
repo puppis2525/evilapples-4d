@@ -112,11 +112,21 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `GET /api/stripe/config` - Stripe publishable key
 - `GET /api/stripe/premium-status/{guild_id}` - Check server premium status
 
+### Discord OAuth2 Login (discord_auth.py)
+- Users can sign in with Discord via OAuth2 on the website
+- Automatically parses Discord User ID, username, avatar
+- Signed cookie session (HMAC-SHA256 with SESSION_SECRET), 30-day expiry
+- Auth routes: `/auth/discord/login`, `/auth/discord/callback`, `/auth/discord/logout`, `/api/auth/user`
+- Store and Decks pages auto-fill Discord User ID when signed in
+- Discord app OAuth2 redirect URLs must include both production and dev callback URLs
+
 ## Environment Secrets
 - `DISCORD_TOKEN` - Discord bot token
+- `DISCORD_CLIENT_ID` - Discord OAuth2 client ID (for website login)
+- `DISCORD_CLIENT_SECRET` - Discord OAuth2 client secret (for website login)
 - `VENICE_API_KEY` - Venice.ai API key
 - `DATABASE_URL` - PostgreSQL connection string (auto-provided)
-- `SESSION_SECRET` - Session secret
+- `SESSION_SECRET` - Session secret (also used for cookie signing and admin auth)
 - `STRIPE_PRICE_ID` - Stripe price ID for Pro plan (set after running seed_products.py)
 - Stripe keys managed via Replit Connectors (no manual API keys needed)
 
@@ -128,6 +138,8 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `ui_components.py` - Discord UI components (judging buttons)
 - `db.py` - Database operations (games + tournaments + premium + decks + store)
 - `stripe_client.py` - Stripe credential fetching via Replit Connectors
+- `discord_auth.py` - Discord OAuth2 login (sign in with Discord, session cookies)
+- `static/auth.js` - Shared auth UI (Sign In button, user dropdown, auto-fill Discord ID)
 - `stripe_routes.py` - Stripe checkout and webhook routes (Pro subs + deck purchases)
 - `seed_products.py` - Script to create Stripe products and prices
 - `classic_cards.json` - Classic CAH cards for deduplication

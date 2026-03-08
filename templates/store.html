@@ -85,11 +85,12 @@
                     <span class="text-evil-300 text-lg ml-1">4D</span>
                 </h1>
             </a>
-            <div class="flex gap-6 text-sm">
+            <div class="flex items-center gap-6 text-sm">
                 <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
                 <a href="/store" class="text-white transition font-semibold">Store</a>
                 <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
                 <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+                <div id="auth-btn"></div>
             </div>
         </div>
     </nav>
@@ -158,8 +159,31 @@
         <div class="bg-red-500/90 backdrop-blur-sm text-white px-6 py-3 rounded-xl text-sm font-semibold shadow-xl"></div>
     </div>
 
+    <script src="/static/auth.js"></script>
     <script>
         const cart = new Map();
+
+        (async () => {
+            const user = await initAuth();
+            if (user.logged_in) {
+                const input = document.getElementById('user-id');
+                if (input) {
+                    input.value = user.discord_id;
+                    input.readOnly = true;
+                    input.classList.add('text-evil-300');
+                    const label = input.previousElementSibling || input.closest('div')?.querySelector('label');
+                    const container = input.closest('.bg-evil-surface');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                ${user.avatar_url ? `<img src="${user.avatar_url}" class="w-8 h-8 rounded-full border border-evil-500/50">` : ''}
+                                <span class="text-evil-300 text-sm font-semibold">Signed in as <span class="text-white">${user.global_name || user.username}</span></span>
+                                <input type="hidden" id="user-id" value="${user.discord_id}">
+                            </div>`;
+                    }
+                }
+            }
+        })();
 
         async function loadStore() {
             try {
