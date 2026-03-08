@@ -100,17 +100,19 @@ async def stripe_webhook(request: Request):
             if metadata.get("type") == "deck_purchase":
                 payment_status = session.get("payment_status", "")
                 if payment_status == "paid":
-                    listing_id = metadata.get("listing_id", "")
+                    listing_ids_str = metadata.get("listing_ids", "") or metadata.get("listing_id", "")
                     discord_user_id = metadata.get("discord_user_id", "")
                     session_id = session.get("id", "")
-                    if listing_id and discord_user_id:
+                    if listing_ids_str and discord_user_id:
                         from db import record_store_purchase, fulfill_store_purchase
-                        was_new = await record_store_purchase(discord_user_id, int(listing_id), session_id)
-                        if was_new:
-                            await fulfill_store_purchase(discord_user_id, int(listing_id))
-                            logger.info(f"Deck purchase fulfilled: user={discord_user_id} listing={listing_id}")
-                        else:
-                            logger.info(f"Deck purchase already recorded (duplicate webhook): session={session_id}")
+                        lid_list = [int(x.strip()) for x in listing_ids_str.split(",") if x.strip()]
+                        for lid in lid_list:
+                            was_new = await record_store_purchase(discord_user_id, lid, f"{session_id}_{lid}")
+                            if was_new:
+                                await fulfill_store_purchase(discord_user_id, lid)
+                                logger.info(f"Deck purchase fulfilled: user={discord_user_id} listing={lid}")
+                            else:
+                                logger.info(f"Deck purchase already recorded: listing={lid} session={session_id}")
                 else:
                     logger.warning(f"Deck purchase session not paid: status={payment_status}")
             else:

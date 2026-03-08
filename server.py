@@ -328,24 +328,30 @@ async def api_admin_delete_listing(listing_id: int, request: Request):
 async def store_checkout(request: Request):
     try:
         body = await request.json()
+        listing_ids = body.get("listing_ids", [])
         listing_id = body.get("listing_id")
         discord_user_id = body.get("discord_user_id", "")
 
-        if not listing_id or not discord_user_id:
-            return JSONResponse(content={"error": "Missing listing_id or discord_user_id"}, status_code=400)
+        if listing_id and not listing_ids:
+            listing_ids = [listing_id]
+
+        if not listing_ids or not discord_user_id:
+            return JSONResponse(content={"error": "Missing listing_ids or discord_user_id"}, status_code=400)
 
         import re
         if not re.match(r'^\d{17,20}$', discord_user_id):
             return JSONResponse(content={"error": "Invalid Discord User ID"}, status_code=400)
 
         from db import get_store_listing, has_purchased
-        listing = await get_store_listing(int(listing_id))
-        if not listing or not listing.get("active"):
-            return JSONResponse(content={"error": "Listing not found"}, status_code=404)
-
-        already = await has_purchased(discord_user_id, int(listing_id))
-        if already:
-            return JSONResponse(content={"error": "You already own this deck!"}, status_code=400)
+        listings = []
+        for lid in listing_ids:
+            listing = await get_store_listing(int(lid))
+            if not listing or not listing.get("active"):
+                return JSONResponse(content={"error": f"Listing {lid} not found"}, status_code=404)
+            already = await has_purchased(discord_user_id, int(lid))
+            if already:
+                return JSONResponse(content={"error": f"You already own '{listing['name']}'!"}, status_code=400)
+            listings.append(listing)
 
         stripe_mod = await get_stripe_client()
 
@@ -353,32 +359,38 @@ async def store_checkout(request: Request):
         protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
         base_url = f"{protocol}://{host}"
 
-        price_cents = listing["price_cents"]
-        name = listing["name"]
-        bundle = listing["bundle_size"]
-        desc = f"{name}"
-        if bundle > 1:
-            desc = f"{name} (Bundle of {bundle})"
+        total_cents = sum(l["price_cents"] for l in listings)
+        discount = len(listings) >= 3
+        if discount:
+            total_cents = int(total_cents * 0.85)
+
+        if len(listings) == 1:
+            desc = listings[0]["name"]
+        else:
+            desc = f"{len(listings)} Decks" + (" (15% Bundle Discount)" if discount else "")
+
+        line_items = [{
+            "price_data": {
+                "currency": "usd",
+                "unit_amount": total_cents,
+                "product_data": {
+                    "name": desc,
+                    "description": ", ".join(l["name"] for l in listings)[:500],
+                },
+            },
+            "quantity": 1,
+        }]
 
         session = stripe_mod.checkout.Session.create(
             payment_method_types=["card"],
-            line_items=[{
-                "price_data": {
-                    "currency": "usd",
-                    "unit_amount": price_cents,
-                    "product_data": {
-                        "name": desc,
-                        "description": listing.get("description", "")[:500],
-                    },
-                },
-                "quantity": 1,
-            }],
+            line_items=line_items,
             mode="payment",
             success_url=f"{base_url}/store/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base_url}/store",
             metadata={
                 "type": "deck_purchase",
-                "listing_id": str(listing_id),
+                "listing_ids": ",".join(str(l["id"]) for l in listings),
+                "listing_id": str(listings[0]["id"]),
                 "discord_user_id": discord_user_id,
             },
         )

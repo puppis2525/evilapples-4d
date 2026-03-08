@@ -53,8 +53,11 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 ### Deck Store & Fulfillment
 - **41 themed decks** in the store at $0.99 each (420, Addictions, Adulting, Babes, British AF, College, Cuties, Dads, Deckronomicon, Drunk AF, Family Guy, Food, Grateful, Gross 1&2, History, Horror, Illegal Activities, Insults, Internet, Kama Sutra, Kinks, Masturbation, Medical, Monsters, Naughty 17, Netflix & Chill, Office, Poke, Pussy, Rick & Morty, Sci-Fi, Sex, Sex Ed, Modern Sex, Shitty Jobs, Simpsons, Sins, Space, Stinky Pinky, Stranger Things)
 - Admins upload "template" decks (CSV) via admin panel — these have `discord_user_id=NULL`
+- **Bundle discount**: Select 3+ decks in the cart for 15% off the total price
+- Cart-based store UI: click decks to select, floating cart bar shows count, total, discount hint, and Buy Now button
 - Store listings reference template deck IDs via `deck_ids` field
-- When a user purchases a listing via Stripe, the webhook records the purchase and triggers fulfillment
+- Checkout supports single or multi-deck purchases via `listing_ids` array
+- When a user purchases listings via Stripe, the webhook records each purchase and triggers fulfillment
 - Fulfillment copies all cards from the template deck(s) into a new personal deck owned by the buyer
 - Purchased decks persist across all sessions — buyers use `!deck list` and `!deck use` in Discord
 - Idempotent: duplicate webhooks are ignored (UNIQUE on stripe_session_id), duplicate deck copies are skipped

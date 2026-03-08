@@ -55,6 +55,24 @@
         .card-hover:hover .deck-preview-overlay {
             opacity: 1;
         }
+        .deck-selected {
+            border-color: rgba(124, 58, 237, 0.8) !important;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.4), inset 0 0 20px rgba(124, 58, 237, 0.1);
+        }
+        .cart-bar {
+            animation: slideUp 0.3s ease forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .check-badge {
+            position: absolute; top: 8px; left: 8px; z-index: 20;
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; box-shadow: 0 2px 8px rgba(124, 58, 237, 0.5);
+        }
     </style>
 </head>
 <body class="bg-evil-bg text-white min-h-screen bg-grid">
@@ -112,24 +130,36 @@
         <p>Expand your evil card collection.</p>
     </footer>
 
-    <div id="buy-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 max-w-md w-full">
-            <h3 id="modal-title" class="font-brand text-2xl text-evil-300 mb-4"></h3>
-            <p id="modal-desc" class="text-evil-400 text-sm mb-4"></p>
-            <div class="flex items-center justify-between mb-6">
-                <span id="modal-price" class="font-brand text-3xl text-green-400"></span>
-                <span id="modal-bundle" class="text-evil-400 text-sm"></span>
-            </div>
-            <div id="modal-error" class="text-red-400 text-sm mb-4 hidden"></div>
-            <div class="flex gap-3">
-                <button onclick="closeBuyModal()" class="flex-1 px-4 py-3 rounded-xl border border-evil-800/50 text-evil-300 hover:bg-evil-card transition">Cancel</button>
-                <button id="modal-buy-btn" onclick="confirmPurchase()" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold hover:from-green-400 hover:to-emerald-500 transition">Buy Now</button>
+    <div id="cart-bar" class="fixed bottom-0 left-0 right-0 z-40 hidden">
+        <div class="cart-bar bg-evil-surface/95 backdrop-blur-md border-t border-evil-700/60 shadow-2xl">
+            <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-1">
+                        <span id="cart-count" class="font-brand text-lg text-evil-300">0 decks selected</span>
+                        <span id="cart-discount" class="hidden text-xs font-bold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">15% OFF</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span id="cart-original" class="text-evil-500 line-through hidden"></span>
+                        <span id="cart-total" class="font-brand text-xl text-green-400">$0.00</span>
+                        <span id="cart-hint" class="text-evil-500 text-xs hidden"></span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="clearCart()" class="px-4 py-2.5 rounded-xl border border-evil-700/50 text-evil-300 text-sm font-semibold hover:bg-evil-card transition">Clear</button>
+                    <button id="cart-buy-btn" onclick="cartCheckout()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:from-green-400 hover:to-emerald-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Buy Now
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
+    <div id="cart-error-toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 hidden">
+        <div class="bg-red-500/90 backdrop-blur-sm text-white px-6 py-3 rounded-xl text-sm font-semibold shadow-xl"></div>
+    </div>
+
     <script>
-        let currentListingId = null;
+        const cart = new Map();
 
         async function loadStore() {
             try {
@@ -159,8 +189,9 @@
 
                     return `
                         <div class="card-hover animate-fade-in" style="animation-delay: ${i * 0.1}s">
-                            <div class="bg-evil-surface border border-evil-800/40 rounded-2xl overflow-hidden relative">
+                            <div id="deck-card-${item.id}" class="bg-evil-surface border border-evil-800/40 rounded-2xl overflow-hidden relative cursor-pointer transition-all duration-300" onclick="toggleCart(${item.id}, '${item.name.replace(/'/g, "\\'")}', ${item.price_cents})">
                                 ${featuredBadge}
+                                <div id="check-${item.id}" class="check-badge hidden">&#10003;</div>
                                 <div class="relative">
                                     ${previewHtml}
                                     ${item.image_url
@@ -173,13 +204,11 @@
                                 <div class="p-5">
                                     <h3 class="font-brand text-xl text-white mb-1">${item.name}</h3>
                                     ${item.description ? `<p class="text-evil-400 text-sm mb-3 line-clamp-2">${item.description}</p>` : '<div class="mb-3"></div>'}
-                                    ${bundleLabel ? `<p class="text-evil-500 text-xs mb-2">${bundleLabel}</p>` : ''}
                                     <div class="flex items-center justify-between">
                                         <span class="font-brand text-2xl text-green-400">$${price}</span>
-                                        <button onclick="openBuyModal(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${(item.description || '').replace(/'/g, "\\'")}', ${item.price_cents}, ${item.bundle_size})"
-                                            class="px-5 py-2 rounded-xl bg-gradient-to-r from-evil-500 to-evil-600 text-white font-bold text-sm hover:from-evil-400 hover:to-evil-500 transition-all transform hover:scale-105">
-                                            Buy
-                                        </button>
+                                        <span class="px-4 py-2 rounded-xl border border-evil-700/50 text-evil-300 text-sm font-semibold">
+                                            Tap to select
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -190,38 +219,93 @@
             }
         }
 
-        function openBuyModal(id, name, desc, priceCents, bundleSize) {
-            currentListingId = id;
-            document.getElementById('modal-title').textContent = name;
-            document.getElementById('modal-desc').textContent = desc || 'A premium card deck for Evil Apples 4D.';
-            document.getElementById('modal-price').textContent = '$' + (priceCents / 100).toFixed(2);
-            document.getElementById('modal-bundle').textContent = bundleSize > 1 ? `Bundle of ${bundleSize} decks` : 'Single deck';
-            document.getElementById('modal-error').classList.add('hidden');
-            document.getElementById('buy-modal').classList.remove('hidden');
+        function toggleCart(id, name, priceCents) {
+            if (cart.has(id)) {
+                cart.delete(id);
+                document.getElementById(`deck-card-${id}`).classList.remove('deck-selected');
+                document.getElementById(`check-${id}`).classList.add('hidden');
+            } else {
+                cart.set(id, { name, priceCents });
+                document.getElementById(`deck-card-${id}`).classList.add('deck-selected');
+                document.getElementById(`check-${id}`).classList.remove('hidden');
+            }
+            updateCartBar();
         }
 
-        function closeBuyModal() {
-            document.getElementById('buy-modal').classList.add('hidden');
-            currentListingId = null;
+        function clearCart() {
+            for (const id of cart.keys()) {
+                const el = document.getElementById(`deck-card-${id}`);
+                if (el) el.classList.remove('deck-selected');
+                const ch = document.getElementById(`check-${id}`);
+                if (ch) ch.classList.add('hidden');
+            }
+            cart.clear();
+            updateCartBar();
         }
 
-        async function confirmPurchase() {
+        function updateCartBar() {
+            const bar = document.getElementById('cart-bar');
+            const count = cart.size;
+
+            if (count === 0) {
+                bar.classList.add('hidden');
+                return;
+            }
+
+            bar.classList.remove('hidden');
+
+            const originalCents = [...cart.values()].reduce((s, v) => s + v.priceCents, 0);
+            const hasDiscount = count >= 3;
+            const finalCents = hasDiscount ? Math.round(originalCents * 0.85) : originalCents;
+
+            document.getElementById('cart-count').textContent = `${count} deck${count !== 1 ? 's' : ''} selected`;
+            document.getElementById('cart-total').textContent = `$${(finalCents / 100).toFixed(2)}`;
+
+            const discountBadge = document.getElementById('cart-discount');
+            const originalEl = document.getElementById('cart-original');
+            const hintEl = document.getElementById('cart-hint');
+
+            if (hasDiscount) {
+                discountBadge.classList.remove('hidden');
+                originalEl.textContent = `$${(originalCents / 100).toFixed(2)}`;
+                originalEl.classList.remove('hidden');
+                hintEl.classList.add('hidden');
+            } else {
+                discountBadge.classList.add('hidden');
+                originalEl.classList.add('hidden');
+                if (count < 3) {
+                    hintEl.textContent = `Add ${3 - count} more for 15% off!`;
+                    hintEl.classList.remove('hidden');
+                } else {
+                    hintEl.classList.add('hidden');
+                }
+            }
+
+            const buyBtn = document.getElementById('cart-buy-btn');
+            buyBtn.disabled = false;
+            buyBtn.textContent = `Buy Now - $${(finalCents / 100).toFixed(2)}`;
+        }
+
+        function showCartError(msg) {
+            const toast = document.getElementById('cart-error-toast');
+            toast.querySelector('div').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 4000);
+        }
+
+        async function cartCheckout() {
             const userId = document.getElementById('user-id').value.trim();
-            const errorEl = document.getElementById('modal-error');
 
             if (!userId) {
-                errorEl.textContent = 'Please enter your Discord User ID first.';
-                errorEl.classList.remove('hidden');
+                showCartError('Enter your Discord User ID first.');
                 return;
             }
-
             if (!/^\d{17,20}$/.test(userId)) {
-                errorEl.textContent = 'Invalid Discord User ID. It should be a 17-20 digit number.';
-                errorEl.classList.remove('hidden');
+                showCartError('Invalid Discord User ID (should be 17-20 digits).');
                 return;
             }
 
-            const btn = document.getElementById('modal-buy-btn');
+            const btn = document.getElementById('cart-buy-btn');
             btn.textContent = 'Processing...';
             btn.disabled = true;
 
@@ -230,7 +314,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        listing_id: currentListingId,
+                        listing_ids: [...cart.keys()],
                         discord_user_id: userId,
                     }),
                 });
@@ -239,21 +323,16 @@
                 if (data.url) {
                     window.location.href = data.url;
                 } else {
-                    errorEl.textContent = data.error || 'Checkout failed.';
-                    errorEl.classList.remove('hidden');
+                    showCartError(data.error || 'Checkout failed.');
                 }
             } catch (e) {
-                errorEl.textContent = 'Connection error. Please try again.';
-                errorEl.classList.remove('hidden');
+                showCartError('Connection error. Please try again.');
             }
 
             btn.textContent = 'Buy Now';
             btn.disabled = false;
+            updateCartBar();
         }
-
-        document.getElementById('buy-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'buy-modal') closeBuyModal();
-        });
 
         loadStore();
     </script>
