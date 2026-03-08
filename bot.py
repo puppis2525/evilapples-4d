@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 import asyncio
 from slugify import slugify
-from api_client import generate_hand, generate_prompt, ai_judge
+from api_client import generate_hand, generate_prompt, ai_judge, deal_default_hands, deal_default_solo
 from ui_components import JudgingView, HandView, GameLobbyView, PostRoundView, SoloControlsView
 from db import (
     batch_update_games_played, save_round,
@@ -195,12 +195,12 @@ async def deal_cards(ctx):
             total_needed = len(playing_ids) * 5
             all_answers = await get_random_cards(deck_info["id"], "answer", total_needed)
             if len(all_answers) < total_needed:
-                await ctx.send(f"Not enough answer cards in deck (need {total_needed}, have {len(all_answers)}). Falling back to AI.")
-                hands = await asyncio.gather(*(generate_hand(5) for _ in playing_ids))
+                await ctx.send(f"Not enough answer cards in deck (need {total_needed}, have {len(all_answers)}). Using default cards.")
+                hands = deal_default_hands(len(playing_ids), 5)
             else:
                 hands = [all_answers[i*5:(i+1)*5] for i in range(len(playing_ids))]
         else:
-            hands = await asyncio.gather(*(generate_hand(5) for _ in playing_ids))
+            hands = deal_default_hands(len(playing_ids), 5)
         for player_id, hand in zip(playing_ids, hands):
             game["hands"][player_id] = hand
 
@@ -539,19 +539,10 @@ async def solo_deal(ctx):
                     player_hand = all_answers[:5]
                     ai_cards = all_answers[5:]
                 else:
-                    player_hand = await generate_hand(5)
-                    ai_cards_tasks = [generate_hand(1) for _ in game["ai_opponents"]]
-                    ai_results = await asyncio.gather(*ai_cards_tasks)
-                    ai_cards = [r[0] for r in ai_results]
+                    player_hand, ai_cards = deal_default_solo(5, len(game["ai_opponents"]))
             else:
-                prompt_task = generate_prompt()
-                hand_task = generate_hand(5)
-                ai_cards_tasks = [generate_hand(1) for _ in game["ai_opponents"]]
-
-                results = await asyncio.gather(prompt_task, hand_task, *ai_cards_tasks)
-                prompt = results[0]
-                player_hand = results[1]
-                ai_cards = [r[0] for r in results[2:]]
+                prompt = await generate_prompt()
+                player_hand, ai_cards = deal_default_solo(5, len(game["ai_opponents"]))
 
             game["prompt"] = prompt
             game["hand"] = player_hand

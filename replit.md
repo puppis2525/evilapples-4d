@@ -34,12 +34,14 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - All results saved to database and website
 - `all_players` dict preserved across rounds (bug fix: judge rotation no longer removes players)
 
-### AI Card Generation (api_client.py)
-- Calls **Venice.ai** API (llama-3.3-70b model) for card generation
-- "Divergent Comedy" system prompt for edgy, original cards
+### Card System (api_client.py)
+- **Default card pool**: 124 answer cards in classic_cards.json — dealt randomly to all players for free
+- Prompts still generated via **Venice.ai** API (llama-3.3-70b model) each round
+- `deal_default_hands()` and `deal_default_solo()` draw from the default pool
+- Custom deck cards override the default pool when a deck is selected
+- AI card generation (`generate_hand()`) available as fallback
 - Deduplication using **rapidfuzz** against classic_cards.json
 - Auto-retry on duplicate detection
-- Parallel card generation for multiple players
 
 ### Premium / Stripe (stripe_client.py, stripe_routes.py)
 - Stripe integration via Replit Connectors (OAuth-based credential fetching)

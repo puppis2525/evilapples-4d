@@ -95,6 +95,37 @@ async def generate_card(card_type: str = "white") -> str:
     return card_text
 
 
+DEFAULT_ANSWER_CARDS = CLASSIC_CARDS["white_cards"]
+
+
+import random as _random
+
+def deal_default_hands(num_players: int, hand_size: int = 5) -> list[list[str]]:
+    total_needed = num_players * hand_size
+    pool = list(DEFAULT_ANSWER_CARDS)
+    _random.shuffle(pool)
+
+    if len(pool) >= total_needed:
+        hands = [pool[i * hand_size:(i + 1) * hand_size] for i in range(num_players)]
+    else:
+        hands = []
+        for i in range(num_players):
+            start = (i * hand_size) % len(pool)
+            hand = []
+            for j in range(hand_size):
+                hand.append(pool[(start + j) % len(pool)])
+            hands.append(hand)
+    return hands
+
+
+def deal_default_solo(hand_size: int = 5, num_ai: int = 3) -> tuple[list[str], list[str]]:
+    pool = list(DEFAULT_ANSWER_CARDS)
+    _random.shuffle(pool)
+    player_hand = pool[:hand_size]
+    ai_cards = pool[hand_size:hand_size + num_ai]
+    return player_hand, ai_cards
+
+
 async def generate_hand(count: int = 5) -> list[str]:
     cards = []
     for _ in range(count):
