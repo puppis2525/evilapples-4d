@@ -789,47 +789,56 @@ STORE_DECK_META = {
     "space": ("Space", "20 cards from the final frontier"),
     "stinkypinky": ("Stinky Pinky", "20 rhyming cards that are pure poetry"),
     "stranger": ("Stranger Things", "20 cards from the Upside Down"),
+    "surreal": ("Surreal", "30 mind-bending cards from the fever dreams of deranged artists"),
 }
 
 
 async def seed_store_decks():
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        existing = await conn.fetchval(
-            "SELECT COUNT(*) FROM store_listings WHERE active = true"
-        )
-        if existing > 0:
-            logger.info(f"Store already has {existing} listings, skipping seed")
-            return
-
         import os
         card_file = os.path.join(os.path.dirname(__file__),
             "attached_assets",
             "Pasted-Card-Text-Hidden-Deck-an-eighth-of-strawberry-kush-FALS_1772996060719.txt")
-        if not os.path.exists(card_file):
-            logger.warning("Store deck card file not found, skipping seed")
-            return
 
         decks = {}
-        with open(card_file) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("Card Text"):
-                    continue
-                parts = line.split("\t")
-                if len(parts) >= 3:
-                    card_text = parts[0].strip()
-                    deck_key = parts[2].strip()
-                    if deck_key not in decks:
-                        decks[deck_key] = []
-                    decks[deck_key].append(card_text)
+        if os.path.exists(card_file):
+            with open(card_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("Card Text"):
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) >= 3:
+                        card_text = parts[0].strip()
+                        deck_key = parts[2].strip()
+                        if deck_key not in decks:
+                            decks[deck_key] = []
+                        decks[deck_key].append(card_text)
+
+        existing_names = set()
+        rows = await conn.fetch(
+            "SELECT name FROM store_listings"
+        )
+        for r in rows:
+            existing_names.add(r["name"])
 
         created = 0
-        for deck_key, cards in decks.items():
-            meta = STORE_DECK_META.get(deck_key)
-            if not meta:
-                continue
+        for deck_key, meta in STORE_DECK_META.items():
             display_name, description = meta
+
+            if display_name in existing_names:
+                continue
+
+            cards = decks.get(deck_key, [])
+
+            if not cards:
+                card_rows = await conn.fetch(
+                    "SELECT card_text FROM custom_cards cc JOIN custom_decks cd ON cc.deck_id = cd.id WHERE cd.name = $1 AND cd.discord_user_id IS NULL",
+                    display_name
+                )
+                if card_rows:
+                    continue
 
             deck_id = await conn.fetchval(
                 """INSERT INTO custom_decks (name, description, creator_name, discord_user_id, prompt_count, answer_count)
@@ -850,4 +859,7 @@ async def seed_store_decks():
             )
             created += 1
 
-        logger.info(f"Seeded {created} store decks and listings")
+        if created > 0:
+            logger.info(f"Seeded {created} new store decks and listings")
+        else:
+            logger.info("All store decks already present")
