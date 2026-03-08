@@ -48,6 +48,13 @@
         .featured-badge {
             background: linear-gradient(135deg, #f59e0b, #ef4444);
         }
+        .deck-preview-overlay {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .card-hover:hover .deck-preview-overlay {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-evil-bg text-white min-h-screen bg-grid">
@@ -142,11 +149,20 @@
                     const bundleLabel = item.bundle_size > 1 ? `Bundle of ${item.bundle_size}` : '';
                     const featuredBadge = item.featured ? '<div class="featured-badge absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg">FEATURED</div>' : '';
 
+                    const previewCards = item.preview_cards || [];
+                    const previewHtml = previewCards.length > 0
+                        ? `<div class="deck-preview-overlay absolute inset-0 bg-evil-bg/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 gap-3 z-10">
+                            <span class="text-evil-400 text-xs font-bold tracking-widest uppercase">Preview</span>
+                            ${previewCards.map(c => `<div class="bg-evil-card border border-evil-700/60 rounded-xl px-4 py-3 text-sm text-white text-center w-full max-w-[200px] shadow-lg">🃏 ${c}</div>`).join('')}
+                          </div>`
+                        : '';
+
                     return `
                         <div class="card-hover animate-fade-in" style="animation-delay: ${i * 0.1}s">
                             <div class="bg-evil-surface border border-evil-800/40 rounded-2xl overflow-hidden relative">
                                 ${featuredBadge}
                                 <div class="relative">
+                                    ${previewHtml}
                                     ${item.image_url
                                         ? `<img src="${item.image_url}" alt="${item.name}" class="w-full deck-image">`
                                         : `<div class="w-full deck-image bg-evil-card flex items-center justify-center">

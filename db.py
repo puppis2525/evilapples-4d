@@ -498,7 +498,24 @@ async def get_store_listings(active_only: bool = True):
             rows = await conn.fetch(
                 "SELECT * FROM store_listings ORDER BY sort_order, created_at DESC"
             )
-        return [dict(r) for r in rows]
+        results = []
+        for r in rows:
+            item = dict(r)
+            deck_ids_str = item.get("deck_ids", "")
+            preview_cards = []
+            if deck_ids_str:
+                try:
+                    first_deck_id = int(deck_ids_str.split(",")[0].strip())
+                    sample = await conn.fetch(
+                        "SELECT card_text FROM custom_cards WHERE deck_id = $1 ORDER BY RANDOM() LIMIT 2",
+                        first_deck_id
+                    )
+                    preview_cards = [s["card_text"] for s in sample]
+                except Exception:
+                    pass
+            item["preview_cards"] = preview_cards
+            results.append(item)
+        return results
 
 
 async def get_store_listing(listing_id: int):
