@@ -42,9 +42,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database init failed (will retry on first request): {e}")
 
-    bot_thread = threading.Thread(target=delayed_bot_start, daemon=True)
-    bot_thread.start()
-    logger.info("Bot thread launched (will connect after 5s delay)")
+    is_production = os.environ.get("REPLIT_DEPLOYMENT") == "1"
+    if is_production or not os.environ.get("REPLIT_DEV_DOMAIN"):
+        bot_thread = threading.Thread(target=delayed_bot_start, daemon=True)
+        bot_thread.start()
+        logger.info("Bot thread launched (will connect after 5s delay)")
+    else:
+        logger.info("Skipping bot startup in development (deployed version handles Discord)")
 
     yield
     logger.info("Application shutting down...")
