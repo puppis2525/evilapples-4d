@@ -451,6 +451,25 @@ async def get_random_cards(deck_id: int, card_type: str, count: int):
         return [r["card_text"] for r in rows]
 
 
+async def get_random_cards_multi(deck_ids: list[int], card_type: str, count: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT card_text FROM custom_cards WHERE deck_id = ANY($1) AND card_type = $2 ORDER BY RANDOM() LIMIT $3",
+            deck_ids, card_type, count
+        )
+        return [r["card_text"] for r in rows]
+
+
+async def get_user_deck_count(discord_user_id: str) -> int:
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval(
+            "SELECT COUNT(*) FROM custom_decks WHERE discord_user_id = $1",
+            discord_user_id
+        )
+
+
 async def init_store_tables():
     pool = await get_db_pool()
     async with pool.acquire() as conn:

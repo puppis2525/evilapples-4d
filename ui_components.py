@@ -394,6 +394,76 @@ class GameLobbyView(discord.ui.View):
         await interaction.channel.send("Game ended. Start a new one with `!startgame`.")
 
 
+class DeckSelectView(discord.ui.View):
+    def __init__(self, decks, user_id, channel_id, callback_type="multiplayer"):
+        super().__init__(timeout=60)
+        self.user_id = user_id
+        self.channel_id = channel_id
+        self.callback_type = callback_type
+
+        options = [
+            discord.SelectOption(
+                label=d["name"][:100],
+                value=str(d["id"]),
+                description=f"{d['answer_count']} answers" + (f", {d['prompt_count']} prompts" if d['prompt_count'] > 0 else ""),
+            )
+            for d in decks[:25]
+        ]
+
+        select = discord.ui.Select(
+            placeholder="Pick 1-3 decks to play with...",
+            min_values=1,
+            max_values=min(3, len(options)),
+            options=options,
+            custom_id="deck_select",
+        )
+        select.callback = self.on_select
+        self.add_item(select)
+
+    async def on_select(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message("Only the person who started this can pick decks!", ephemeral=True)
+            return
+
+        from bot import channel_decks
+        selected_ids = [int(v) for v in interaction.data["values"]]
+
+        from db import get_deck_by_id
+        names = []
+        for did in selected_ids:
+            d = await get_deck_by_id(did)
+            if d:
+                names.append(d["name"])
+
+        channel_decks[self.channel_id] = {
+            "ids": selected_ids,
+            "names": names,
+        }
+
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(
+            content=f"**Selected deck{'s' if len(names) > 1 else ''}:** {', '.join(names)}\nNow press **Deal** or type `!deal` to start!",
+            view=self,
+        )
+
+    @discord.ui.button(label="Skip — Use Default Cards", style=discord.ButtonStyle.secondary, emoji="⏭️", row=1)
+    async def skip_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message("Only the person who started this can skip!", ephemeral=True)
+            return
+
+        from bot import channel_decks
+        channel_decks.pop(self.channel_id, None)
+
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(
+            content="Using **default cards** for this game.\nNow press **Deal** or type `!deal` to start!",
+            view=self,
+        )
+
+
 class PostRoundView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)

@@ -6,7 +6,7 @@ from discord.ext import commands
 import asyncio
 from slugify import slugify
 from api_client import generate_hand, generate_prompt, ai_judge, deal_default_hands, deal_default_solo
-from ui_components import JudgingView, HandView, GameLobbyView, PostRoundView, SoloControlsView
+from ui_components import JudgingView, HandView, GameLobbyView, PostRoundView, SoloControlsView, DeckSelectView
 from db import (
     batch_update_games_played, save_round,
     create_tournament, get_active_tournament, join_tournament,
@@ -14,7 +14,8 @@ from db import (
     start_tournament, end_tournament,
     is_premium_server, get_premium_server,
     get_all_decks, get_deck_by_name, get_deck_by_id,
-    get_random_cards, create_deck, add_cards_to_deck
+    get_random_cards, get_random_cards_multi, get_user_deck_count,
+    create_deck, add_cards_to_deck
 )
 from tournament import (
     active_tournament_rounds, run_tournament_round,
@@ -85,6 +86,8 @@ async def start_game(ctx):
     session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name)
     active_games[ctx.channel.id] = session.to_dict()
 
+    channel_decks.pop(ctx.channel.id, None)
+
     embed = discord.Embed(
         title="Evil Apples 4D",
         description=f"A new game is starting! Type `!join` to play.\n**{ctx.author.display_name}** has joined! (1 player)\n\nAnyone can type `!deal` when ready.",
@@ -95,6 +98,16 @@ async def start_game(ctx):
         "If fewer than 3 players, Dr. Evil judges instead."
     ), inline=False)
     await ctx.send(embed=embed, view=GameLobbyView())
+
+    user_id = str(ctx.author.id)
+    deck_count = await get_user_deck_count(user_id)
+    if deck_count > 0:
+        decks = await get_all_decks(discord_user_id=user_id)
+        if decks:
+            await ctx.send(
+                "**You own card decks!** Pick up to 3 to play with, or skip to use the default cards.",
+                view=DeckSelectView(decks, user_id, ctx.channel.id)
+            )
 
 
 @bot.command(name="join")
@@ -174,16 +187,25 @@ async def deal_cards(ctx):
     current_round_id = game["round_id"]
 
     deck_info = channel_decks.get(ctx.channel.id)
+    deck_ids = None
+    deck_label = None
     if deck_info:
-        await ctx.send(f"Drawing cards from **{deck_info['name']}**...")
+        if "ids" in deck_info:
+            deck_ids = deck_info["ids"]
+            deck_label = ", ".join(deck_info["names"])
+        elif "id" in deck_info:
+            deck_ids = [deck_info["id"]]
+            deck_label = deck_info["name"]
+
+    if deck_ids:
+        await ctx.send(f"Drawing cards from **{deck_label}**...")
     else:
-        await ctx.send("Generating evil cards and dealing hands... This may take a moment.")
+        await ctx.send("Dealing hands from the default card pool...")
 
     try:
-        if deck_info:
-            prompts = await get_random_cards(deck_info["id"], "prompt", 1)
+        if deck_ids:
+            prompts = await get_random_cards_multi(deck_ids, "prompt", 1)
             if not prompts:
-                await ctx.send("Deck has no prompt cards! Falling back to AI generation.")
                 prompt = await generate_prompt()
             else:
                 prompt = prompts[0]
@@ -191,13 +213,15 @@ async def deal_cards(ctx):
             prompt = await generate_prompt()
         game["prompt"] = prompt
 
-        if deck_info:
+        if deck_ids:
             total_needed = len(playing_ids) * 5
-            all_answers = await get_random_cards(deck_info["id"], "answer", total_needed)
+            all_answers = await get_random_cards_multi(deck_ids, "answer", total_needed)
             if len(all_answers) < total_needed:
-                await ctx.send(f"Not enough answer cards in deck (need {total_needed}, have {len(all_answers)}). Using default cards.")
+                await ctx.send(f"Not enough answer cards in selected decks (need {total_needed}, have {len(all_answers)}). Using default cards.")
                 hands = deal_default_hands(len(playing_ids), 5)
             else:
+                import random as _rng
+                _rng.shuffle(all_answers)
                 hands = [all_answers[i*5:(i+1)*5] for i in range(len(playing_ids))]
         else:
             hands = deal_default_hands(len(playing_ids), 5)
@@ -489,12 +513,23 @@ async def solo_group(ctx, opponents: int = 3):
     for name in ai_names:
         solo_games[player_id]["scores"][name] = 0
 
+    channel_decks.pop(ctx.channel.id, None)
+
     embed = discord.Embed(
         title="Solo Mode — Evil Apples 4D",
         description=f"**{ctx.author.display_name}** vs. {', '.join(f'**{n}**' for n in ai_names)}\n\nType `!solo deal` to start a round!\n\U0001F608 Dr. Evil will judge each round.",
         color=discord.Color.dark_purple()
     )
     await ctx.send(embed=embed, view=SoloControlsView(player_id))
+
+    deck_count = await get_user_deck_count(player_id)
+    if deck_count > 0:
+        decks = await get_all_decks(discord_user_id=player_id)
+        if decks:
+            await ctx.send(
+                "**You own card decks!** Pick up to 3 to play with, or skip to use the default cards.",
+                view=DeckSelectView(decks, player_id, ctx.channel.id, callback_type="solo")
+            )
 
 
 @solo_group.command(name="deal")
@@ -526,16 +561,25 @@ async def solo_deal(ctx):
 
         try:
             deck_info = channel_decks.get(ctx.channel.id)
+            solo_deck_ids = None
             if deck_info:
-                prompts = await get_random_cards(deck_info["id"], "prompt", 1)
+                if "ids" in deck_info:
+                    solo_deck_ids = deck_info["ids"]
+                elif "id" in deck_info:
+                    solo_deck_ids = [deck_info["id"]]
+
+            if solo_deck_ids:
+                prompts = await get_random_cards_multi(solo_deck_ids, "prompt", 1)
                 if prompts:
                     prompt = prompts[0]
                 else:
                     prompt = await generate_prompt()
 
                 total_needed = 5 + len(game["ai_opponents"])
-                all_answers = await get_random_cards(deck_info["id"], "answer", total_needed)
+                all_answers = await get_random_cards_multi(solo_deck_ids, "answer", total_needed)
                 if len(all_answers) >= total_needed:
+                    import random as _rng
+                    _rng.shuffle(all_answers)
                     player_hand = all_answers[:5]
                     ai_cards = all_answers[5:]
                 else:
@@ -1125,10 +1169,8 @@ async def deck_use(ctx, *, name: str = ""):
         return
 
     channel_decks[ctx.channel.id] = {
-        "id": deck["id"],
-        "name": deck["name"],
-        "prompt_count": deck["prompt_count"],
-        "answer_count": deck["answer_count"],
+        "ids": [deck["id"]],
+        "names": [deck["name"]],
     }
 
     embed = discord.Embed(
