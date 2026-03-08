@@ -745,3 +745,109 @@ async def get_premium_stats():
             "SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active = TRUE) as active FROM premium_servers"
         )
         return dict(row) if row else {"total": 0, "active": 0}
+
+
+STORE_DECK_META = {
+    "420": ("420 Blaze It", "Light up the party with 20 weed-themed answer cards"),
+    "addictions": ("Addictions", "20 cards about all the things you just can't quit"),
+    "adulting": ("Adulting", "20 cards for when you're pretending to be a grown-up"),
+    "babes": ("Babes", "20 cards featuring the hottest names in Hollywood"),
+    "british": ("British AF", "20 cards from across the pond, innit"),
+    "college": ("College", "20 cards about the best/worst years of your life"),
+    "cuties": ("Cuties", "4 adorable cards to lighten up the darkness"),
+    "dads": ("Dads", "20 cards about fatherhood, for better or worse"),
+    "deckronomicon": ("Deckronomicon", "20 dark and supernatural cards from the beyond"),
+    "drunkaf": ("Drunk AF", "20 cards for when you've had way too many"),
+    "familyguy": ("Family Guy", "20 cards featuring your favorite Quahog residents"),
+    "food": ("Food", "20 cards mixing food with filth"),
+    "grateful": ("Grateful", "20 cards about the little things in life"),
+    "gross": ("Gross", "20 cards that'll make you gag"),
+    "gross2": ("Gross 2", "20 more cards that'll make you gag even harder"),
+    "history": ("History", "20 cards from the filthiest moments in history"),
+    "horror": ("Horror", "20 terrifying cards from your worst nightmares"),
+    "illegalactivities": ("Illegal Activities", "20 cards about things you definitely shouldn't do"),
+    "insults": ("Insults", "20 creative ways to call someone terrible"),
+    "internet": ("Internet", "20 cards about online life and digital disasters"),
+    "kamasutra": ("Kama Sutra", "20 cards featuring exotic and disturbing positions"),
+    "kinks": ("Kinks", "20 cards for the adventurous and depraved"),
+    "masturbation": ("Masturbation", "20 cards about solo adventures"),
+    "medical": ("Medical", "20 cards from the doctor's office of horrors"),
+    "monsters": ("Monsters", "20 cards featuring creatures from your darkest fears"),
+    "naughty17": ("Naughty 17", "20 holiday cards that'll get you on the naughty list"),
+    "netflix": ("Netflix & Chill", "20 cards about binge-watching and TV obsessions"),
+    "office": ("Office", "20 cards about workplace nightmares"),
+    "poke": ("Poke", "20 cards for Pokemon fans with dirty minds"),
+    "pussy": ("Pussy", "20 cards celebrating lady parts"),
+    "rickmorty": ("Rick & Morty", "20 cards from the multiverse of madness"),
+    "scifi": ("Sci-Fi", "20 cards from galaxies far, far away"),
+    "sex": ("Sex", "20 cards about getting busy"),
+    "sexed": ("Sex Ed", "20 cards about the birds, bees, and bodily fluids"),
+    "sexmodern": ("Modern Sex", "20 cards about dating and sex in the modern age"),
+    "shittyjobs": ("Shitty Jobs", "20 cards about the worst jobs imaginable"),
+    "simpsons": ("Simpsons", "20 cards from Springfield's finest"),
+    "sins": ("Sins", "20 sinfully good cards"),
+    "space": ("Space", "20 cards from the final frontier"),
+    "stinkypinky": ("Stinky Pinky", "20 rhyming cards that are pure poetry"),
+    "stranger": ("Stranger Things", "20 cards from the Upside Down"),
+}
+
+
+async def seed_store_decks():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchval(
+            "SELECT COUNT(*) FROM store_listings WHERE active = true"
+        )
+        if existing > 0:
+            logger.info(f"Store already has {existing} listings, skipping seed")
+            return
+
+        import os
+        card_file = os.path.join(os.path.dirname(__file__),
+            "attached_assets",
+            "Pasted-Card-Text-Hidden-Deck-an-eighth-of-strawberry-kush-FALS_1772996060719.txt")
+        if not os.path.exists(card_file):
+            logger.warning("Store deck card file not found, skipping seed")
+            return
+
+        decks = {}
+        with open(card_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("Card Text"):
+                    continue
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    card_text = parts[0].strip()
+                    deck_key = parts[2].strip()
+                    if deck_key not in decks:
+                        decks[deck_key] = []
+                    decks[deck_key].append(card_text)
+
+        created = 0
+        for deck_key, cards in decks.items():
+            meta = STORE_DECK_META.get(deck_key)
+            if not meta:
+                continue
+            display_name, description = meta
+
+            deck_id = await conn.fetchval(
+                """INSERT INTO custom_decks (name, description, creator_name, discord_user_id, prompt_count, answer_count)
+                   VALUES ($1, $2, 'Store', NULL, 0, $3) RETURNING id""",
+                display_name, description, len(cards)
+            )
+
+            for card_text in cards:
+                await conn.execute(
+                    "INSERT INTO custom_cards (deck_id, card_type, card_text) VALUES ($1, 'answer', $2)",
+                    deck_id, card_text
+                )
+
+            await conn.execute(
+                """INSERT INTO store_listings (name, description, image_url, price_cents, bundle_size, deck_ids, featured, active)
+                   VALUES ($1, $2, '', 99, 1, $3, false, true)""",
+                display_name, description, str(deck_id)
+            )
+            created += 1
+
+        logger.info(f"Seeded {created} store decks and listings")
