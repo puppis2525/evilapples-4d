@@ -107,14 +107,15 @@ class SubmitCardButton(discord.ui.Button):
 
             try:
                 from bot import finish_solo_round
-                await finish_solo_round(player_id, player_card=self.card_text)
+                game_channel = self.view_ref.channel or interaction.channel
+                await finish_solo_round(player_id, player_card=self.card_text, channel=game_channel)
             except Exception as e:
                 print(f"Error calling finish_solo_round from button: {e}")
                 import traceback
                 traceback.print_exc()
-                channel = self.view_ref.channel or interaction.channel
-                if channel:
-                    await channel.send("Something went wrong during judging. Type `!solo deal` to try again.")
+                game_channel = self.view_ref.channel or interaction.channel
+                if game_channel:
+                    await game_channel.send("Something went wrong during judging. Type `!solo deal` to try again.")
 
         else:
             if player_id not in game.get("players", {}):

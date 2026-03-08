@@ -596,7 +596,7 @@ async def solo_deal(ctx):
             await ctx.send(f"Error generating cards: {str(e)}")
 
 
-async def finish_solo_round(player_id: str, player_card: str = None, timed_out: bool = False):
+async def finish_solo_round(player_id: str, player_card: str = None, timed_out: bool = False, channel=None):
     game = solo_games.get(player_id)
     if not game:
         return
@@ -613,9 +613,16 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
         timer_tasks.pop(task_key, None)
 
     game["state"] = "judging"
-    channel = bot.get_channel(game["channel_id"])
+    if not channel:
+        channel = bot.get_channel(game["channel_id"])
+    if not channel:
+        try:
+            channel = await bot.fetch_channel(game["channel_id"])
+        except Exception:
+            pass
     if not channel:
         game["state"] = "idle"
+        print(f"finish_solo_round: could not find channel {game['channel_id']}")
         return
 
     try:
@@ -1391,7 +1398,7 @@ async def on_message(message):
         selected_card = hand[choice - 1]
         solo["submitted"] = True
         await message.channel.send(f"Card submitted: **{selected_card}**\nDr. Evil is deciding...")
-        await finish_solo_round(player_id, player_card=selected_card)
+        await finish_solo_round(player_id, player_card=selected_card, channel=message.channel)
         return
 
 
