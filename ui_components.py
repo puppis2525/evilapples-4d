@@ -129,7 +129,12 @@ class SubmitCardButton(discord.ui.Button):
             if channel:
                 card_num = len(game["submissions"])
                 total = len(game.get("players", {}))
-                await channel.send(f"\U0001F0CF **Card {card_num}:** {self.card_text}  ({card_num}/{total})")
+                card_embed = discord.Embed(
+                    description=f"## \U0001F0CF  {self.card_text}",
+                    color=discord.Color.from_rgb(255, 255, 255)
+                )
+                card_embed.set_footer(text=f"Card {card_num} of {total}")
+                await channel.send(embed=card_embed)
 
             from bot import check_all_submitted
             await check_all_submitted(game, interaction)
@@ -282,7 +287,12 @@ class TournamentSubmitButton(discord.ui.Button):
         if channel:
             card_num = len(round_data["submissions"])
             total = len(round_data.get("players", {}))
-            await channel.send(f"\U0001F0CF **Card {card_num}:** {self.card_text}  ({card_num}/{total})")
+            card_embed = discord.Embed(
+                description=f"## \U0001F0CF  {self.card_text}",
+                color=discord.Color.from_rgb(255, 255, 255)
+            )
+            card_embed.set_footer(text=f"Card {card_num} of {total}")
+            await channel.send(embed=card_embed)
 
         if len(round_data["submissions"]) == len(round_data["players"]):
             from tournament import TournamentJudgingView
@@ -290,17 +300,17 @@ class TournamentSubmitButton(discord.ui.Button):
             random.shuffle(submissions)
 
             submission_text = "\n".join(
-                f"**Card {i+1}:** {card}"
+                f"\U0001F0CF **Card {i+1}:** {card}"
                 for i, (_, card) in enumerate(submissions)
             )
 
             embed = discord.Embed(
-                title=f"Round {round_data['round_number']} — All Cards In!",
-                description=f"{format_prompt(round_data['prompt'])}\n\n{submission_text}",
-                color=discord.Color.purple()
+                title=f"\u2696\uFE0F Round {round_data['round_number']} — Time to Judge!",
+                description=f"## {format_prompt(round_data['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
+                color=discord.Color.from_rgb(106, 27, 154)
             )
             embed.set_footer(
-                text=f"Judge: pick the winner! | Tournament: {tournament_data['name']}"
+                text=f"Tournament: {tournament_data['name']}"
             )
 
             view = TournamentJudgingView(tournament_data, round_data, channel)

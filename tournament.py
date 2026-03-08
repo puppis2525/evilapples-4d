@@ -194,8 +194,8 @@ async def run_tournament_round(channel, tournament_data, round_number, players, 
         from ui_components import TournamentHandView
         round_embed = discord.Embed(
             title=f"Round {round_number} — Cards Dealt!",
-            description=f"{format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!",
-            color=discord.Color.green()
+            description=f"## {format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!",
+            color=discord.Color.from_rgb(106, 27, 154)
         )
         round_embed.add_field(name="Judge", value=f"<@{judge_id}>", inline=True)
         round_embed.add_field(name="Players", value=str(len(playing_players)), inline=True)

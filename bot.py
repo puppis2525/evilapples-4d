@@ -198,9 +198,9 @@ async def deal_cards(ctx):
             timer_text = f"\n\n**Timer:** <t:{deadline}:R> to submit!"
 
         embed = discord.Embed(
-            title="Round Started!",
-            description=f"{format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!{timer_text}",
-            color=discord.Color.green()
+            title="\U0001F7E3 PROMPT CARD",
+            description=f"## {format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!{timer_text}",
+            color=discord.Color.from_rgb(106, 27, 154)
         )
         embed.set_footer(text=f"Waiting for {len(game['players'])} submissions...")
         view = HandView(game, mode="multiplayer", channel=ctx.channel)
@@ -250,16 +250,16 @@ async def check_all_submitted(game, interaction):
     channel = bot.get_channel(channel_id)
     if channel:
         submission_text = "\n".join(
-            f"**Card {i+1}:** {card}"
+            f"\U0001F0CF **Card {i+1}:** {card}"
             for i, (_, card) in enumerate(
                 list(game["submissions"].items())
             )
         )
 
         embed = discord.Embed(
-            title="All Cards Are In! Time to Judge!",
-            description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
-            color=discord.Color.purple()
+            title="\u2696\uFE0F Time to Judge!",
+            description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
+            color=discord.Color.from_rgb(106, 27, 154)
         )
 
         view = JudgingView(game, channel)
@@ -370,14 +370,14 @@ async def handle_timer_expiry(channel_id, expected_round_id):
     await batch_update_games_played(players_in_round)
 
     submission_text = "\n".join(
-        f"**Card {i+1}:** {card}"
+        f"\U0001F0CF **Card {i+1}:** {card}"
         for i, (_, card) in enumerate(list(game["submissions"].items()))
     )
 
     embed = discord.Embed(
-        title="Time's Up! Time to Judge!",
-        description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
-        color=discord.Color.purple()
+        title="\u2696\uFE0F Time's Up — Time to Judge!",
+        description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
+        color=discord.Color.from_rgb(106, 27, 154)
     )
 
     view = JudgingView(game, channel)
@@ -497,9 +497,9 @@ async def solo_deal(ctx):
                 timer_text = f"\n**Timer:** <t:{deadline}:R> to submit!"
 
             embed = discord.Embed(
-                title=f"Solo Round {game['round_number']}",
-                description=f"{format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!{timer_text}",
-                color=discord.Color.dark_purple()
+                title=f"\U0001F7E3 PROMPT CARD — Solo Round {game['round_number']}",
+                description=f"## {format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!{timer_text}",
+                color=discord.Color.from_rgb(106, 27, 154)
             )
             embed.set_footer(text=f"Playing against {', '.join(game['ai_opponents'])}")
             view = HandView(game, mode="solo", channel=ctx.channel)
@@ -561,13 +561,13 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
     submission_cards = [card for _, card in all_entries]
 
     submission_text = "\n".join(
-        f"**Card {i+1}:** {card}" for i, card in enumerate(submission_cards)
+        f"\U0001F0CF **Card {i+1}:** {card}" for i, card in enumerate(submission_cards)
     )
 
     embed = discord.Embed(
-        title="All Cards Are In! AI is judging...",
-        description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
-        color=discord.Color.dark_purple()
+        title="\u2696\uFE0F AI is judging...",
+        description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}",
+        color=discord.Color.from_rgb(106, 27, 154)
     )
     msg = await channel.send(embed=embed)
 
@@ -1196,7 +1196,12 @@ async def on_message(message):
         if game_channel:
             card_num = len(game["submissions"])
             total = len(game["players"])
-            await game_channel.send(f"\U0001F0CF **Card {card_num}:** {selected_card}  ({card_num}/{total})")
+            card_embed = discord.Embed(
+                description=f"## \U0001F0CF  {selected_card}",
+                color=discord.Color.from_rgb(255, 255, 255)
+            )
+            card_embed.set_footer(text=f"Card {card_num} of {total}")
+            await game_channel.send(embed=card_embed)
 
         if len(game["submissions"]) == len(game["players"]):
             if channel_id in timer_tasks:
@@ -1212,16 +1217,16 @@ async def on_message(message):
             channel = bot.get_channel(channel_id)
             if channel:
                 submission_text = "\n".join(
-                    f"**Card {i+1}:** {card}"
+                    f"\U0001F0CF **Card {i+1}:** {card}"
                     for i, (_, card) in enumerate(
                         list(game["submissions"].items())
                     )
                 )
 
                 embed = discord.Embed(
-                    title="All Cards Are In! Time to Judge!",
-                    description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
-                    color=discord.Color.purple()
+                    title="\u2696\uFE0F Time to Judge!",
+                    description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
+                    color=discord.Color.from_rgb(106, 27, 154)
                 )
 
                 view = JudgingView(game, channel)
@@ -1254,7 +1259,12 @@ async def on_message(message):
         if t_channel:
             card_num = len(round_data["submissions"])
             total = len(round_data["players"])
-            await t_channel.send(f"\U0001F0CF **Card {card_num}:** {selected_card}  ({card_num}/{total})")
+            card_embed = discord.Embed(
+                description=f"## \U0001F0CF  {selected_card}",
+                color=discord.Color.from_rgb(255, 255, 255)
+            )
+            card_embed.set_footer(text=f"Card {card_num} of {total}")
+            await t_channel.send(embed=card_embed)
 
         if len(round_data["submissions"]) == len(round_data["players"]):
             channel = bot.get_channel(channel_id)
@@ -1263,17 +1273,17 @@ async def on_message(message):
                 random.shuffle(submissions)
 
                 submission_text = "\n".join(
-                    f"**Card {i+1}:** {card}"
+                    f"\U0001F0CF **Card {i+1}:** {card}"
                     for i, (_, card) in enumerate(submissions)
                 )
 
                 embed = discord.Embed(
-                    title=f"Round {round_data['round_number']} — All Cards In!",
-                    description=f"{format_prompt(round_data['prompt'])}\n\n{submission_text}",
-                    color=discord.Color.purple()
+                    title=f"\u2696\uFE0F Round {round_data['round_number']} — Time to Judge!",
+                    description=f"## {format_prompt(round_data['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
+                    color=discord.Color.from_rgb(106, 27, 154)
                 )
                 embed.set_footer(
-                    text=f"Judge: pick the winner! | Tournament: {tournament_data['name']}"
+                    text=f"Tournament: {tournament_data['name']}"
                 )
 
                 view = TournamentJudgingView(tournament_data, round_data, channel)
