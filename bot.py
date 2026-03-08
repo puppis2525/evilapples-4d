@@ -493,7 +493,7 @@ async def solo_group(ctx, opponents: int = 3):
 
     embed = discord.Embed(
         title="Solo Mode — Evil Apples 4D",
-        description=f"**{ctx.author.display_name}** vs. {', '.join(f'**{n}**' for n in ai_names)}\n\nType `!solo deal` to start a round!\nThe AI will judge each round.",
+        description=f"**{ctx.author.display_name}** vs. {', '.join(f'**{n}**' for n in ai_names)}\n\nType `!solo deal` to start a round!\n\U0001F608 Dr. Evil will judge each round.",
         color=discord.Color.dark_purple()
     )
     embed.add_field(name="Commands", value=(
@@ -625,56 +625,79 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
         game["state"] = "idle"
         return
 
-    if timed_out and not player_card:
-        player_card = random.choice(game["hand"])
-        await channel.send(f"**Time's up!** A random card was played for you: *{player_card}*")
-
-    all_entries = [(game["player_name"], player_card)]
-    for i, ai_name in enumerate(game["ai_opponents"]):
-        all_entries.append((ai_name, game["ai_cards"][i]))
-
-    random.shuffle(all_entries)
-    submission_cards = [card for _, card in all_entries]
-
-    submission_text = "\n".join(
-        f"\U0001F0CF **Card {i+1}:** {card}" for i, card in enumerate(submission_cards)
-    )
-
-    embed = discord.Embed(
-        title="\u2696\uFE0F AI is judging...",
-        description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}",
-        color=discord.Color.from_rgb(106, 27, 154)
-    )
-    msg = await channel.send(embed=embed)
-
     try:
-        winner_idx = await ai_judge(game["prompt"], submission_cards)
-    except Exception:
-        winner_idx = 0
+        if timed_out and not player_card:
+            player_card = random.choice(game["hand"])
+            await channel.send(f"**Time's up!** A random card was played for you: *{player_card}*")
 
-    winner_name, winner_card = all_entries[winner_idx]
-    game["scores"][winner_name] = game["scores"].get(winner_name, 0) + 1
+        all_entries = [(game["player_name"], player_card)]
+        for i, ai_name in enumerate(game["ai_opponents"]):
+            all_entries.append((ai_name, game["ai_cards"][i]))
 
-    is_player = winner_name == game["player_name"]
-    if is_player:
-        verdict = f"**You win this round!** Your card: *{winner_card}*"
-    else:
-        verdict = f"**{winner_name}** wins this round with: *{winner_card}*"
+        random.shuffle(all_entries)
+        submission_cards = [card for _, card in all_entries]
 
-    scores_text = "\n".join(
-        f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
-        for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
-    )
+        submission_text = "\n".join(
+            f"\U0001F0CF **Card {i+1}:** {card}" for i, card in enumerate(submission_cards)
+        )
 
-    result_embed = discord.Embed(
-        title="Round Result",
-        description=f"{verdict}\n\n**Scores:**\n{scores_text}",
-        color=discord.Color.green() if is_player else discord.Color.red()
-    )
-    result_embed.set_footer(text="Type !solo deal for the next round, or !solo end to finish.")
-    await channel.send(embed=result_embed)
+        judging_embed = discord.Embed(
+            title="\U0001F608 Dr. Evil is judging...",
+            description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}",
+            color=discord.Color.from_rgb(106, 27, 154)
+        )
+        await channel.send(embed=judging_embed)
 
-    game["state"] = "idle"
+        try:
+            winner_idx = await ai_judge(game["prompt"], submission_cards)
+        except Exception:
+            winner_idx = 0
+
+        winner_name, winner_card = all_entries[winner_idx]
+        game["scores"][winner_name] = game["scores"].get(winner_name, 0) + 1
+
+        is_player = winner_name == game["player_name"]
+
+        result_embed = discord.Embed(
+            title="\U0001F608 Dr. Evil Has Decided!",
+            color=discord.Color.from_rgb(106, 27, 154)
+        )
+        result_embed.add_field(name="Prompt", value=format_prompt(game["prompt"]), inline=False)
+
+        for i, (name, card) in enumerate(all_entries):
+            marker = " \U0001F3C6" if card == winner_card and name == winner_name else ""
+            result_embed.add_field(
+                name=f"Card {i+1}{marker}",
+                value=f"{card}\n*— {name}*",
+                inline=True
+            )
+
+        if is_player:
+            verdict = f"\U0001F389 **You win this round!**"
+        else:
+            verdict = f"**{winner_name}** wins this round!"
+
+        scores_text = "\n".join(
+            f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
+            for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
+        )
+
+        result_embed.add_field(name="Result", value=verdict, inline=False)
+        result_embed.add_field(name="Scores", value=scores_text, inline=False)
+        result_embed.set_footer(text="Type !solo deal for the next round, or !solo end to finish.")
+        await channel.send(embed=result_embed)
+
+        game["state"] = "idle"
+
+    except Exception as e:
+        print(f"Error in finish_solo_round: {e}")
+        import traceback
+        traceback.print_exc()
+        game["state"] = "idle"
+        try:
+            await channel.send(f"Something went wrong during judging. Type `!solo deal` to try again.")
+        except Exception:
+            pass
 
 
 @solo_group.command(name="score")
