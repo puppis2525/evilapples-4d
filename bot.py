@@ -22,6 +22,10 @@ from tournament import (
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
 
+def format_prompt(prompt_text):
+    formatted = prompt_text.replace("_", "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
+    return f"**{formatted}**"
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -195,7 +199,7 @@ async def deal_cards(ctx):
                     hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
                     dm_embed = discord.Embed(
                         title="Your Hand",
-                        description=f"**Prompt:** {prompt}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
+                        description=f"{format_prompt(prompt)}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
                         color=discord.Color.blue()
                     )
                     await member.send(embed=dm_embed)
@@ -212,7 +216,7 @@ async def deal_cards(ctx):
 
         embed = discord.Embed(
             title="Round Started!",
-            description=f"**Prompt:** {prompt}\n\nCheck your DMs for your cards! Reply to the bot's DM with a number (1-5) to submit.{timer_text}",
+            description=f"{format_prompt(prompt)}\n\nCheck your DMs for your cards! Reply to the bot's DM with a number (1-5) to submit.{timer_text}",
             color=discord.Color.green()
         )
         embed.set_footer(text=f"Waiting for {len(game['players'])} submissions...")
@@ -347,7 +351,7 @@ async def handle_timer_expiry(channel_id, expected_round_id):
 
     embed = discord.Embed(
         title="Time's Up! Time to Judge!",
-        description=f"**Prompt:** {game['prompt']}\n\n{submission_text}",
+        description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
         color=discord.Color.purple()
     )
 
@@ -466,7 +470,7 @@ async def solo_deal(ctx):
                     hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(player_hand))
                     dm_embed = discord.Embed(
                         title=f"Solo Round {game['round_number']}",
-                        description=f"**Prompt:** {prompt}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
+                        description=f"{format_prompt(prompt)}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
                         color=discord.Color.dark_purple()
                     )
                     await member.send(embed=dm_embed)
@@ -483,7 +487,7 @@ async def solo_deal(ctx):
 
             embed = discord.Embed(
                 title=f"Solo Round {game['round_number']}",
-                description=f"**Prompt:** {prompt}\n\nCheck your DMs and pick your best card!{timer_text}",
+                description=f"{format_prompt(prompt)}\n\nCheck your DMs and pick your best card!{timer_text}",
                 color=discord.Color.dark_purple()
             )
             embed.set_footer(text=f"Playing against {', '.join(game['ai_opponents'])}")
@@ -550,7 +554,7 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
 
     embed = discord.Embed(
         title="All Cards Are In! AI is judging...",
-        description=f"**Prompt:** {game['prompt']}\n\n{submission_text}",
+        description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
         color=discord.Color.dark_purple()
     )
     msg = await channel.send(embed=embed)
@@ -1198,7 +1202,7 @@ async def on_message(message):
 
                 embed = discord.Embed(
                     title="All Cards Are In! Time to Judge!",
-                    description=f"**Prompt:** {game['prompt']}\n\n{submission_text}",
+                    description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
                     color=discord.Color.purple()
                 )
 
@@ -1241,7 +1245,7 @@ async def on_message(message):
 
                 embed = discord.Embed(
                     title=f"Round {round_data['round_number']} — All Cards In!",
-                    description=f"**Prompt:** {round_data['prompt']}\n\n{submission_text}",
+                    description=f"{format_prompt(round_data['prompt'])}\n\n{submission_text}",
                     color=discord.Color.purple()
                 )
                 embed.set_footer(

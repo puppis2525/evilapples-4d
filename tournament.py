@@ -12,6 +12,10 @@ from db import (
 
 active_tournament_rounds = {}
 
+def format_prompt(prompt_text):
+    formatted = prompt_text.replace("_", "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
+    return f"**{formatted}**"
+
 
 class TournamentJudgingView(discord.ui.View):
     def __init__(self, tournament_data, round_data, channel):
@@ -195,7 +199,7 @@ async def run_tournament_round(channel, tournament_data, round_number, players, 
                     hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
                     dm_embed = discord.Embed(
                         title=f"Tournament Round {round_number} — Your Hand",
-                        description=f"**Prompt:** {prompt}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
+                        description=f"{format_prompt(prompt)}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
                         color=discord.Color.purple()
                     )
                     dm_embed.set_footer(text=f"Tournament: {tournament_data['name']}")
@@ -205,7 +209,7 @@ async def run_tournament_round(channel, tournament_data, round_number, players, 
 
         round_embed = discord.Embed(
             title=f"Round {round_number} — Cards Dealt!",
-            description=f"**Prompt:** {prompt}\n\nCheck your DMs! Reply with a number (1-5) to submit your card.",
+            description=f"{format_prompt(prompt)}\n\nCheck your DMs! Reply with a number (1-5) to submit your card.",
             color=discord.Color.green()
         )
         round_embed.add_field(name="Judge", value=f"<@{judge_id}>", inline=True)
