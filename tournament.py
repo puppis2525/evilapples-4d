@@ -2,7 +2,7 @@ import discord
 import asyncio
 import random
 from slugify import slugify
-from api_client import generate_hand, generate_prompt
+from api_client import generate_hand, generate_prompt, HAND_SIZE
 from db import (
     create_tournament, get_active_tournament, join_tournament,
     get_tournament_players, get_tournament_player_count,
@@ -167,6 +167,7 @@ async def run_tournament_round(channel, tournament_data, round_number, players, 
         "submissions": {},
         "prompt": "",
         "judge_rotation": judge_rotation,
+        "exchanged": set(),
     }
 
     active_tournament_rounds[channel.id] = {
@@ -187,7 +188,7 @@ async def run_tournament_round(channel, tournament_data, round_number, players, 
         round_data["prompt"] = prompt
 
         player_ids = list(playing_players.keys())
-        hands = await asyncio.gather(*(generate_hand(5) for _ in player_ids))
+        hands = await asyncio.gather(*(generate_hand(HAND_SIZE) for _ in player_ids))
         for pid, hand in zip(player_ids, hands):
             round_data["hands"][pid] = hand
 

@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 import asyncio
 from slugify import slugify
-from api_client import generate_hand, generate_prompt, ai_judge, deal_default_hands, deal_default_solo
+from api_client import generate_hand, generate_prompt, ai_judge, deal_default_hands, deal_default_solo, deal_replacement_cards, HAND_SIZE
 from ui_components import JudgingView, HandView, GameLobbyView, PostRoundView, SoloControlsView, DeckSelectView
 from db import (
     batch_update_games_played, save_round,
@@ -214,22 +214,23 @@ async def deal_cards(ctx):
         game["prompt"] = prompt
 
         if deck_ids:
-            total_needed = len(playing_ids) * 5
+            total_needed = len(playing_ids) * HAND_SIZE
             all_answers = await get_random_cards_multi(deck_ids, "answer", total_needed)
             if len(all_answers) < total_needed:
                 await ctx.send(f"Not enough answer cards in selected decks (need {total_needed}, have {len(all_answers)}). Using default cards.")
-                hands = deal_default_hands(len(playing_ids), 5)
+                hands = deal_default_hands(len(playing_ids), HAND_SIZE)
             else:
                 import random as _rng
                 _rng.shuffle(all_answers)
-                hands = [all_answers[i*5:(i+1)*5] for i in range(len(playing_ids))]
+                hands = [all_answers[i*HAND_SIZE:(i+1)*HAND_SIZE] for i in range(len(playing_ids))]
         else:
-            hands = deal_default_hands(len(playing_ids), 5)
+            hands = deal_default_hands(len(playing_ids), HAND_SIZE)
         for player_id, hand in zip(playing_ids, hands):
             game["hands"][player_id] = hand
 
         game["state"] = "submitting"
         game["playing_ids"] = playing_ids
+        game["exchanged"] = set()
 
         timer_seconds = channel_timers.get(ctx.channel.id)
         timer_text = ""
@@ -575,24 +576,25 @@ async def solo_deal(ctx):
                 else:
                     prompt = await generate_prompt()
 
-                total_needed = 5 + len(game["ai_opponents"])
+                total_needed = HAND_SIZE + len(game["ai_opponents"])
                 all_answers = await get_random_cards_multi(solo_deck_ids, "answer", total_needed)
                 if len(all_answers) >= total_needed:
                     import random as _rng
                     _rng.shuffle(all_answers)
-                    player_hand = all_answers[:5]
-                    ai_cards = all_answers[5:]
+                    player_hand = all_answers[:HAND_SIZE]
+                    ai_cards = all_answers[HAND_SIZE:]
                 else:
-                    player_hand, ai_cards = deal_default_solo(5, len(game["ai_opponents"]))
+                    player_hand, ai_cards = deal_default_solo(HAND_SIZE, len(game["ai_opponents"]))
             else:
                 prompt = await generate_prompt()
-                player_hand, ai_cards = deal_default_solo(5, len(game["ai_opponents"]))
+                player_hand, ai_cards = deal_default_solo(HAND_SIZE, len(game["ai_opponents"]))
 
             game["prompt"] = prompt
             game["hand"] = player_hand
             game["ai_cards"] = ai_cards
             game["state"] = "submitting"
             game["submitted"] = False
+            game["exchanged"] = set()
 
             timer_seconds = channel_timers.get(ctx.channel.id)
             timer_text = ""

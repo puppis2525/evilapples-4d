@@ -47,30 +47,176 @@ class HandView(discord.ui.View):
             return
 
         hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
+
+        has_exchanged = player_id in self.game_session.get("exchanged", set())
+        has_submitted = (
+            (self.mode == "solo" and self.game_session.get("submitted"))
+            or (self.mode != "solo" and player_id in self.game_session.get("submissions", {}))
+        )
+        exchange_note = ""
+        if has_submitted:
+            exchange_note = "\n\n*You already submitted a card.*"
+        elif has_exchanged:
+            exchange_note = "\n\n*You already used your exchange this round.*"
+        else:
+            exchange_note = "\n\n*Use the Exchange button to swap up to 3 cards (once per round).*"
+
         embed = discord.Embed(
             title="Your Hand",
-            description=f"{format_prompt(prompt)}\n\n{hand_text}",
+            description=f"{format_prompt(prompt)}\n\n{hand_text}{exchange_note}",
             color=discord.Color.dark_purple()
         )
-        embed.set_footer(text="Click a numbered button below to submit your card!")
+        embed.set_footer(text="Click a numbered button to submit, or Exchange to swap cards!")
 
         game_channel = self.channel or interaction.channel
-        submit_view = SubmitCardView(self.game_session, hand, self.mode, channel=game_channel)
+        submit_view = SubmitCardView(self.game_session, hand, self.mode, channel=game_channel, player_id=player_id)
         await interaction.response.send_message(embed=embed, view=submit_view, ephemeral=True)
 
 
 class SubmitCardView(discord.ui.View):
-    def __init__(self, game_session, hand, mode="multiplayer", channel=None):
+    def __init__(self, game_session, hand, mode="multiplayer", channel=None, player_id=None):
         super().__init__(timeout=300)
         self.game_session = game_session
         self.hand = hand
         self.mode = mode
         self.channel = channel
+        self.player_id = player_id
 
         for i, card in enumerate(hand):
             label = f"{i+1}"
             button = SubmitCardButton(index=i, label=label, card_text=card, view_ref=self)
             self.add_item(button)
+
+        has_exchanged = player_id in game_session.get("exchanged", set())
+        has_submitted = (
+            (mode == "solo" and game_session.get("submitted"))
+            or (mode != "solo" and player_id in game_session.get("submissions", {}))
+        )
+        exchange_btn = discord.ui.Button(
+            label="Exchange",
+            style=discord.ButtonStyle.secondary,
+            emoji="\U0001F504",
+            row=1,
+            disabled=has_exchanged or has_submitted,
+        )
+        exchange_btn.callback = self.exchange_callback
+        self.add_item(exchange_btn)
+
+    async def exchange_callback(self, interaction: discord.Interaction):
+        player_id = str(interaction.user.id)
+        game = self.game_session
+
+        if game.get("state") != "submitting":
+            await interaction.response.send_message("Round is no longer accepting submissions.", ephemeral=True)
+            return
+
+        if player_id in game.get("exchanged", set()):
+            await interaction.response.send_message("You already used your exchange this round!", ephemeral=True)
+            return
+
+        if self.mode == "solo" and game.get("submitted"):
+            await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+            return
+        if self.mode != "solo" and player_id in game.get("submissions", {}):
+            await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+            return
+
+        if self.mode == "solo":
+            hand = game.get("hand", [])
+        else:
+            hand = game.get("hands", {}).get(player_id, [])
+
+        if not hand:
+            await interaction.response.send_message("No cards to exchange.", ephemeral=True)
+            return
+
+        options = [
+            discord.SelectOption(
+                label=f"{i+1}. {card[:95]}",
+                value=str(i),
+            )
+            for i, card in enumerate(hand)
+        ]
+
+        select = discord.ui.Select(
+            placeholder="Pick up to 3 cards to exchange...",
+            min_values=1,
+            max_values=min(3, len(hand)),
+            options=options,
+        )
+
+        exchange_view = ExchangeConfirmView(game, self.mode, self.channel, player_id, select)
+        select.callback = exchange_view.on_select
+        exchange_view.add_item(select)
+
+        await interaction.response.edit_message(
+            content="**Select up to 3 cards to exchange:**",
+            embed=None,
+            view=exchange_view,
+        )
+
+
+class ExchangeConfirmView(discord.ui.View):
+    def __init__(self, game_session, mode, channel, player_id, select):
+        super().__init__(timeout=60)
+        self.game_session = game_session
+        self.mode = mode
+        self.channel = channel
+        self.player_id = player_id
+
+    async def on_select(self, interaction: discord.Interaction):
+        player_id = str(interaction.user.id)
+        game = self.game_session
+
+        if game.get("state") != "submitting":
+            await interaction.response.send_message("Round is no longer accepting submissions.", ephemeral=True)
+            return
+
+        if player_id in game.get("exchanged", set()):
+            await interaction.response.send_message("You already used your exchange this round!", ephemeral=True)
+            return
+
+        if self.mode == "solo" and game.get("submitted"):
+            await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+            return
+        if self.mode != "solo" and player_id in game.get("submissions", {}):
+            await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+            return
+
+        selected_indices = sorted([int(v) for v in interaction.data["values"]], reverse=True)
+
+        if self.mode == "solo":
+            hand = game.get("hand", [])
+        else:
+            hand = game.get("hands", {}).get(player_id, [])
+
+        from api_client import deal_replacement_cards
+        new_cards = deal_replacement_cards(len(selected_indices), exclude=hand)
+
+        swapped_old = []
+        for idx in selected_indices:
+            if 0 <= idx < len(hand):
+                swapped_old.append(hand[idx])
+
+        for i, idx in enumerate(selected_indices):
+            if 0 <= idx < len(hand) and i < len(new_cards):
+                hand[idx] = new_cards[i]
+
+        game.setdefault("exchanged", set()).add(player_id)
+
+        hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
+        swap_summary = f"Swapped {len(selected_indices)} card{'s' if len(selected_indices) > 1 else ''}."
+
+        embed = discord.Embed(
+            title="Your Hand (Updated)",
+            description=f"{format_prompt(game.get('prompt', ''))}\n\n{hand_text}\n\n*{swap_summary} Exchange used — pick a card to submit!*",
+            color=discord.Color.dark_purple()
+        )
+        embed.set_footer(text="Click a numbered button below to submit your card!")
+
+        game_channel = self.channel or interaction.channel
+        new_view = SubmitCardView(game, hand, self.mode, channel=game_channel, player_id=player_id)
+        await interaction.response.edit_message(content=None, embed=embed, view=new_view)
 
 
 class SubmitCardButton(discord.ui.Button):
@@ -86,6 +232,9 @@ class SubmitCardButton(discord.ui.Button):
         mode = self.view_ref.mode
 
         if mode == "solo":
+            hand = game.get("hand", [])
+            self.card_text = hand[self.index] if self.index < len(hand) else self.card_text
+
             if player_id != game.get("player_id"):
                 await interaction.response.send_message("This isn't your game!", ephemeral=True)
                 return
@@ -118,6 +267,9 @@ class SubmitCardButton(discord.ui.Button):
                     await game_channel.send("Something went wrong during judging. Type `!solo deal` to try again.")
 
         else:
+            hand = game.get("hands", {}).get(player_id, [])
+            self.card_text = hand[self.index] if self.index < len(hand) else self.card_text
+
             if player_id not in game.get("players", {}):
                 await interaction.response.send_message("You're not in this game!", ephemeral=True)
                 return
@@ -243,28 +395,138 @@ class TournamentHandView(discord.ui.View):
             return
 
         hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
+
+        has_exchanged = player_id in self.round_data.get("exchanged", set())
+        exchange_note = ""
+        if has_exchanged:
+            exchange_note = "\n\n*You already used your exchange this round.*"
+        else:
+            exchange_note = "\n\n*Use the Exchange button to swap up to 3 cards (once per round).*"
+
         embed = discord.Embed(
             title=f"Tournament: {self.tournament_data['name']}",
-            description=f"{format_prompt(prompt)}\n\n{hand_text}",
+            description=f"{format_prompt(prompt)}\n\n{hand_text}{exchange_note}",
             color=discord.Color.purple()
         )
-        embed.set_footer(text="Click a numbered button below to submit your card!")
+        embed.set_footer(text="Click a numbered button to submit, or Exchange to swap cards!")
 
-        submit_view = TournamentSubmitView(self.round_data, self.tournament_data, hand, self.channel)
+        submit_view = TournamentSubmitView(self.round_data, self.tournament_data, hand, self.channel, player_id=player_id)
         await interaction.response.send_message(embed=embed, view=submit_view, ephemeral=True)
 
 
 class TournamentSubmitView(discord.ui.View):
-    def __init__(self, round_data, tournament_data, hand, channel):
+    def __init__(self, round_data, tournament_data, hand, channel, player_id=None):
         super().__init__(timeout=300)
         self.round_data = round_data
         self.tournament_data = tournament_data
         self.hand = hand
         self.channel = channel
+        self.player_id = player_id
 
         for i, card in enumerate(hand):
             button = TournamentSubmitButton(index=i, label=f"{i+1}", card_text=card, view_ref=self)
             self.add_item(button)
+
+        has_exchanged = player_id in round_data.get("exchanged", set())
+        has_submitted = player_id in round_data.get("submissions", {})
+        exchange_btn = discord.ui.Button(
+            label="Exchange",
+            style=discord.ButtonStyle.secondary,
+            emoji="\U0001F504",
+            row=1,
+            disabled=has_exchanged or has_submitted,
+        )
+        exchange_btn.callback = self.exchange_callback
+        self.add_item(exchange_btn)
+
+    async def exchange_callback(self, interaction: discord.Interaction):
+        player_id = str(interaction.user.id)
+        rd = self.round_data
+
+        if player_id in rd.get("exchanged", set()):
+            await interaction.response.send_message("You already used your exchange this round!", ephemeral=True)
+            return
+
+        if player_id in rd.get("submissions", {}):
+            await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+            return
+
+        hand = rd.get("hands", {}).get(player_id, [])
+        if not hand:
+            await interaction.response.send_message("No cards to exchange.", ephemeral=True)
+            return
+
+        options = [
+            discord.SelectOption(
+                label=f"{i+1}. {card[:95]}",
+                value=str(i),
+            )
+            for i, card in enumerate(hand)
+        ]
+
+        select = discord.ui.Select(
+            placeholder="Pick up to 3 cards to exchange...",
+            min_values=1,
+            max_values=min(3, len(hand)),
+            options=options,
+        )
+
+        exchange_view = TournamentExchangeView(rd, self.tournament_data, self.channel, player_id, select)
+        select.callback = exchange_view.on_select
+        exchange_view.add_item(select)
+
+        await interaction.response.edit_message(
+            content="**Select up to 3 cards to exchange:**",
+            embed=None,
+            view=exchange_view,
+        )
+
+
+class TournamentExchangeView(discord.ui.View):
+    def __init__(self, round_data, tournament_data, channel, player_id, select):
+        super().__init__(timeout=60)
+        self.round_data = round_data
+        self.tournament_data = tournament_data
+        self.channel = channel
+        self.player_id = player_id
+
+    async def on_select(self, interaction: discord.Interaction):
+        player_id = str(interaction.user.id)
+        rd = self.round_data
+
+        if player_id in rd.get("exchanged", set()):
+            await interaction.response.send_message("You already used your exchange!", ephemeral=True)
+            return
+
+        if player_id in rd.get("submissions", {}):
+            await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+            return
+
+        selected_indices = sorted([int(v) for v in interaction.data["values"]], reverse=True)
+
+        hand = rd.get("hands", {}).get(player_id, [])
+
+        from api_client import deal_replacement_cards
+        new_cards = deal_replacement_cards(len(selected_indices), exclude=hand)
+
+        for i, idx in enumerate(selected_indices):
+            if 0 <= idx < len(hand) and i < len(new_cards):
+                hand[idx] = new_cards[i]
+
+        rd.setdefault("exchanged", set()).add(player_id)
+
+        hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
+        swap_summary = f"Swapped {len(selected_indices)} card{'s' if len(selected_indices) > 1 else ''}."
+
+        embed = discord.Embed(
+            title=f"Tournament: {self.tournament_data['name']} (Updated Hand)",
+            description=f"{format_prompt(rd.get('prompt', ''))}\n\n{hand_text}\n\n*{swap_summary} Exchange used — pick a card to submit!*",
+            color=discord.Color.purple()
+        )
+        embed.set_footer(text="Click a numbered button below to submit your card!")
+
+        new_view = TournamentSubmitView(rd, self.tournament_data, hand, self.channel, player_id=player_id)
+        await interaction.response.edit_message(content=None, embed=embed, view=new_view)
 
 
 class TournamentSubmitButton(discord.ui.Button):
@@ -279,6 +541,9 @@ class TournamentSubmitButton(discord.ui.Button):
         round_data = self.view_ref.round_data
         tournament_data = self.view_ref.tournament_data
         channel = self.view_ref.channel
+
+        hand = round_data.get("hands", {}).get(player_id, [])
+        self.card_text = hand[self.index] if self.index < len(hand) else self.card_text
 
         if player_id not in round_data.get("players", {}):
             await interaction.response.send_message("You're not in this tournament round!", ephemeral=True)
@@ -541,50 +806,33 @@ class SoloControlsView(discord.ui.View):
             await interaction.response.send_message("This isn't your game!", ephemeral=True)
             return
         from bot import solo_games
-        game = solo_games.get(self.player_id)
+        game = solo_games.get(int(self.player_id))
         if not game:
-            await interaction.response.send_message("No solo game running.", ephemeral=True)
+            await interaction.response.send_message("No active solo game.", ephemeral=True)
             return
-        scores_text = "\n".join(
-            f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
-            for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
-        )
+        wins = game.get("wins", 0)
+        losses = game.get("losses", 0)
+        total = wins + losses
         embed = discord.Embed(
-            title="Solo Scores",
-            description=scores_text,
-            color=discord.Color.dark_purple()
+            title=f"\U0001F4CA Solo Score — Round {game.get('round_number', 0)}",
+            description=f"**Wins:** {wins}\n**Losses:** {losses}\n**Total Rounds:** {total}",
+            color=discord.Color.from_rgb(106, 27, 154)
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.ui.button(label="End Game", style=discord.ButtonStyle.danger, emoji="\u274C")
-    async def end_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Quit", style=discord.ButtonStyle.danger, emoji="\u274C")
+    async def quit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         if str(interaction.user.id) != self.player_id:
             await interaction.response.send_message("This isn't your game!", ephemeral=True)
             return
-        from bot import solo_games, timer_tasks
-        game = solo_games.get(self.player_id)
-        if not game:
-            await interaction.response.send_message("No solo game to end.", ephemeral=True)
-            return
-
-        task_key = f"solo_{self.player_id}"
-        if task_key in timer_tasks:
-            timer_tasks[task_key].cancel()
-            timer_tasks.pop(task_key, None)
-
-        scores_text = "\n".join(
-            f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
-            for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
-        )
-        del solo_games[self.player_id]
-
+        from bot import solo_games
+        game = solo_games.pop(int(self.player_id), None)
         for item in self.children:
             item.disabled = True
         await interaction.response.edit_message(view=self)
-
-        embed = discord.Embed(
-            title="Solo Game Over!",
-            description=f"**Final Scores:**\n{scores_text}",
-            color=discord.Color.dark_purple()
-        )
-        await interaction.channel.send(embed=embed)
+        if game:
+            wins = game.get("wins", 0)
+            losses = game.get("losses", 0)
+            await interaction.channel.send(f"Solo game ended! Final score: **{wins}W / {losses}L**")
+        else:
+            await interaction.channel.send("No active solo game to quit.")

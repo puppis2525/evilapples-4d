@@ -97,10 +97,11 @@ async def generate_card(card_type: str = "white") -> str:
 
 DEFAULT_ANSWER_CARDS = CLASSIC_CARDS["white_cards"]
 
+HAND_SIZE = 7
 
 import random as _random
 
-def deal_default_hands(num_players: int, hand_size: int = 5) -> list[list[str]]:
+def deal_default_hands(num_players: int, hand_size: int = HAND_SIZE) -> list[list[str]]:
     total_needed = num_players * hand_size
     pool = list(DEFAULT_ANSWER_CARDS)
     _random.shuffle(pool)
@@ -118,7 +119,7 @@ def deal_default_hands(num_players: int, hand_size: int = 5) -> list[list[str]]:
     return hands
 
 
-def deal_default_solo(hand_size: int = 5, num_ai: int = 3) -> tuple[list[str], list[str]]:
+def deal_default_solo(hand_size: int = HAND_SIZE, num_ai: int = 3) -> tuple[list[str], list[str]]:
     pool = list(DEFAULT_ANSWER_CARDS)
     _random.shuffle(pool)
     player_hand = pool[:hand_size]
@@ -126,7 +127,16 @@ def deal_default_solo(hand_size: int = 5, num_ai: int = 3) -> tuple[list[str], l
     return player_hand, ai_cards
 
 
-async def generate_hand(count: int = 5) -> list[str]:
+def deal_replacement_cards(count: int, exclude: list[str] | None = None) -> list[str]:
+    pool = list(DEFAULT_ANSWER_CARDS)
+    if exclude:
+        exclude_set = set(exclude)
+        pool = [c for c in pool if c not in exclude_set]
+    _random.shuffle(pool)
+    return pool[:count]
+
+
+async def generate_hand(count: int = HAND_SIZE) -> list[str]:
     cards = []
     for _ in range(count):
         card = await generate_card("white")
