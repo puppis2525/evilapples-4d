@@ -185,15 +185,15 @@ class JudgingView(discord.ui.View):
         await interaction.response.edit_message(view=self)
 
         embed = discord.Embed(
-            title="We Have a Winner!",
-            color=discord.Color.purple()
+            title="\U0001F3C6 We Have a Winner!",
+            color=discord.Color.from_rgb(106, 27, 154)
         )
-        embed.add_field(name="Prompt", value=prompt, inline=False)
+        embed.add_field(name="Prompt", value=format_prompt(prompt), inline=False)
         embed.add_field(name="Winning Card", value=winning_card, inline=False)
         embed.add_field(name="Winner", value=f"**{winner_name}**", inline=False)
         embed.set_footer(text=f"Round saved as: /rounds/{slug}")
 
-        await self.channel.send(embed=embed)
+        await self.channel.send(embed=embed, view=PostRoundView())
 
         self.game_session["state"] = "finished"
 
@@ -327,3 +327,195 @@ class TournamentSubmitButton(discord.ui.Button):
 
             view = TournamentJudgingView(tournament_data, round_data, channel)
             await channel.send(embed=embed, view=view)
+
+
+class GameLobbyView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Join Game", style=discord.ButtonStyle.green, emoji="\u2705")
+    async def join_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from bot import active_games
+        game = active_games.get(interaction.channel_id)
+        if not game:
+            await interaction.response.send_message("No active game.", ephemeral=True)
+            return
+        player_id = str(interaction.user.id)
+        if player_id in game["players"]:
+            await interaction.response.send_message("You're already in the game!", ephemeral=True)
+            return
+        game["players"][player_id] = interaction.user.display_name
+        if player_id not in game["all_player_ids"]:
+            game["all_player_ids"].append(player_id)
+        await interaction.response.send_message(
+            f"**{interaction.user.display_name}** has joined! ({len(game['players'])} players)"
+        )
+
+    @discord.ui.button(label="Deal", style=discord.ButtonStyle.primary, emoji="\U0001F0CF")
+    async def deal_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from bot import active_games, bot
+        game = active_games.get(interaction.channel_id)
+        if not game:
+            await interaction.response.send_message("No active game.", ephemeral=True)
+            return
+        player_id = str(interaction.user.id)
+        if player_id not in game["players"]:
+            await interaction.response.send_message("You need to join the game first!", ephemeral=True)
+            return
+        if game["state"] not in ("waiting_for_players", "finished"):
+            await interaction.response.send_message("A round is already in progress!", ephemeral=True)
+            return
+        ctx = await bot.get_context(interaction.message)
+        ctx.author = interaction.user
+        ctx.channel = interaction.channel
+        await interaction.response.defer()
+        deal_cmd = bot.get_command("deal")
+        if deal_cmd:
+            await ctx.invoke(deal_cmd)
+
+    @discord.ui.button(label="End Game", style=discord.ButtonStyle.danger, emoji="\u274C")
+    async def end_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from bot import active_games, timer_tasks
+        game = active_games.get(interaction.channel_id)
+        if not game:
+            await interaction.response.send_message("No active game to end.", ephemeral=True)
+            return
+        player_id = str(interaction.user.id)
+        if player_id not in game["players"]:
+            await interaction.response.send_message("Only players in the game can end it!", ephemeral=True)
+            return
+        if interaction.channel_id in timer_tasks:
+            timer_tasks[interaction.channel_id].cancel()
+            del timer_tasks[interaction.channel_id]
+        del active_games[interaction.channel_id]
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+        await interaction.channel.send("Game ended. Start a new one with `!startgame`.")
+
+
+class PostRoundView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Deal Next Round", style=discord.ButtonStyle.green, emoji="\U0001F0CF")
+    async def deal_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from bot import active_games, bot
+        game = active_games.get(interaction.channel_id)
+        if not game:
+            await interaction.response.send_message("No active game.", ephemeral=True)
+            return
+        player_id = str(interaction.user.id)
+        if player_id not in game["players"]:
+            await interaction.response.send_message("You need to be in the game to deal!", ephemeral=True)
+            return
+        if game["state"] != "finished":
+            await interaction.response.send_message("Can't deal right now — round still in progress!", ephemeral=True)
+            return
+        ctx = await bot.get_context(interaction.message)
+        ctx.author = interaction.user
+        ctx.channel = interaction.channel
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+        deal_cmd = bot.get_command("deal")
+        if deal_cmd:
+            await ctx.invoke(deal_cmd)
+
+    @discord.ui.button(label="End Game", style=discord.ButtonStyle.danger, emoji="\u274C")
+    async def end_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from bot import active_games, timer_tasks
+        game = active_games.get(interaction.channel_id)
+        if not game:
+            await interaction.response.send_message("No active game to end.", ephemeral=True)
+            return
+        player_id = str(interaction.user.id)
+        if player_id not in game["players"]:
+            await interaction.response.send_message("Only players in the game can end it!", ephemeral=True)
+            return
+        if interaction.channel_id in timer_tasks:
+            timer_tasks[interaction.channel_id].cancel()
+            del timer_tasks[interaction.channel_id]
+        del active_games[interaction.channel_id]
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+        await interaction.channel.send("Game ended. Start a new one with `!startgame`.")
+
+
+class SoloControlsView(discord.ui.View):
+    def __init__(self, player_id):
+        super().__init__(timeout=None)
+        self.player_id = player_id
+
+    @discord.ui.button(label="Deal", style=discord.ButtonStyle.green, emoji="\U0001F0CF")
+    async def deal_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if str(interaction.user.id) != self.player_id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        from bot import bot
+        ctx = await bot.get_context(interaction.message)
+        ctx.author = interaction.user
+        ctx.channel = interaction.channel
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+        solo_cmd = bot.get_command("solo")
+        if solo_cmd:
+            deal_sub = solo_cmd.get_command("deal")
+            if deal_sub:
+                await ctx.invoke(deal_sub)
+
+    @discord.ui.button(label="Score", style=discord.ButtonStyle.secondary, emoji="\U0001F4CA")
+    async def score_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if str(interaction.user.id) != self.player_id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        from bot import solo_games
+        game = solo_games.get(self.player_id)
+        if not game:
+            await interaction.response.send_message("No solo game running.", ephemeral=True)
+            return
+        scores_text = "\n".join(
+            f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
+            for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
+        )
+        embed = discord.Embed(
+            title="Solo Scores",
+            description=scores_text,
+            color=discord.Color.dark_purple()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="End Game", style=discord.ButtonStyle.danger, emoji="\u274C")
+    async def end_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if str(interaction.user.id) != self.player_id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        from bot import solo_games, timer_tasks
+        game = solo_games.get(self.player_id)
+        if not game:
+            await interaction.response.send_message("No solo game to end.", ephemeral=True)
+            return
+
+        task_key = f"solo_{self.player_id}"
+        if task_key in timer_tasks:
+            timer_tasks[task_key].cancel()
+            timer_tasks.pop(task_key, None)
+
+        scores_text = "\n".join(
+            f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
+            for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
+        )
+        del solo_games[self.player_id]
+
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        embed = discord.Embed(
+            title="Solo Game Over!",
+            description=f"**Final Scores:**\n{scores_text}",
+            color=discord.Color.dark_purple()
+        )
+        await interaction.channel.send(embed=embed)

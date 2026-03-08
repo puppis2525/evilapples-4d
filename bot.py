@@ -6,7 +6,7 @@ from discord.ext import commands
 import asyncio
 from slugify import slugify
 from api_client import generate_hand, generate_prompt, ai_judge
-from ui_components import JudgingView, HandView
+from ui_components import JudgingView, HandView, GameLobbyView, PostRoundView, SoloControlsView
 from db import (
     batch_update_games_played, save_round,
     create_tournament, get_active_tournament, join_tournament,
@@ -93,14 +93,7 @@ async def start_game(ctx):
         "The judge rotates each round (round-robin style).\n"
         "If fewer than 3 players, Dr. Evil judges instead."
     ), inline=False)
-    embed.add_field(name="Commands", value=(
-        "`!join` - Join the game\n"
-        "`!deal` - Deal cards and start the next round\n"
-        "`!timer <10-60>` - Set a countdown timer in seconds\n"
-        "`!endgame` - End the current game"
-    ), inline=False)
-
-    await ctx.send(embed=embed)
+    await ctx.send(embed=embed, view=GameLobbyView())
 
 
 @bot.command(name="join")
@@ -288,9 +281,9 @@ async def ai_judge_pick(game, channel):
     )
     embed.add_field(name="\U0001F3C6 Winning Card", value=winning_card, inline=False)
     embed.add_field(name="Winner", value=f"**{winner_name}**", inline=False)
-    embed.set_footer(text=f"Round saved as: /rounds/{slug} | Type !deal for the next round!")
+    embed.set_footer(text=f"Round saved as: /rounds/{slug}")
 
-    await channel.send(embed=embed)
+    await channel.send(embed=embed, view=PostRoundView())
 
 
 async def check_all_submitted(game, interaction):
@@ -496,12 +489,7 @@ async def solo_group(ctx, opponents: int = 3):
         description=f"**{ctx.author.display_name}** vs. {', '.join(f'**{n}**' for n in ai_names)}\n\nType `!solo deal` to start a round!\n\U0001F608 Dr. Evil will judge each round.",
         color=discord.Color.dark_purple()
     )
-    embed.add_field(name="Commands", value=(
-        "`!solo deal` — Deal a new round\n"
-        "`!solo score` — View current scores\n"
-        "`!solo end` — End the solo game"
-    ), inline=False)
-    await ctx.send(embed=embed)
+    await ctx.send(embed=embed, view=SoloControlsView(player_id))
 
 
 @solo_group.command(name="deal")
@@ -684,8 +672,7 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
 
         result_embed.add_field(name="Result", value=verdict, inline=False)
         result_embed.add_field(name="Scores", value=scores_text, inline=False)
-        result_embed.set_footer(text="Type !solo deal for the next round, or !solo end to finish.")
-        await channel.send(embed=result_embed)
+        await channel.send(embed=result_embed, view=SoloControlsView(player_id))
 
         game["state"] = "idle"
 
