@@ -4,10 +4,11 @@ import time
 import discord
 from discord.ext import commands
 import asyncio
+from slugify import slugify
 from api_client import generate_hand, generate_prompt, ai_judge
 from ui_components import JudgingView, HandView
 from db import (
-    batch_update_games_played,
+    batch_update_games_played, save_round,
     create_tournament, get_active_tournament, join_tournament,
     get_tournament_players, get_tournament_player_count,
     start_tournament, end_tournament,
@@ -48,17 +49,22 @@ round_counter = {}
 
 
 class GameSession:
-    def __init__(self, channel_id, judge_id):
+    def __init__(self, channel_id, starter_id, starter_name):
         self.data = {
             "channel_id": channel_id,
-            "judge_id": str(judge_id),
+            "judge_id": None,
             "state": "waiting_for_players",
             "players": {},
+            "all_player_ids": [],
+            "judge_index": -1,
+            "use_ai_judge": False,
             "hands": {},
             "submissions": {},
             "prompt": "",
             "round_id": 0,
         }
+        self.data["players"][str(starter_id)] = starter_name
+        self.data["all_player_ids"].append(str(starter_id))
 
     def to_dict(self):
         return self.data
@@ -75,19 +81,22 @@ async def start_game(ctx):
         await ctx.send("A game is already running in this channel! Use `!endgame` to stop it.")
         return
 
-    session = GameSession(ctx.channel.id, ctx.author.id)
+    session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name)
     active_games[ctx.channel.id] = session.to_dict()
 
     embed = discord.Embed(
         title="Evil Apples 4D",
-        description="A new game is starting! Type `!join` to play.\nThe game starts when the Judge types `!deal`.",
+        description=f"A new game is starting! Type `!join` to play.\n**{ctx.author.display_name}** has joined! (1 player)\n\nAnyone can type `!deal` when ready.",
         color=discord.Color.purple()
     )
-    embed.add_field(name="Judge", value=ctx.author.mention, inline=False)
+    embed.add_field(name="How It Works", value=(
+        "The judge rotates each round (round-robin style).\n"
+        "If fewer than 3 players, AI judges instead."
+    ), inline=False)
     embed.add_field(name="Commands", value=(
         "`!join` - Join the game\n"
-        "`!deal` - Deal cards and start the round (Judge only)\n"
-        "`!timer <10-60>` - Set a countdown timer in seconds (Judge only)\n"
+        "`!deal` - Deal cards and start the next round\n"
+        "`!timer <10-60>` - Set a countdown timer in seconds\n"
         "`!endgame` - End the current game"
     ), inline=False)
 
@@ -101,16 +110,14 @@ async def join_game(ctx):
         await ctx.send("No active game. Use `!startgame` to start one.")
         return
 
-    if str(ctx.author.id) == game["judge_id"]:
-        await ctx.send("The Judge can't play cards! You'll pick the winner instead.")
-        return
-
     player_id = str(ctx.author.id)
     if player_id in game["players"]:
         await ctx.send("You're already in the game!")
         return
 
     game["players"][player_id] = ctx.author.display_name
+    if player_id not in game["all_player_ids"]:
+        game["all_player_ids"].append(player_id)
     await ctx.send(f"**{ctx.author.display_name}** has joined! ({len(game['players'])} players)")
 
 
@@ -119,10 +126,6 @@ async def deal_cards(ctx):
     game = active_games.get(ctx.channel.id)
     if not game:
         await ctx.send("No active game.")
-        return
-
-    if str(ctx.author.id) != game["judge_id"]:
-        await ctx.send("Only the Judge can deal cards!")
         return
 
     if len(game["players"]) < 2:
@@ -152,6 +155,25 @@ async def deal_cards(ctx):
         timer_tasks[ctx.channel.id].cancel()
         timer_tasks.pop(ctx.channel.id, None)
 
+    total_players = len(game["players"])
+    use_ai_judge = total_players < 3
+
+    if use_ai_judge:
+        game["judge_id"] = None
+        game["use_ai_judge"] = True
+        playing_ids = list(game["players"].keys())
+        judge_name = "AI Judge"
+    else:
+        game["judge_index"] = (game.get("judge_index", -1) + 1) % len(game["all_player_ids"])
+        judge_id = game["all_player_ids"][game["judge_index"]]
+        while judge_id not in game["players"]:
+            game["judge_index"] = (game["judge_index"] + 1) % len(game["all_player_ids"])
+            judge_id = game["all_player_ids"][game["judge_index"]]
+        game["judge_id"] = judge_id
+        game["use_ai_judge"] = False
+        playing_ids = [pid for pid in game["players"] if pid != judge_id]
+        judge_name = game["players"][judge_id]
+
     game["state"] = "dealing"
     game["submissions"] = {}
     game["round_id"] = game.get("round_id", 0) + 1
@@ -175,21 +197,21 @@ async def deal_cards(ctx):
             prompt = await generate_prompt()
         game["prompt"] = prompt
 
-        player_ids = list(game["players"].keys())
         if deck_info:
-            total_needed = len(player_ids) * 5
+            total_needed = len(playing_ids) * 5
             all_answers = await get_random_cards(deck_info["id"], "answer", total_needed)
             if len(all_answers) < total_needed:
                 await ctx.send(f"Not enough answer cards in deck (need {total_needed}, have {len(all_answers)}). Falling back to AI.")
-                hands = await asyncio.gather(*(generate_hand(5) for _ in player_ids))
+                hands = await asyncio.gather(*(generate_hand(5) for _ in playing_ids))
             else:
-                hands = [all_answers[i*5:(i+1)*5] for i in range(len(player_ids))]
+                hands = [all_answers[i*5:(i+1)*5] for i in range(len(playing_ids))]
         else:
-            hands = await asyncio.gather(*(generate_hand(5) for _ in player_ids))
-        for player_id, hand in zip(player_ids, hands):
+            hands = await asyncio.gather(*(generate_hand(5) for _ in playing_ids))
+        for player_id, hand in zip(playing_ids, hands):
             game["hands"][player_id] = hand
 
         game["state"] = "submitting"
+        game["playing_ids"] = playing_ids
 
         timer_seconds = channel_timers.get(ctx.channel.id)
         timer_text = ""
@@ -197,12 +219,14 @@ async def deal_cards(ctx):
             deadline = int(time.time()) + timer_seconds
             timer_text = f"\n\n**Timer:** <t:{deadline}:R> to submit!"
 
+        judge_line = f"\n\n\u2696\uFE0F **Judge this round:** {judge_name}" if not use_ai_judge else "\n\n\U0001F916 **AI Judge** is judging this round"
+
         embed = discord.Embed(
             title="\U0001F7E3 PROMPT CARD",
-            description=f"## {format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!{timer_text}",
+            description=f"## {format_prompt(prompt)}{judge_line}\n\nClick the button below to view your hand and submit a card!{timer_text}",
             color=discord.Color.from_rgb(106, 27, 154)
         )
-        embed.set_footer(text=f"Waiting for {len(game['players'])} submissions...")
+        embed.set_footer(text=f"Waiting for {len(playing_ids)} submissions...")
         view = HandView(game, mode="multiplayer", channel=ctx.channel)
         await ctx.send(embed=embed, view=view)
 
@@ -225,6 +249,50 @@ async def deal_cards(ctx):
         await ctx.send(f"Error generating cards: {str(e)}")
 
 
+async def ai_judge_pick(game, channel):
+    prompt = game["prompt"]
+    submissions = list(game["submissions"].items())
+
+    if not submissions:
+        game["state"] = "finished"
+        embed = discord.Embed(
+            title="Round Void",
+            description="No cards were submitted. Type `!deal` for a new round.",
+            color=discord.Color.red()
+        )
+        await channel.send(embed=embed)
+        return
+
+    random.shuffle(submissions)
+
+    card_texts = [card for _, card in submissions]
+    chosen_index = await ai_judge(prompt, card_texts)
+
+    winner_id, winning_card = submissions[chosen_index]
+    winner_member = channel.guild.get_member(int(winner_id)) if channel.guild else None
+    winner_name = winner_member.display_name if winner_member else game["players"].get(winner_id, "Unknown")
+
+    slug = slugify(f"{prompt[:40]}-{random.randint(100, 999)}")
+    await save_round(prompt, winning_card, winner_id, winner_name, slug)
+
+    game["state"] = "finished"
+
+    submission_text = "\n".join(
+        f"\U0001F0CF **Card {i+1}:** {card}" for i, card in enumerate(card_texts)
+    )
+
+    embed = discord.Embed(
+        title="\U0001F916 AI Judge Has Decided!",
+        description=f"## {format_prompt(prompt)}\n\n{submission_text}",
+        color=discord.Color.from_rgb(106, 27, 154)
+    )
+    embed.add_field(name="\U0001F3C6 Winning Card", value=winning_card, inline=False)
+    embed.add_field(name="Winner", value=f"**{winner_name}**", inline=False)
+    embed.set_footer(text=f"Round saved as: /rounds/{slug} | Type !deal for the next round!")
+
+    await channel.send(embed=embed)
+
+
 async def check_all_submitted(game, interaction):
     channel_id = None
     for ch_id, g in active_games.items():
@@ -234,7 +302,8 @@ async def check_all_submitted(game, interaction):
     if channel_id is None:
         return
 
-    if len(game["submissions"]) < len(game["players"]):
+    playing_ids = game.get("playing_ids", [pid for pid in game["players"] if pid != game.get("judge_id")])
+    if len(game["submissions"]) < len(playing_ids):
         return
 
     if channel_id in timer_tasks:
@@ -246,14 +315,21 @@ async def check_all_submitted(game, interaction):
     }
     await batch_update_games_played(players_in_round)
 
-    game["state"] = "judging"
     channel = bot.get_channel(channel_id)
+
+    if game.get("use_ai_judge"):
+        game["state"] = "judging"
+        if channel:
+            await ai_judge_pick(game, channel)
+        return
+
+    game["state"] = "judging"
     if channel:
+        submissions = list(game["submissions"].items())
+        random.shuffle(submissions)
         submission_text = "\n".join(
             f"\U0001F0CF **Card {i+1}:** {card}"
-            for i, (_, card) in enumerate(
-                list(game["submissions"].items())
-            )
+            for i, (_, card) in enumerate(submissions)
         )
 
         embed = discord.Embed(
@@ -283,10 +359,6 @@ async def set_timer(ctx, seconds: int = None):
     game = active_games.get(ctx.channel.id)
     if not game:
         await ctx.send("No active game. Use `!startgame` first.")
-        return
-
-    if str(ctx.author.id) != game["judge_id"]:
-        await ctx.send("Only the Judge can set the timer!")
         return
 
     if seconds is None:
@@ -344,15 +416,15 @@ async def handle_timer_expiry(channel_id, expected_round_id):
     if game["state"] != "submitting" or game.get("round_id", 0) != expected_round_id:
         return
 
+    playing_ids = set(game.get("playing_ids", [pid for pid in game["players"] if pid != game.get("judge_id")]))
     submitted = set(game["submissions"].keys())
-    all_players = set(game["players"].keys())
-    missing = all_players - submitted
+    missing = playing_ids - submitted
 
     if not game["submissions"]:
         game["state"] = "finished"
         embed = discord.Embed(
             title="Time's Up!",
-            description="Nobody submitted a card in time. The round is void.\nThe Judge can `!deal` again to start a new round.",
+            description="Nobody submitted a card in time. The round is void.\nType `!deal` to start a new round.",
             color=discord.Color.red()
         )
         await channel.send(embed=embed)
@@ -368,6 +440,10 @@ async def handle_timer_expiry(channel_id, expected_round_id):
         pid: game["players"][pid] for pid in game["players"]
     }
     await batch_update_games_played(players_in_round)
+
+    if game.get("use_ai_judge"):
+        await ai_judge_pick(game, channel)
+        return
 
     submission_text = "\n".join(
         f"\U0001F0CF **Card {i+1}:** {card}"

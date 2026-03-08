@@ -33,6 +33,9 @@ class HandView(discord.ui.View):
             if player_id not in self.game_session.get("players", {}):
                 await interaction.response.send_message("You're not in this game!", ephemeral=True)
                 return
+            if player_id == self.game_session.get("judge_id") and not self.game_session.get("use_ai_judge"):
+                await interaction.response.send_message("You're the judge this round! Wait for everyone to submit, then pick the winner.", ephemeral=True)
+                return
             if self.game_session.get("state") != "submitting":
                 await interaction.response.send_message("No cards to show right now.", ephemeral=True)
                 return
@@ -128,7 +131,8 @@ class SubmitCardButton(discord.ui.Button):
             channel = self.view_ref.channel
             if channel:
                 card_num = len(game["submissions"])
-                total = len(game.get("players", {}))
+                playing_ids = game.get("playing_ids", [pid for pid in game.get("players", {}) if pid != game.get("judge_id")])
+                total = len(playing_ids)
                 card_embed = discord.Embed(
                     description=f"## \U0001F0CF  {self.card_text}",
                     color=discord.Color.from_rgb(255, 255, 255)
