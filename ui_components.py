@@ -380,9 +380,8 @@ class GameLobbyView(discord.ui.View):
         if not game:
             await interaction.response.send_message("No active game to end.", ephemeral=True)
             return
-        player_id = str(interaction.user.id)
-        if player_id not in game["players"]:
-            await interaction.response.send_message("Only players in the game can end it!", ephemeral=True)
+        if str(interaction.user.id) != game.get("host_id"):
+            await interaction.response.send_message("Only the game host can end the game!", ephemeral=True)
             return
         if interaction.channel_id in timer_tasks:
             timer_tasks[interaction.channel_id].cancel()
@@ -429,9 +428,8 @@ class PostRoundView(discord.ui.View):
         if not game:
             await interaction.response.send_message("No active game to end.", ephemeral=True)
             return
-        player_id = str(interaction.user.id)
-        if player_id not in game["players"]:
-            await interaction.response.send_message("Only players in the game can end it!", ephemeral=True)
+        if str(interaction.user.id) != game.get("host_id"):
+            await interaction.response.send_message("Only the game host can end the game!", ephemeral=True)
             return
         if interaction.channel_id in timer_tasks:
             timer_tasks[interaction.channel_id].cancel()

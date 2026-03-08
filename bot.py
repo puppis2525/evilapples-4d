@@ -52,6 +52,7 @@ class GameSession:
     def __init__(self, channel_id, starter_id, starter_name):
         self.data = {
             "channel_id": channel_id,
+            "host_id": str(starter_id),
             "judge_id": None,
             "state": "waiting_for_players",
             "players": {},
@@ -337,14 +338,18 @@ async def check_all_submitted(game, interaction):
 
 @bot.command(name="endgame")
 async def end_game(ctx):
-    if ctx.channel.id in active_games:
-        if ctx.channel.id in timer_tasks:
-            timer_tasks[ctx.channel.id].cancel()
-            del timer_tasks[ctx.channel.id]
-        del active_games[ctx.channel.id]
-        await ctx.send("Game ended. Start a new one with `!startgame`.")
-    else:
+    game = active_games.get(ctx.channel.id)
+    if not game:
         await ctx.send("No active game to end.")
+        return
+    if str(ctx.author.id) != game.get("host_id"):
+        await ctx.send("Only the game host can end the game!")
+        return
+    if ctx.channel.id in timer_tasks:
+        timer_tasks[ctx.channel.id].cancel()
+        del timer_tasks[ctx.channel.id]
+    del active_games[ctx.channel.id]
+    await ctx.send("Game ended. Start a new one with `!startgame`.")
 
 
 @bot.command(name="timer")
