@@ -4,6 +4,128 @@ from slugify import slugify
 from db import save_round
 
 
+def format_prompt(prompt_text):
+    formatted = prompt_text.replace("_", "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
+    return f"**{formatted}**"
+
+
+class HandView(discord.ui.View):
+    def __init__(self, game_session, mode="multiplayer"):
+        super().__init__(timeout=300)
+        self.game_session = game_session
+        self.mode = mode
+
+    @discord.ui.button(label="View My Hand", style=discord.ButtonStyle.green, emoji="\U0001F0CF")
+    async def view_hand(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player_id = str(interaction.user.id)
+
+        if self.mode == "solo":
+            if player_id != self.game_session.get("player_id"):
+                await interaction.response.send_message("This isn't your game!", ephemeral=True)
+                return
+            if self.game_session.get("state") != "submitting":
+                await interaction.response.send_message("No cards to show right now.", ephemeral=True)
+                return
+            hand = self.game_session.get("hand", [])
+            prompt = self.game_session.get("prompt", "")
+        else:
+            if player_id not in self.game_session.get("players", {}):
+                await interaction.response.send_message("You're not in this game!", ephemeral=True)
+                return
+            if self.game_session.get("state") != "submitting":
+                await interaction.response.send_message("No cards to show right now.", ephemeral=True)
+                return
+            hand = self.game_session.get("hands", {}).get(player_id, [])
+            prompt = self.game_session.get("prompt", "")
+
+        if not hand:
+            await interaction.response.send_message("No cards in your hand.", ephemeral=True)
+            return
+
+        hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
+        embed = discord.Embed(
+            title="Your Hand",
+            description=f"{format_prompt(prompt)}\n\n{hand_text}",
+            color=discord.Color.dark_purple()
+        )
+        embed.set_footer(text="Click a numbered button below to submit your card!")
+
+        submit_view = SubmitCardView(self.game_session, hand, self.mode)
+        await interaction.response.send_message(embed=embed, view=submit_view, ephemeral=True)
+
+
+class SubmitCardView(discord.ui.View):
+    def __init__(self, game_session, hand, mode="multiplayer"):
+        super().__init__(timeout=300)
+        self.game_session = game_session
+        self.hand = hand
+        self.mode = mode
+
+        for i, card in enumerate(hand):
+            label = f"{i+1}"
+            button = SubmitCardButton(index=i, label=label, card_text=card, view_ref=self)
+            self.add_item(button)
+
+
+class SubmitCardButton(discord.ui.Button):
+    def __init__(self, index: int, label: str, card_text: str, view_ref):
+        super().__init__(label=label, style=discord.ButtonStyle.primary)
+        self.index = index
+        self.card_text = card_text
+        self.view_ref = view_ref
+
+    async def callback(self, interaction: discord.Interaction):
+        player_id = str(interaction.user.id)
+        game = self.view_ref.game_session
+        mode = self.view_ref.mode
+
+        if mode == "solo":
+            if player_id != game.get("player_id"):
+                await interaction.response.send_message("This isn't your game!", ephemeral=True)
+                return
+            if game.get("state") != "submitting":
+                await interaction.response.send_message("Round is no longer accepting submissions.", ephemeral=True)
+                return
+            if game.get("submitted"):
+                await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+                return
+
+            game["submitted"] = True
+            for item in self.view_ref.children:
+                item.disabled = True
+            await interaction.response.edit_message(
+                content=f"Card submitted: **{self.card_text}**",
+                embed=None,
+                view=self.view_ref
+            )
+
+            from bot import finish_solo_round
+            await finish_solo_round(player_id, player_card=self.card_text)
+
+        else:
+            if player_id not in game.get("players", {}):
+                await interaction.response.send_message("You're not in this game!", ephemeral=True)
+                return
+            if game.get("state") != "submitting":
+                await interaction.response.send_message("Round is no longer accepting submissions.", ephemeral=True)
+                return
+            if player_id in game.get("submissions", {}):
+                await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+                return
+
+            game["submissions"][player_id] = self.card_text
+            for item in self.view_ref.children:
+                item.disabled = True
+            await interaction.response.edit_message(
+                content=f"Card submitted: **{self.card_text}**",
+                embed=None,
+                view=self.view_ref
+            )
+
+            from bot import check_all_submitted
+            await check_all_submitted(game, interaction)
+
+
 class JudgingView(discord.ui.View):
     def __init__(self, game_session, channel):
         super().__init__(timeout=120)
@@ -65,3 +187,107 @@ class CardButton(discord.ui.Button):
             return
 
         await self.view_ref.pick_winner(interaction, self.index)
+
+
+class TournamentHandView(discord.ui.View):
+    def __init__(self, round_data, tournament_data, channel):
+        super().__init__(timeout=300)
+        self.round_data = round_data
+        self.tournament_data = tournament_data
+        self.channel = channel
+
+    @discord.ui.button(label="View My Hand", style=discord.ButtonStyle.green, emoji="\U0001F0CF")
+    async def view_hand(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player_id = str(interaction.user.id)
+
+        if player_id not in self.round_data.get("players", {}):
+            await interaction.response.send_message("You're not in this tournament round!", ephemeral=True)
+            return
+
+        hand = self.round_data.get("hands", {}).get(player_id, [])
+        prompt = self.round_data.get("prompt", "")
+
+        if not hand:
+            await interaction.response.send_message("No cards in your hand.", ephemeral=True)
+            return
+
+        if player_id in self.round_data.get("submissions", {}):
+            await interaction.response.send_message("You already submitted a card this round!", ephemeral=True)
+            return
+
+        hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
+        embed = discord.Embed(
+            title=f"Tournament: {self.tournament_data['name']}",
+            description=f"{format_prompt(prompt)}\n\n{hand_text}",
+            color=discord.Color.purple()
+        )
+        embed.set_footer(text="Click a numbered button below to submit your card!")
+
+        submit_view = TournamentSubmitView(self.round_data, self.tournament_data, hand, self.channel)
+        await interaction.response.send_message(embed=embed, view=submit_view, ephemeral=True)
+
+
+class TournamentSubmitView(discord.ui.View):
+    def __init__(self, round_data, tournament_data, hand, channel):
+        super().__init__(timeout=300)
+        self.round_data = round_data
+        self.tournament_data = tournament_data
+        self.hand = hand
+        self.channel = channel
+
+        for i, card in enumerate(hand):
+            button = TournamentSubmitButton(index=i, label=f"{i+1}", card_text=card, view_ref=self)
+            self.add_item(button)
+
+
+class TournamentSubmitButton(discord.ui.Button):
+    def __init__(self, index: int, label: str, card_text: str, view_ref):
+        super().__init__(label=label, style=discord.ButtonStyle.primary)
+        self.index = index
+        self.card_text = card_text
+        self.view_ref = view_ref
+
+    async def callback(self, interaction: discord.Interaction):
+        player_id = str(interaction.user.id)
+        round_data = self.view_ref.round_data
+        tournament_data = self.view_ref.tournament_data
+        channel = self.view_ref.channel
+
+        if player_id not in round_data.get("players", {}):
+            await interaction.response.send_message("You're not in this tournament round!", ephemeral=True)
+            return
+
+        if player_id in round_data.get("submissions", {}):
+            await interaction.response.send_message("You already submitted a card!", ephemeral=True)
+            return
+
+        round_data["submissions"][player_id] = self.card_text
+        for item in self.view_ref.children:
+            item.disabled = True
+        await interaction.response.edit_message(
+            content=f"Card submitted: **{self.card_text}**",
+            embed=None,
+            view=self.view_ref
+        )
+
+        if len(round_data["submissions"]) == len(round_data["players"]):
+            from tournament import TournamentJudgingView
+            submissions = list(round_data["submissions"].items())
+            random.shuffle(submissions)
+
+            submission_text = "\n".join(
+                f"**Card {i+1}:** {card}"
+                for i, (_, card) in enumerate(submissions)
+            )
+
+            embed = discord.Embed(
+                title=f"Round {round_data['round_number']} — All Cards In!",
+                description=f"{format_prompt(round_data['prompt'])}\n\n{submission_text}",
+                color=discord.Color.purple()
+            )
+            embed.set_footer(
+                text=f"Judge: pick the winner! | Tournament: {tournament_data['name']}"
+            )
+
+            view = TournamentJudgingView(tournament_data, round_data, channel)
+            await channel.send(embed=embed, view=view)

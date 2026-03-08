@@ -19,7 +19,8 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - Free tier: 3 games/day per server; Pro: unlimited
 - Solo mode: `!solo [1-5]` — Play against AI opponents with Venice.ai judging
 - Configurable countdown timer: `!timer <10-60>` — Judge sets per-channel, skips non-submitters on expiry
-- DM-based card distribution and submission
+- In-channel card viewing & submission via ephemeral "View My Hand" button (no DMs needed)
+- DM-based submission still supported as fallback
 - Interactive judging with Discord Buttons (ui_components.py)
 - Purple-themed embeds matching Evil Apples branding
 

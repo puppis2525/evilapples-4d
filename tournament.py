@@ -191,31 +191,17 @@ async def run_tournament_round(channel, tournament_data, round_number, players, 
         for pid, hand in zip(player_ids, hands):
             round_data["hands"][pid] = hand
 
-        for pid in player_ids:
-            hand = round_data["hands"][pid]
-            try:
-                member = channel.guild.get_member(int(pid))
-                if member:
-                    hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
-                    dm_embed = discord.Embed(
-                        title=f"Tournament Round {round_number} — Your Hand",
-                        description=f"{format_prompt(prompt)}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
-                        color=discord.Color.purple()
-                    )
-                    dm_embed.set_footer(text=f"Tournament: {tournament_data['name']}")
-                    await member.send(embed=dm_embed)
-            except discord.Forbidden:
-                await channel.send(f"Couldn't DM {playing_players[pid]}. They need to enable DMs.")
-
+        from ui_components import TournamentHandView
         round_embed = discord.Embed(
             title=f"Round {round_number} — Cards Dealt!",
-            description=f"{format_prompt(prompt)}\n\nCheck your DMs! Reply with a number (1-5) to submit your card.",
+            description=f"{format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!",
             color=discord.Color.green()
         )
         round_embed.add_field(name="Judge", value=f"<@{judge_id}>", inline=True)
         round_embed.add_field(name="Players", value=str(len(playing_players)), inline=True)
         round_embed.set_footer(text=f"Tournament: {tournament_data['name']} | Waiting for {len(playing_players)} submissions...")
-        await channel.send(embed=round_embed)
+        t_hand_view = TournamentHandView(round_data, tournament_data, channel)
+        await channel.send(embed=round_embed, view=t_hand_view)
 
     except Exception as e:
         await channel.send(f"Error generating cards for round {round_number}: {str(e)}")

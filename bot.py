@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 import asyncio
 from api_client import generate_hand, generate_prompt, ai_judge
-from ui_components import JudgingView
+from ui_components import JudgingView, HandView
 from db import (
     batch_update_games_played,
     create_tournament, get_active_tournament, join_tournament,
@@ -189,23 +189,6 @@ async def deal_cards(ctx):
         for player_id, hand in zip(player_ids, hands):
             game["hands"][player_id] = hand
 
-        for player_id in player_ids:
-            hand = game["hands"][player_id]
-            player_name = game["players"][player_id]
-
-            try:
-                member = ctx.guild.get_member(int(player_id))
-                if member:
-                    hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
-                    dm_embed = discord.Embed(
-                        title="Your Hand",
-                        description=f"{format_prompt(prompt)}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
-                        color=discord.Color.blue()
-                    )
-                    await member.send(embed=dm_embed)
-            except discord.Forbidden:
-                await ctx.send(f"Couldn't DM {player_name}. They need to enable DMs from server members.")
-
         game["state"] = "submitting"
 
         timer_seconds = channel_timers.get(ctx.channel.id)
@@ -216,11 +199,12 @@ async def deal_cards(ctx):
 
         embed = discord.Embed(
             title="Round Started!",
-            description=f"{format_prompt(prompt)}\n\nCheck your DMs for your cards! Reply to the bot's DM with a number (1-5) to submit.{timer_text}",
+            description=f"{format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!{timer_text}",
             color=discord.Color.green()
         )
         embed.set_footer(text=f"Waiting for {len(game['players'])} submissions...")
-        await ctx.send(embed=embed)
+        view = HandView(game, mode="multiplayer")
+        await ctx.send(embed=embed, view=view)
 
         if timer_seconds:
             async def timer_countdown(ch_id, secs, rid):
@@ -239,6 +223,47 @@ async def deal_cards(ctx):
     except Exception as e:
         game["state"] = "waiting_for_players"
         await ctx.send(f"Error generating cards: {str(e)}")
+
+
+async def check_all_submitted(game, interaction):
+    channel_id = None
+    for ch_id, g in active_games.items():
+        if g is game:
+            channel_id = ch_id
+            break
+    if channel_id is None:
+        return
+
+    if len(game["submissions"]) < len(game["players"]):
+        return
+
+    if channel_id in timer_tasks:
+        timer_tasks[channel_id].cancel()
+        del timer_tasks[channel_id]
+
+    players_in_round = {
+        pid: game["players"][pid] for pid in game["players"]
+    }
+    await batch_update_games_played(players_in_round)
+
+    game["state"] = "judging"
+    channel = bot.get_channel(channel_id)
+    if channel:
+        submission_text = "\n".join(
+            f"**Card {i+1}:** {card}"
+            for i, (_, card) in enumerate(
+                list(game["submissions"].items())
+            )
+        )
+
+        embed = discord.Embed(
+            title="All Cards Are In! Time to Judge!",
+            description=f"{format_prompt(game['prompt'])}\n\n{submission_text}",
+            color=discord.Color.purple()
+        )
+
+        view = JudgingView(game, channel)
+        await channel.send(embed=embed, view=view)
 
 
 @bot.command(name="endgame")
@@ -379,6 +404,7 @@ async def solo_group(ctx, opponents: int = 3):
 
     solo_games[player_id] = {
         "channel_id": ctx.channel.id,
+        "player_id": player_id,
         "player_name": ctx.author.display_name,
         "ai_opponents": ai_names,
         "scores": {ctx.author.display_name: 0},
@@ -464,21 +490,6 @@ async def solo_deal(ctx):
             game["state"] = "submitting"
             game["submitted"] = False
 
-            try:
-                member = ctx.guild.get_member(int(player_id)) if ctx.guild else None
-                if member:
-                    hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(player_hand))
-                    dm_embed = discord.Embed(
-                        title=f"Solo Round {game['round_number']}",
-                        description=f"{format_prompt(prompt)}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
-                        color=discord.Color.dark_purple()
-                    )
-                    await member.send(embed=dm_embed)
-            except discord.Forbidden:
-                await ctx.send("I couldn't DM you. Please enable DMs from server members.")
-                game["state"] = "idle"
-                return
-
             timer_seconds = channel_timers.get(ctx.channel.id)
             timer_text = ""
             if timer_seconds:
@@ -487,11 +498,12 @@ async def solo_deal(ctx):
 
             embed = discord.Embed(
                 title=f"Solo Round {game['round_number']}",
-                description=f"{format_prompt(prompt)}\n\nCheck your DMs and pick your best card!{timer_text}",
+                description=f"{format_prompt(prompt)}\n\nClick the button below to view your hand and submit a card!{timer_text}",
                 color=discord.Color.dark_purple()
             )
             embed.set_footer(text=f"Playing against {', '.join(game['ai_opponents'])}")
-            await ctx.send(embed=embed)
+            view = HandView(game, mode="solo")
+            await ctx.send(embed=embed, view=view)
 
             if timer_seconds:
                 async def solo_timer(pid, secs, rid):
