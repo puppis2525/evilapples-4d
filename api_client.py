@@ -89,3 +89,47 @@ async def generate_hand(count: int = 5) -> list[str]:
 
 async def generate_prompt() -> str:
     return await generate_card("black")
+
+
+SYSTEM_PROMPT_JUDGE = """You are the judge of a dark comedy card game called Evil Apples.
+You will be given a prompt card and several answer cards submitted by players.
+Pick the funniest, most creative, or most fittingly dark answer.
+Consider shock value, comedic timing, and how well the answer completes the prompt.
+Return ONLY the number of the winning card (1-based index). Nothing else — just the number."""
+
+
+async def ai_judge(prompt: str, submissions: list[str]) -> int:
+    choices_text = "\n".join(f"{i+1}. {text}" for i, text in enumerate(submissions))
+    user_msg = f"Prompt card: \"{prompt}\"\n\nAnswer cards:\n{choices_text}\n\nWhich card wins? Reply with only the number."
+
+    headers = {
+        "Authorization": f"Bearer {VENICE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "llama-3.3-70b",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT_JUDGE},
+            {"role": "user", "content": user_msg},
+        ],
+        "max_tokens": 10,
+        "temperature": 0.7,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(VENICE_API_URL, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            result = data["choices"][0]["message"]["content"].strip()
+
+            import re
+            match = re.search(r'\d+', result)
+            if match:
+                idx = int(match.group()) - 1
+                if 0 <= idx < len(submissions):
+                    return idx
+            return 0
+    except Exception:
+        return 0

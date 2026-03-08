@@ -17,6 +17,7 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - Tournament commands: `!tournament create/join/start/status/end`
 - Premium command: `!premium` — shows Pro status or upgrade link
 - Free tier: 3 games/day per server; Pro: unlimited
+- Solo mode: `!solo [1-5]` — Play against AI opponents with Venice.ai judging
 - Configurable countdown timer: `!timer <10-60>` — Judge sets per-channel, skips non-submitters on expiry
 - DM-based card distribution and submission
 - Interactive judging with Discord Buttons (ui_components.py)

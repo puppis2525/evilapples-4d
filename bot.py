@@ -4,7 +4,7 @@ import time
 import discord
 from discord.ext import commands
 import asyncio
-from api_client import generate_hand, generate_prompt
+from api_client import generate_hand, generate_prompt, ai_judge
 from ui_components import JudgingView
 from db import (
     batch_update_games_played,
@@ -31,7 +31,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 active_games = {}
 channel_timers = {}
 timer_tasks = {}
+solo_games = {}
 
+AI_OPPONENT_NAMES = [
+    "DevilBot", "SatanAI", "DarkLord", "EvilGPT", "ChaosMachine",
+    "SnarkBot", "VileUnit", "GrimReaper", "ToxicAI", "WickedBot",
+    "HellSpawn", "DoomBot", "MaliceAI", "VenomBot", "ShadowAI",
+]
 
 round_counter = {}
 
@@ -346,6 +352,284 @@ async def handle_timer_expiry(channel_id, expected_round_id):
 
     view = JudgingView(game, channel)
     await channel.send(embed=embed, view=view)
+
+
+@bot.group(name="solo", invoke_without_command=True)
+async def solo_group(ctx, opponents: int = 3):
+    if ctx.invoked_subcommand is not None:
+        return
+
+    player_id = str(ctx.author.id)
+
+    if player_id in solo_games:
+        await ctx.send("You already have a solo game running! Use `!solo end` to stop it first.")
+        return
+
+    if opponents < 1:
+        opponents = 1
+    if opponents > 5:
+        opponents = 5
+
+    ai_names = random.sample(AI_OPPONENT_NAMES, opponents)
+
+    solo_games[player_id] = {
+        "channel_id": ctx.channel.id,
+        "player_name": ctx.author.display_name,
+        "ai_opponents": ai_names,
+        "scores": {ctx.author.display_name: 0},
+        "round_number": 0,
+        "state": "idle",
+        "round_id": 0,
+    }
+    for name in ai_names:
+        solo_games[player_id]["scores"][name] = 0
+
+    embed = discord.Embed(
+        title="Solo Mode — Evil Apples 4D",
+        description=f"**{ctx.author.display_name}** vs. {', '.join(f'**{n}**' for n in ai_names)}\n\nType `!solo deal` to start a round!\nThe AI will judge each round.",
+        color=discord.Color.dark_purple()
+    )
+    embed.add_field(name="Commands", value=(
+        "`!solo deal` — Deal a new round\n"
+        "`!solo score` — View current scores\n"
+        "`!solo end` — End the solo game"
+    ), inline=False)
+    await ctx.send(embed=embed)
+
+
+@solo_group.command(name="deal")
+async def solo_deal(ctx):
+    player_id = str(ctx.author.id)
+    game = solo_games.get(player_id)
+    if not game:
+        await ctx.send("No solo game running. Start one with `!solo <opponents>`.")
+        return
+
+    if game["state"] == "submitting":
+        await ctx.send("You still have a round in progress! Check your DMs and submit a card.")
+        return
+
+    game["state"] = "dealing"
+    game["round_number"] += 1
+    game["round_id"] = game.get("round_id", 0) + 1
+    current_round_id = game["round_id"]
+
+    await ctx.send(f"**Round {game['round_number']}** — Generating cards...")
+
+    try:
+        deck_info = channel_decks.get(ctx.channel.id)
+        if deck_info:
+            prompts = await get_random_cards(deck_info["id"], "prompt", 1)
+            if prompts:
+                prompt = prompts[0]
+            else:
+                prompt = await generate_prompt()
+
+            total_needed = 5 + len(game["ai_opponents"])
+            all_answers = await get_random_cards(deck_info["id"], "answer", total_needed)
+            if len(all_answers) >= total_needed:
+                player_hand = all_answers[:5]
+                ai_cards = all_answers[5:]
+            else:
+                player_hand = await generate_hand(5)
+                ai_cards_tasks = [generate_hand(1) for _ in game["ai_opponents"]]
+                ai_results = await asyncio.gather(*ai_cards_tasks)
+                ai_cards = [r[0] for r in ai_results]
+        else:
+            prompt_task = generate_prompt()
+            hand_task = generate_hand(5)
+            ai_cards_tasks = [generate_hand(1) for _ in game["ai_opponents"]]
+
+            results = await asyncio.gather(prompt_task, hand_task, *ai_cards_tasks)
+            prompt = results[0]
+            player_hand = results[1]
+            ai_cards = [r[0] for r in results[2:]]
+
+        game["prompt"] = prompt
+        game["hand"] = player_hand
+        game["ai_cards"] = ai_cards
+        game["state"] = "submitting"
+        game["submitted"] = False
+
+        try:
+            member = ctx.guild.get_member(int(player_id)) if ctx.guild else None
+            if member:
+                hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(player_hand))
+                dm_embed = discord.Embed(
+                    title=f"Solo Round {game['round_number']}",
+                    description=f"**Prompt:** {prompt}\n\n{hand_text}\n\nReply with the **number** of the card you want to play.",
+                    color=discord.Color.dark_purple()
+                )
+                await member.send(embed=dm_embed)
+        except discord.Forbidden:
+            await ctx.send("I couldn't DM you. Please enable DMs from server members.")
+            game["state"] = "idle"
+            return
+
+        timer_seconds = channel_timers.get(ctx.channel.id)
+        timer_text = ""
+        if timer_seconds:
+            deadline = int(time.time()) + timer_seconds
+            timer_text = f"\n**Timer:** <t:{deadline}:R> to submit!"
+
+        embed = discord.Embed(
+            title=f"Solo Round {game['round_number']}",
+            description=f"**Prompt:** {prompt}\n\nCheck your DMs and pick your best card!{timer_text}",
+            color=discord.Color.dark_purple()
+        )
+        embed.set_footer(text=f"Playing against {', '.join(game['ai_opponents'])}")
+        await ctx.send(embed=embed)
+
+        if timer_seconds:
+            async def solo_timer(pid, secs, rid):
+                try:
+                    await asyncio.sleep(secs)
+                    g = solo_games.get(pid)
+                    if g and g["state"] == "submitting" and g.get("round_id") == rid:
+                        await finish_solo_round(pid, timed_out=True)
+                except asyncio.CancelledError:
+                    pass
+
+            task_key = f"solo_{player_id}"
+            if task_key in timer_tasks:
+                timer_tasks[task_key].cancel()
+            timer_tasks[task_key] = asyncio.create_task(
+                solo_timer(player_id, timer_seconds, current_round_id)
+            )
+
+    except Exception as e:
+        game["state"] = "idle"
+        await ctx.send(f"Error generating cards: {str(e)}")
+
+
+async def finish_solo_round(player_id: str, player_card: str = None, timed_out: bool = False):
+    game = solo_games.get(player_id)
+    if not game:
+        return
+
+    if game["state"] not in ("submitting", "judging"):
+        return
+
+    if game["state"] == "judging":
+        return
+
+    task_key = f"solo_{player_id}"
+    if task_key in timer_tasks:
+        timer_tasks[task_key].cancel()
+        timer_tasks.pop(task_key, None)
+
+    game["state"] = "judging"
+    channel = bot.get_channel(game["channel_id"])
+    if not channel:
+        game["state"] = "idle"
+        return
+
+    if timed_out and not player_card:
+        player_card = random.choice(game["hand"])
+        await channel.send(f"**Time's up!** A random card was played for you: *{player_card}*")
+
+    all_entries = [(game["player_name"], player_card)]
+    for i, ai_name in enumerate(game["ai_opponents"]):
+        all_entries.append((ai_name, game["ai_cards"][i]))
+
+    random.shuffle(all_entries)
+    submission_cards = [card for _, card in all_entries]
+
+    submission_text = "\n".join(
+        f"**Card {i+1}:** {card}" for i, card in enumerate(submission_cards)
+    )
+
+    embed = discord.Embed(
+        title="All Cards Are In! AI is judging...",
+        description=f"**Prompt:** {game['prompt']}\n\n{submission_text}",
+        color=discord.Color.dark_purple()
+    )
+    msg = await channel.send(embed=embed)
+
+    try:
+        winner_idx = await ai_judge(game["prompt"], submission_cards)
+    except Exception:
+        winner_idx = 0
+
+    winner_name, winner_card = all_entries[winner_idx]
+    game["scores"][winner_name] = game["scores"].get(winner_name, 0) + 1
+
+    is_player = winner_name == game["player_name"]
+    if is_player:
+        verdict = f"**You win this round!** Your card: *{winner_card}*"
+    else:
+        verdict = f"**{winner_name}** wins this round with: *{winner_card}*"
+
+    scores_text = "\n".join(
+        f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
+        for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
+    )
+
+    result_embed = discord.Embed(
+        title="Round Result",
+        description=f"{verdict}\n\n**Scores:**\n{scores_text}",
+        color=discord.Color.green() if is_player else discord.Color.red()
+    )
+    result_embed.set_footer(text="Type !solo deal for the next round, or !solo end to finish.")
+    await channel.send(embed=result_embed)
+
+    game["state"] = "idle"
+
+
+@solo_group.command(name="score")
+async def solo_score(ctx):
+    player_id = str(ctx.author.id)
+    game = solo_games.get(player_id)
+    if not game:
+        await ctx.send("No solo game running. Start one with `!solo <opponents>`.")
+        return
+
+    scores_text = "\n".join(
+        f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
+        for name, pts in sorted(game["scores"].items(), key=lambda x: -x[1])
+    )
+
+    embed = discord.Embed(
+        title=f"Solo Scores — Round {game['round_number']}",
+        description=scores_text,
+        color=discord.Color.dark_purple()
+    )
+    await ctx.send(embed=embed)
+
+
+@solo_group.command(name="end")
+async def solo_end(ctx):
+    player_id = str(ctx.author.id)
+    game = solo_games.pop(player_id, None)
+    if not game:
+        await ctx.send("No solo game to end.")
+        return
+
+    task_key = f"solo_{player_id}"
+    if task_key in timer_tasks:
+        timer_tasks[task_key].cancel()
+        timer_tasks.pop(task_key, None)
+
+    if game["round_number"] == 0:
+        await ctx.send("Solo game ended before any rounds were played.")
+        return
+
+    scores = game["scores"]
+    leader = max(scores, key=scores.get)
+    scores_text = "\n".join(
+        f"{'> ' if name == game['player_name'] else ''}{name}: **{pts}**"
+        for name, pts in sorted(scores.items(), key=lambda x: -x[1])
+    )
+
+    is_player_winner = leader == game["player_name"]
+    title = "You Win!" if is_player_winner else f"{leader} Wins!"
+
+    embed = discord.Embed(
+        title=f"Solo Game Over — {title}",
+        description=f"**Final Scores after {game['round_number']} rounds:**\n\n{scores_text}",
+        color=discord.Color.gold() if is_player_winner else discord.Color.dark_grey()
+    )
+    await ctx.send(embed=embed)
 
 
 @bot.group(name="tournament", invoke_without_command=True)
@@ -956,6 +1240,19 @@ async def on_message(message):
 
                 view = TournamentJudgingView(tournament_data, round_data, channel)
                 await channel.send(embed=embed, view=view)
+        return
+
+    solo = solo_games.get(player_id)
+    if solo and solo["state"] == "submitting" and not solo.get("submitted"):
+        hand = solo.get("hand", [])
+        if choice < 1 or choice > len(hand):
+            await message.channel.send(f"Pick a number between 1 and {len(hand)}.")
+            return
+
+        selected_card = hand[choice - 1]
+        solo["submitted"] = True
+        await message.channel.send(f"Card submitted: **{selected_card}**\nThe AI judge is deciding...")
+        await finish_solo_round(player_id, player_card=selected_card)
         return
 
 
