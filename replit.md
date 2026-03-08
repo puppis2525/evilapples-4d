@@ -51,6 +51,7 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - Webhook handles: checkout.session.completed, subscription.deleted, subscription.updated
 
 ### Deck Store & Fulfillment
+- **41 themed decks** in the store at $0.99 each (420, Addictions, Adulting, Babes, British AF, College, Cuties, Dads, Deckronomicon, Drunk AF, Family Guy, Food, Grateful, Gross 1&2, History, Horror, Illegal Activities, Insults, Internet, Kama Sutra, Kinks, Masturbation, Medical, Monsters, Naughty 17, Netflix & Chill, Office, Poke, Pussy, Rick & Morty, Sci-Fi, Sex, Sex Ed, Modern Sex, Shitty Jobs, Simpsons, Sins, Space, Stinky Pinky, Stranger Things)
 - Admins upload "template" decks (CSV) via admin panel — these have `discord_user_id=NULL`
 - Store listings reference template deck IDs via `deck_ids` field
 - When a user purchases a listing via Stripe, the webhook records the purchase and triggers fulfillment

@@ -1,0 +1,802 @@
+Card Text	Hidden	Deck
+an eighth of strawberry kush	FALSE	420
+Blazin' Buffalo Ranch Doritos®️	FALSE	420
+bringing pot cookies for the class on your birthday	FALSE	420
+bringing your teacher an apple pipe	FALSE	420
+cotton mouth	FALSE	420
+gas, grass, and ass	FALSE	420
+getting high and going to Anne Frank's house	FALSE	420
+getting WAY too high 😳	FALSE	420
+legal weed	FALSE	420
+Mary Jane	FALSE	420
+pure THC	FALSE	420
+Reefer Madness	FALSE	420
+selling your soul for a pizza	FALSE	420
+smokin' grass and eatin' ass	FALSE	420
+smoking two joints in the morning	FALSE	420
+smoking weed all day erry day	FALSE	420
+sticky resin fingers	FALSE	420
+the green bowl packers	FALSE	420
+toking at 4:20	FALSE	420
+vape pens	FALSE	420
+9 a.m. vodka martinis	FALSE	addictions
+a case of beer	FALSE	addictions
+anal suppositories	FALSE	addictions
+bathing in champagne	FALSE	addictions
+bathtub gin	FALSE	addictions
+beer shits	FALSE	addictions
+buying beer for underage kids	FALSE	addictions
+candy cigarettes	FALSE	addictions
+drinking antifreeze	FALSE	addictions
+drinking on the job	FALSE	addictions
+magic mushrooms	FALSE	addictions
+playing Evil Apples instead of paying child support	FALSE	addictions
+pussy withdrawal	FALSE	addictions
+responsible drug use	FALSE	addictions
+sex addicts	FALSE	addictions
+shooting heroin between your toes	FALSE	addictions
+smoking an entire blunt in one drag	FALSE	addictions
+sniffing Sharpies	FALSE	addictions
+snorting cocaine off of a stripper's ass	FALSE	addictions
+whiskey dick	FALSE	addictions
+a glass of wine or two with dinner	FALSE	adulting
+a Sunday at IKEA	FALSE	adulting
+buying a dog to save your relationship	FALSE	adulting
+buying condoms in bulk	FALSE	adulting
+doing your own taxes	FALSE	adulting
+giving up on your dreams	FALSE	adulting
+monogamy	FALSE	adulting
+Omega-3 fatty acids	FALSE	adulting
+proper vaginal care	FALSE	adulting
+quiet, responsible sex	FALSE	adulting
+raw broccoli	FALSE	adulting
+sitting quietly in the dark wondering where it all went wrong	FALSE	adulting
+sugar-free, gluten-free, dairy-free desserts	FALSE	adulting
+taking off your shoes inside the house	FALSE	adulting
+the bottle of wine you're saving for a special occasion	FALSE	adulting
+the most expensive preschool in town	FALSE	adulting
+trying to get pregnant	FALSE	adulting
+watching porn in the living room	FALSE	adulting
+yoga balls	FALSE	adulting
+your rapidly deteriorating body	FALSE	adulting
+a four-way kiss with the Charlie's Angels	FALSE	babes
+Anna Kendrick's pitch perfect orgasms	FALSE	babes
+Beyoncé	FALSE	babes
+Bond girls	FALSE	babes
+Cindy Crawford's mole	FALSE	babes
+Eva Mendes	FALSE	babes
+Gisele Bundchen	FALSE	babes
+Halle Berry in a catsuit	FALSE	babes
+jacking off to Jessica Rabbit	FALSE	babes
+Jennifer Aniston	FALSE	babes
+Katy Perry	FALSE	babes
+Lupita Nyong'o	FALSE	babes
+Marilyn Monroe	FALSE	babes
+Megan Fox	FALSE	babes
+Mila Kunis	FALSE	babes
+Pam Anderson	FALSE	babes
+Scarlett Johansson	FALSE	babes
+the ass that broke the internet	FALSE	babes
+the Dallas Cowboys Cheerleaders	FALSE	babes
+the Kardashian sisters	FALSE	babes
+a mighty empire stretching to every corner of the globe	FALSE	british
+buggering off	FALSE	british
+Dame Judi Dench	FALSE	british
+farting and clearing out an entire double decker bus	FALSE	british
+Fuckingham Palace	FALSE	british
+getting blackout drunk with Queen Elizabeth	FALSE	british
+giving the Mrs. the ol "How's your father?"	FALSE	british
+having a few pints at the pub and going home legless	FALSE	british
+John Oliver's taters and mince	FALSE	british
+Kate Middleton	FALSE	british
+making out with every member of the Royal Family	FALSE	british
+naked Queen Elizabeth	FALSE	british
+old white men in powdered wigs	FALSE	british
+rampant colonization	FALSE	british
+shaving the Union Jack into your chest hair	FALSE	british
+tea and crumpets	FALSE	british
+toad in the hole	FALSE	british
+the twig and berries	FALSE	british
+Winston Churchill	FALSE	british
+your favourite colour	FALSE	british
+a drunk girl crying in the bathroom	FALSE	college
+a shower drain clogged with hair and semen	FALSE	college
+alcohol poisoning	FALSE	college
+double majoring in double penetration	FALSE	college
+falling asleep in class and having a wet dream	FALSE	college
+foot fungus from the dorm shower	FALSE	college
+free condoms	FALSE	college
+Gender & Women's Studies	FALSE	college
+getting all that semen pumped out of your stomach	FALSE	college
+getting blackout drunk on Mike's Hard Lemonade	FALSE	college
+getting high before class	FALSE	college
+girls in sweatpants	FALSE	college
+masturbating quietly so you don't wake up your roommate	FALSE	college
+no shave November	FALSE	college
+panty raids	FALSE	college
+peeing in your roommate's bed while he's asleep	FALSE	college
+sex on an IKEA futon	FALSE	college
+snorting lines of ramen seasoning	FALSE	college
+wiping your asshole with your art diploma	FALSE	college
+young republicans	FALSE	college
+a squirrel holding a flower	FALSE	cuties
+a widdle cat in a teacup	FALSE	cuties
+cliffhanger kitty	FALSE	cuties
+two buddies huggin'	FALSE	cuties
+a purity ring	FALSE	dads
+a real motherfucker	FALSE	dads
+asking your dad for condoms	FALSE	dads
+beating up other people's dads	FALSE	dads
+big strong arms	FALSE	dads
+cracking open a beer and watching the game	FALSE	dads
+dad jokes	FALSE	dads
+dad's secret stash of Playboys	FALSE	dads
+DILFs	FALSE	dads
+DOING EVERYTHING FOR THIS FAMILY	FALSE	dads
+going out for cigarettes and never coming back	FALSE	dads
+holding back tears	FALSE	dads
+kissing your dad on the mouth	FALSE	dads
+Mom's new friend, Greg	FALSE	dads
+Randy, who's not even your real dad	FALSE	dads
+sitting on your porch in a wife-beater with a shotgun	FALSE	dads
+The Grillmaster 3000™️	FALSE	dads
+tough love	FALSE	dads
+visiting Dad in prison	FALSE	dads
+walking in on mom and dad wrestling	FALSE	dads
+a cursed necklace	FALSE	deckronomicon
+a dark and stormy night	FALSE	deckronomicon
+a ghost ejaculating ectoplasm and running away	FALSE	deckronomicon
+a group of hooded figures speaking in unison	FALSE	deckronomicon
+a haunted mansion on a hill	FALSE	deckronomicon
+a house made of bone and sinew	FALSE	deckronomicon
+a spot of blood that won't wash out	FALSE	deckronomicon
+a witch's curse	FALSE	deckronomicon
+all your best witches and bros	FALSE	deckronomicon
+an old cabin in the woods where teenagers go to get murdered	FALSE	deckronomicon
+eye of newt, legs of frog, and a splash of sugar free almond milk	FALSE	deckronomicon
+fingering yourself with a severed zombie hand	FALSE	deckronomicon
+hitting a witch with your car and suddenly losing 75 pounds	FALSE	deckronomicon
+stabbing a voodoo doll straight in the dick	FALSE	deckronomicon
+summoning a demon fuckboy	FALSE	deckronomicon
+the Book of the Dead	FALSE	deckronomicon
+the children's ward of an abandoned hospital	FALSE	deckronomicon
+the God of Chaos	FALSE	deckronomicon
+The Satanic Bible	FALSE	deckronomicon
+witnessing your own death over and over	FALSE	deckronomicon
+100 proof grain alcohol	FALSE	drunkaf
+a 30 rack of cheap beer	FALSE	drunkaf
+a swimming pool full of beer	FALSE	drunkaf
+a vodka martini, shaken not stirred	FALSE	drunkaf
+begging an Uber driver to go to the Taco Bell drive-thru	FALSE	drunkaf
+blacking out in a frat house	FALSE	drunkaf
+dancing on top of the bar	FALSE	drunkaf
+dating a bartender for the free drinks	FALSE	drunkaf
+day drinking	FALSE	drunkaf
+getting shitfaced at the local Benihana	FALSE	drunkaf
+getting thrown out of a Denny's at 3AM	FALSE	drunkaf
+jungle juice made from Everclear and Hawaiian punch	FALSE	drunkaf
+making out in the middle of a crowded dance floor	FALSE	drunkaf
+passing out in a photo booth	FALSE	drunkaf
+pissing in an alley	FALSE	drunkaf
+red wine vomit	FALSE	drunkaf
+sex on the beach	FALSE	drunkaf
+two fingers of bourbon	FALSE	drunkaf
+vodka soaked tampons	FALSE	drunkaf
+waking up drunk	FALSE	drunkaf
+a buttscratcher	FALSE	familyguy
+a crippled cop in a wheelchair	FALSE	familyguy
+a diabolical baby genius	FALSE	familyguy
+a dog that's in love with a human woman	FALSE	familyguy
+a fat guy and his hot wife	FALSE	familyguy
+an alcoholic that works at a brewery	FALSE	familyguy
+an all-out brawl with a giant chicken	FALSE	familyguy
+Asian reporter, Tricia Takanawa	FALSE	familyguy
+drinking a whole cup of ipacac and vomiting all over the living room	FALSE	familyguy
+getting drunk with Stewie and Brian	FALSE	familyguy
+going back in time with Stewie Griffin	FALSE	familyguy
+Herbert the pervert	FALSE	familyguy
+Lois Griffin's hot cartoon body	FALSE	familyguy
+Mayor Adam West	FALSE	familyguy
+Meg Griffin	FALSE	familyguy
+peanut butter jelly time!	FALSE	familyguy
+Seth MacFarlene	FALSE	familyguy
+the evil monkey who lives in the closet	FALSE	familyguy
+the fellas at the freaking FCC	FALSE	familyguy
+the kid at school whose face is upside down	FALSE	familyguy
+a Cuban man pressed between 2 pieces of bread	FALSE	food
+a Hot Pocket with molten lava inside	FALSE	food
+a shit sandwich	FALSE	food
+bottomless mimosas	FALSE	food
+chunky milk	FALSE	food
+cream filling	FALSE	food
+food porn	FALSE	food
+getting stuffed	FALSE	food
+going cuckoo for cocoa puffs	FALSE	food
+liquid chicken	FALSE	food
+loose hamburger meat	FALSE	food
+man yogurt	FALSE	food
+mentos and diet coke	FALSE	food
+muffin tops	FALSE	food
+popping your cherry	FALSE	food
+pot brownies	FALSE	food
+puttin' a hot dog in your buns	FALSE	food
+rocky mountain oysters	FALSE	food
+tea-bagging	FALSE	food
+using condiments for protection	FALSE	food
+a bucket of fried chicken	FALSE	grateful
+a clean STD test	FALSE	grateful
+an airport McDonald's	FALSE	grateful
+an intact scrotum	FALSE	grateful
+birthday sex	FALSE	grateful
+cookie scented candles	FALSE	grateful
+Dr. Scholl's gel inserts	FALSE	grateful
+emergency tampons	FALSE	grateful
+finding $20 in your pocket	FALSE	grateful
+indoor toilets	FALSE	grateful
+liquid courage	FALSE	grateful
+modern dentistry	FALSE	grateful
+moving sidewalks	FALSE	grateful
+the cute barista	FALSE	grateful
+the perfectly sized penis	FALSE	grateful
+the TI-83 graphing calculator	FALSE	grateful
+top shelf bourbon	FALSE	grateful
+two-ply toilet paper	FALSE	grateful
+warm clothes right out of the dryer	FALSE	grateful
+watching little children play	FALSE	grateful
+a beef queef	FALSE	gross
+a dick that peels open like a banana	FALSE	gross
+a dollop of semen	FALSE	gross
+a horny old man	FALSE	gross
+a maggot filled vagina	FALSE	gross
+a quilt made of grandma's pubes	FALSE	gross
+a sour pussy	FALSE	gross
+a stanky ol' dick	FALSE	gross
+an infected belly button piercing	FALSE	gross
+biting a dick off	FALSE	gross
+chlamydia chowder	FALSE	gross
+dick cheese	FALSE	gross
+drowning in afterbirth	FALSE	gross
+fishing a long lost tampon out of yourself	FALSE	gross
+furry shits	FALSE	gross
+leeches sucking your cock	FALSE	gross
+paper cutting your clitoris	FALSE	gross
+piping hot diarrhea	FALSE	gross
+scraping semen out of your hair	FALSE	gross
+thick farts	FALSE	gross
+a burning yeast infection	FALSE	gross2
+a face full of period blood	FALSE	gross2
+a gonorrhea blister exploding in your mouth	FALSE	gross2
+a nail through your nuts	FALSE	gross2
+bleeding assholes	FALSE	gross2
+blood gushing from an empty tooth socket	FALSE	gross2
+clumpy discharge	FALSE	gross2
+farting while 69ing	FALSE	gross2
+frothy ejaculate	FALSE	gross2
+gagging on pubes	FALSE	gross2
+old people sex	FALSE	gross2
+open mouth kissing grandma	FALSE	gross2
+peeling your finger open with an X-Acto Knife	FALSE	gross2
+penis amputation	FALSE	gross2
+pubic lice	FALSE	gross2
+snapping your femur clean in half	FALSE	gross2
+spicy pee	FALSE	gross2
+swamp ass	FALSE	gross2
+taco bell shits	FALSE	gross2
+vaginal tearing	FALSE	gross2
+a drifter with scurvy and saddle rash	FALSE	history
+a throbbing boner for democracy	FALSE	history
+bathtub gin and jazz music	FALSE	history
+Cleopatra's pyramids	FALSE	history
+driving a Harley through the Berlin Wall	FALSE	history
+establishing a nation, declaring war against the U.S., immediately surrendering and asking for foreign aid	FALSE	history
+getting sucked off by Herbert Hoover	FALSE	history
+horny Vikings	FALSE	history
+old, stone anal beads	FALSE	history
+popping a boner in a metal suit of armor	FALSE	history
+President Taft struggling to free his enormous body from a bathtub	FALSE	history
+primitive cave drawings of boobs	FALSE	history
+the biggest dick in all of human history	FALSE	history
+The Dark Ages	FALSE	history
+the face that launched a thousand shits	FALSE	history
+the pharaoh's phallus	FALSE	history
+the punishment for stealing a loaf of bread	FALSE	history
+the remnants of a long forgotten city	FALSE	history
+wiping your ass with the Magna Carta	FALSE	history
+WWII pin-up girls	FALSE	history
+a demon with mouths instead of eyes	FALSE	horror
+a hitchhiker with an axe	FALSE	horror
+a secluded cabin in the woods that's swarming with demons	FALSE	horror
+a small child possessed by the Anti-Christ	FALSE	horror
+a weekend in the woods with your best friends and a guy with a hatchet	FALSE	horror
+an escape room run by Jigsaw	FALSE	horror
+David Lynch's nightmares	FALSE	horror
+dumping pig's blood on the prom queen	FALSE	horror
+Jason Voorhees	FALSE	horror
+pushing a human leg through a paper shredder	FALSE	horror
+Scream 5: Really Fucking Loud This Time	FALSE	horror
+Scream 6: Pipe Down in There	FALSE	horror
+Scream 7: Can Anyone Hear Us?	FALSE	horror
+seeing dead people	FALSE	horror
+the army of darkness	FALSE	horror
+the distinct feeling that someone is right behind you	FALSE	horror
+the naked witch that lives in the woods	FALSE	horror
+The Sexorcist: an XXX parody	FALSE	horror
+the strange sounds coming from the basement	FALSE	horror
+the virgin who's still alive at the end of the movie	FALSE	horror
+$200,000 in library fees	FALSE	illegalactivities
+a gym bag full of fake Rolex watches	FALSE	illegalactivities
+a stolen hard drive full of very weird porn	FALSE	illegalactivities
+a Tampa mom with a taser	FALSE	illegalactivities
+breaking into a department store and rearranging the mannequins	FALSE	illegalactivities
+carjacking a FedEx truck	FALSE	illegalactivities
+detonating a nuclear device within the city limits of Chico, CA	FALSE	illegalactivities
+driving the wrong way down a one-way street with your shirt over your head and your hands in the air as you scream 'LOOK OUT FUCKERS!!	FALSE	illegalactivities
+horse theft	FALSE	illegalactivities
+impersonating a ghost	FALSE	illegalactivities
+kidnapping Tom Hanks	FALSE	illegalactivities
+maiming yourself to avoid jury duty	FALSE	illegalactivities
+making love to the Sheriff's daughter	FALSE	illegalactivities
+money laundering	FALSE	illegalactivities
+public urination	FALSE	illegalactivities
+pushing a live moose out of an airplane	FALSE	illegalactivities
+setting your ex-husband's yacht on fire	FALSE	illegalactivities
+sleazy Russian mobsters	FALSE	illegalactivities
+streaking across a Major League Baseball field	FALSE	illegalactivities
+taking the law into your own hands	FALSE	illegalactivities
+a beady-eyed needle-nosed motherfucker	FALSE	insults
+a douche canoe	FALSE	insults
+a douchenozzle	FALSE	insults
+a fart-smeller	FALSE	insults
+a fuckin' jabroni	FALSE	insults
+a hopeless catastrophe of a man	FALSE	insults
+a miserly cantankerous old fool	FALSE	insults
+a narcissistic heathen	FALSE	insults
+a real butthead	FALSE	insults
+a real fuckwit	FALSE	insults
+a salty old fuck boi	FALSE	insults
+a shockingly demented pervert	FALSE	insults
+a stupid ass-clown	FALSE	insults
+an intellectually constipated braggart	FALSE	insults
+an unspeakably offensive barbarian	FALSE	insults
+bleeding heart liberal cucks	FALSE	insults
+button-mashing n00bs	FALSE	insults
+eating dog crap for breakfast	FALSE	insults
+Fuck Face McGee	FALSE	insults
+shining a flashlight through your empty head	FALSE	insults
+1 weird trick that will make everyone around you ejaculate	FALSE	internet
+a late night poke	FALSE	internet
+a millennial who literally can't even right now	FALSE	internet
+A SERIOUSLY GREAT DEAL ON P E N I S E N L A R G E M E N T	FALSE	internet
+accidentally sharing a porn video to Facebook	FALSE	internet
+an eggplant emoji ;)	FALSE	internet
+an epic fail	FALSE	internet
+becoming Facebook official	FALSE	internet
+finding your boyfriend on your ancestry.com family tree	FALSE	internet
+free porn!	FALSE	internet
+FUPAhunter.com	FALSE	internet
+getting Rick Roll'd	FALSE	internet
+googling "average penis size"	FALSE	internet
+hacking into the main frame	FALSE	internet
+instagramming your shits	FALSE	internet
+Kim Kardashian's sex tape	FALSE	internet
+liking a picture your crush posted on Instagram 8 months ago	FALSE	internet
+live tweeting your bowel movement	FALSE	internet
+looking up "itchy pee" on WebMD	FALSE	internet
+the overly attached girlfriend	FALSE	internet
+a blumpkin	FALSE	kamasutra
+a footjob	FALSE	kamasutra
+a tangle of limbs and genitalia	FALSE	kamasutra
+asking for a blowjob	FALSE	kamasutra
+coital alignment technique	FALSE	kamasutra
+covering your partner in caramel, sea salt, and your own natural scent	FALSE	kamasutra
+Crouching Tiger, Hidden Penis	FALSE	kamasutra
+ejaculating on your partner's face, letting it dry, and then peeling it off in one piece	FALSE	kamasutra
+punching your own testicles until they swell up, and then teabagging your partner	FALSE	kamasutra
+roleplaying as your parents	FALSE	kamasutra
+sitting on your left hand until it goes numb and pleasuring yourself	FALSE	kamasutra
+slapping your tits like an angry orangutan	FALSE	kamasutra
+spinning around with the dick still inside	FALSE	kamasutra
+sucking your own dick	FALSE	kamasutra
+swapping out the lube for "Icy Hot"	FALSE	kamasutra
+The Alabama Hot Pocket: shitting inside her vagina and then squishing your dick in there	FALSE	kamasutra
+The Missionary Position	FALSE	kamasutra
+The Red Herring: convincing a guy you don't have your period but then you DO!	FALSE	kamasutra
+two men jerking each other off while maintaining eye contact	FALSE	kamasutra
+whips and chains	FALSE	kamasutra
+a 12-piece bondage starter kit	FALSE	kinks
+a full-body leather gimp suit	FALSE	kinks
+a full-grown man dressed as a baby	FALSE	kinks
+a little worm of a man that deserves a thousand spankings	FALSE	kinks
+a one-stop shop for all your sex dungeon needs	FALSE	kinks
+a self-lubricating butthole	FALSE	kinks
+a twink riding on a bear's back	FALSE	kinks
+a well-worn wooden paddle	FALSE	kinks
+a wide and varied selection of cat o' nine tails	FALSE	kinks
+chaining your nipples together	FALSE	kinks
+covering my body in chicken fat drippings and allowing elderly men to lick me clean	FALSE	kinks
+popping balloons between your legs	FALSE	kinks
+proper anal etiquette	FALSE	kinks
+role-playing as Barack and Michelle Obama	FALSE	kinks
+sliding a wet ice cube across your nipples	FALSE	kinks
+spreading whipped cream all over my tender nipples	FALSE	kinks
+strapping yourself into a sex swing and waiting	FALSE	kinks
+the invigorating taste of menstrual blood	FALSE	kinks
+the sensual sounds of a washing machine choking on too many jock straps	FALSE	kinks
+urine and semen	FALSE	kinks
+a butt plug for beginners	FALSE	masturbation
+a late afternoon ooze 'n snooze	FALSE	masturbation
+a shelf full of thick, veiny 12-inch dildos	FALSE	masturbation
+a sore dick	FALSE	masturbation
+a vibrator disguised as chap stick	FALSE	masturbation
+all of the household objects that can be used as dildos	FALSE	masturbation
+emptying your body of semen	FALSE	masturbation
+fapping all day, every day	FALSE	masturbation
+going to town on yourself	FALSE	masturbation
+investing in a high-end vibrator	FALSE	masturbation
+jerking it 24/7/365	FALSE	masturbation
+lighting some candles, pouring a glass of wine, and masturbating furiously for 2 hours	FALSE	masturbation
+making some fapple sauce	FALSE	masturbation
+my preferred jerk-off method	FALSE	masturbation
+perfecting the art of pleasuring yourself	FALSE	masturbation
+stimulating your own prostate	FALSE	masturbation
+taking your fleshlight on a date	FALSE	masturbation
+the mighty clitoris	FALSE	masturbation
+the vibrator of your dreams	FALSE	masturbation
+working your clit like a DJ	FALSE	masturbation
+a brain aneurysm	FALSE	medical
+a DIY vasectomy	FALSE	medical
+a micropenis	FALSE	medical
+a rusty scalpel	FALSE	medical
+a urinary tract infection	FALSE	medical
+an overflowing bed pan	FALSE	medical
+anal fissures	FALSE	medical
+bleeding out of your urethra	FALSE	medical
+coughing up blood	FALSE	medical
+drawing dicks on a coma patient's face	FALSE	medical
+giving birth in a public toilet	FALSE	medical
+male nurses	FALSE	medical
+man boobs	FALSE	medical
+my low sperm count	FALSE	medical
+rectal thermometers	FALSE	medical
+scabies	FALSE	medical
+the antidote	FALSE	medical
+the children's cancer ward	FALSE	medical
+vaginal rejuvenation	FALSE	medical
+Vicodin	FALSE	medical
+a centaur with a tiny human penis	FALSE	monsters
+a creepy British child	FALSE	monsters
+a genie that comes out of your penis when you rub it	FALSE	monsters
+a magical, bloodthirsty unicorn	FALSE	monsters
+a masked man lurking around a playground	FALSE	monsters
+a troll's hole	FALSE	monsters
+alien anal probes	FALSE	monsters
+an abandoned insane asylum	FALSE	monsters
+cannibal clowns	FALSE	monsters
+Dayman, fighter of the Nightman, champion of the sun, master of karate and friendship for everyone	FALSE	monsters
+eating the Grim Reaper's ass so that he'll let you live another day	FALSE	monsters
+El Chupacabra	FALSE	monsters
+extraterrestrial STDs	FALSE	monsters
+headless conjoined twins	FALSE	monsters
+pentagrams painted with goat's blood	FALSE	monsters
+shaky video footage	FALSE	monsters
+the blood of the innocent	FALSE	monsters
+the one-eyed monster	FALSE	monsters
+two monsters having sex in the closet	FALSE	monsters
+🔥🔥 the Lord of Hell 🔥🔥	FALSE	monsters
+a big sloppy kiss from Aunt Gertrude	FALSE	naughty17
+a naughty reindeer that likes getting whipped	FALSE	naughty17
+an Elf's adorable little penis	FALSE	naughty17
+anal cider	FALSE	naughty17
+breaking into the neighbor's house dressed as Santa	FALSE	naughty17
+chugging a bottle of peppermint schnapps and screaming the words to "Little Drummer Boy"	FALSE	naughty17
+dangling mistletoe right above your crotch	FALSE	naughty17
+digging through the Toys for Tots bin for a last minute gift	FALSE	naughty17
+ditching your family and spending Christmas in Palm Beach	FALSE	naughty17
+falling asleep in church	FALSE	naughty17
+getting your stocking stuffed	FALSE	naughty17
+Hallmark original movies	FALSE	naughty17
+reaching down the Christmas stockings and fingering the goodies inside	FALSE	naughty17
+sitting on Santa's lap	FALSE	naughty17
+sliding down the chimney and landing on a roaring fire	FALSE	naughty17
+slowly sucking on a candy cane	FALSE	naughty17
+spiking the eggnog	FALSE	naughty17
+telling kids that Santa isn't real	FALSE	naughty17
+the ghost of Christmas yet to come	FALSE	naughty17
+yelling at your family around the Christmas tree	FALSE	naughty17
+a Black Mirror episode that really fucks up your afternoon	FALSE	netflix
+Bert Macklin, FBI	FALSE	netflix
+Bojack Horseman's human-sized penis	FALSE	netflix
+food that is both ugly and delicious	FALSE	netflix
+impossibly beautiful people on TV	FALSE	netflix
+Kimmy Schmidt	FALSE	netflix
+Lucille Bluth	FALSE	netflix
+Mr. Peanut Butter's salty balls	FALSE	netflix
+Norm MacDonald	FALSE	netflix
+Paul Hollywood's soggy bottom	FALSE	netflix
+re-watching season 4 of The Office for the 16th time	FALSE	netflix
+rubbing your crotch on a stuffed worm	FALSE	netflix
+Stephanie Tanner's Fuller Blouse	FALSE	netflix
+the Gorgeous Ladies of Wrestling	FALSE	netflix
+The Turd Burglar	FALSE	netflix
+too much tuna	FALSE	netflix
+waffles covered in a shit load of whipped cream	FALSE	netflix
+whoever the hell drew dicks on all these cars	FALSE	netflix
+young Ted Danson	FALSE	netflix
+your last remaining pubic hair	FALSE	netflix
+a harmless tupperware container in the fridge full of OH MY GOD WHAT THE FUCK IS THAT	FALSE	office
+a hobo in a business suit	FALSE	office
+a red Swingline stapler	FALSE	office
+an alcoholic HR rep	FALSE	office
+assholes who never make new coffee after taking the last cup	FALSE	office
+bathroom stall racism	FALSE	office
+business ethics	FALSE	office
+claiming a prostitute on your expense report as a "team building exercise"	FALSE	office
+conference calling a sex line	FALSE	office
+farting directly into your boss' nose	FALSE	office
+fatal carpal tunnel syndrome	FALSE	office
+filling the office water cooler with goat's blood	FALSE	office
+getting called in to HR for filling the office water cooler with goat's blood	FALSE	office
+getting your hand caught in a paper shredder	FALSE	office
+Japanese investors	FALSE	office
+lunch thieves	FALSE	office
+office romance	FALSE	office
+photocopies of Trish from accounting's butt	FALSE	office
+sexual harassment seminars	FALSE	office
+take-your-air-raid-siren-to-work day	FALSE	office
+a level 100 Magikarp	FALSE	poke
+a sexually aroused pokemon named penisaur	FALSE	poke
+a wild EVILAPPLE	FALSE	poke
+beautiful Japanese creatures	FALSE	poke
+catching 150 STDs	FALSE	poke
+catching animals and making them fight	FALSE	poke
+catching Pokémon in the Holocaust Museum	FALSE	poke
+electrocuting a rat	FALSE	poke
+finding a dead body	FALSE	poke
+finding a Pikachu in the toilet	FALSE	poke
+great balls	FALSE	poke
+hurting yourself in your confusion	FALSE	poke
+overdosing on stardust	FALSE	poke
+shoving animals into tiny balls	FALSE	poke
+squirtling all over her jiggly puffs	FALSE	poke
+walking into traffic	FALSE	poke
+your rival, Gary	FALSE	poke
+a bedazzled vajayjay	FALSE	pussy
+a cold tongue slithering around a warm vagina	FALSE	pussy
+a lonely vagina pining for the last penis that graced her delicate walls	FALSE	pussy
+a penis fly trap	FALSE	pussy
+a swollen clit and a couple o' wet fingers	FALSE	pussy
+an exquisite vagina	FALSE	pussy
+blasting babies straight outta your puss hole	FALSE	pussy
+Brazilian waxing a full bush	FALSE	pussy
+eating pussy with a side of ranch	FALSE	pussy
+getting neck-deep in muff	FALSE	pussy
+Happy Valley	FALSE	pussy
+holding your ear up to a vagina and hearing the sound of the ocean	FALSE	pussy
+hours of scissoring	FALSE	pussy
+lovingly kissing her on the lips and then working your way up to her belly button	FALSE	pussy
+playing with your vulva in a Volvo	FALSE	pussy
+stickin' a finger right in your hoo-ha	FALSE	pussy
+the honey pot	FALSE	pussy
+the mysterious gate into the unknown realm of the female orgasm	FALSE	pussy
+tits and clits and lady bits	FALSE	pussy
+workin' the clit like you're a full time employee with benefits	FALSE	pussy
+a genetic hybrid of Abraham Lincoln and Adolf Hitler	FALSE	rickmorty
+a horse surgeon	FALSE	rickmorty
+a microverse	FALSE	rickmorty
+a portal gun	FALSE	rickmorty
+a potion that makes you irresistable but also impotent	FALSE	rickmorty
+a telepathic cloud named "Fart"	FALSE	rickmorty
+an alien with a testicle chin	FALSE	rickmorty
+Bird Person's bird penis	FALSE	rickmorty
+evil robotic puppies	FALSE	rickmorty
+feeling up your math teacher	FALSE	rickmorty
+getting schwifty	FALSE	rickmorty
+keeping clones of yourself in jars in the basement	FALSE	rickmorty
+memory parasites	FALSE	rickmorty
+Mr. Poopy Butthole	FALSE	rickmorty
+Pickle Rick	FALSE	rickmorty
+Principal Vagina	FALSE	rickmorty
+squanching	FALSE	rickmorty
+Szechuan Sauce	FALSE	rickmorty
+the galactic federation's most wanted list	FALSE	rickmorty
+wubba lubba dub dub!	FALSE	rickmorty
+a good, hot frakking	FALSE	scifi
+a hot blonde in a red dress	FALSE	scifi
+a sperm whale and a bowl of petunias	FALSE	scifi
+boldly going where no man has gone before	FALSE	scifi
+damn dirty apes	FALSE	scifi
+destroying humanity	FALSE	scifi
+drunk dialing the Stargate	FALSE	scifi
+horny sci-fi fanboys	FALSE	scifi
+Isaac ASSimov	FALSE	scifi
+my unstoppable army of genetic mutants	FALSE	scifi
+our new insect overlords	FALSE	scifi
+Patrick Stewart's bald head	FALSE	scifi
+setting your penis to "stun"	FALSE	scifi
+sitting on a facehugger	FALSE	scifi
+the book, which was A HUNDRED TIMES BETTER than the movie	FALSE	scifi
+the delicate touch of a noodly tentacle	FALSE	scifi
+traveling back in time, walking in on your parents having sex, startling them, and erasing yourself from existence	FALSE	scifi
+triple nipple play	FALSE	scifi
+Unidentified Farting Objects	FALSE	scifi
+wet dreams about electric sheep	FALSE	scifi
+3 hours of foreplay	FALSE	sex
+a bikini wax	FALSE	sex
+a cigarette after sex	FALSE	sex
+a gentle fisting	FALSE	sex
+a mouthful of balls	FALSE	sex
+a rusty trombone	FALSE	sex
+a strap-on	FALSE	sex
+an all night sex marathon	FALSE	sex
+BDSM	FALSE	sex
+discarded condoms	FALSE	sex
+forgetting the safe word	FALSE	sex
+morning wood	FALSE	sex
+playful choking	FALSE	sex
+poking holes in condoms	FALSE	sex
+shitting on his face	FALSE	sex
+sitting on his face	FALSE	sex
+the Kama Sutra	FALSE	sex
+the reverse cowgirl	FALSE	sex
+the sensual vibrations of the washing machine	FALSE	sex
+whispering "I'm not wearing any panties"	FALSE	sex
+a crying, screaming mechanical baby	FALSE	sexed
+a fully erect male penis	FALSE	sexed
+a nocturnal emission	FALSE	sexed
+a Sex Ed textbook made from stapled together Pornhub printouts	FALSE	sexed
+a torn perineum	FALSE	sexed
+a volcanic eruption of penis juice	FALSE	sexed
+a wet baby and a pile of shit on a birthing table	FALSE	sexed
+abstinence-only sexual education	FALSE	sexed
+manually stretching out your foreskin	FALSE	sexed
+morning sickness	FALSE	sexed
+saggy milk bags	FALSE	sexed
+saving your placenta in a mason jar	FALSE	sexed
+spontaneous erections	FALSE	sexed
+teenage dads	FALSE	sexed
+testicles and breasticles	FALSE	sexed
+the day that all the boys suddenly got hot	FALSE	sexed
+the horny, hairy hormone monster	FALSE	sexed
+the sudden jolt of your balls dropping	FALSE	sexed
+waxing your nipple hair	FALSE	sexed
+wearing white shorts on the day of your first period	FALSE	sexed
+a lesbian dating app	FALSE	sexmodern
+a trip to the barber for a pube trim	FALSE	sexmodern
+a vibrator designed to reduce social anxiety	FALSE	sexmodern
+assuming everyone is bisexual	FALSE	sexmodern
+being upfront and honest about your desire to eat ass	FALSE	sexmodern
+cruelty-free condoms	FALSE	sexmodern
+freeing the nip	FALSE	sexmodern
+gender non-binary sex positive pansexuals	FALSE	sexmodern
+getting too drunk at dinner and vomiting on your date's carpet	FALSE	sexmodern
+homemade sex tapes on the dark web	FALSE	sexmodern
+hooking up with the guy you met at the Women's March	FALSE	sexmodern
+jerking off to pictures of Ruth Bader Ginsburg	FALSE	sexmodern
+male birth control	FALSE	sexmodern
+meeting a nice dentist on Coffee Meets Bagel	FALSE	sexmodern
+problematic dirty talk	FALSE	sexmodern
+sliding into the DMs	FALSE	sexmodern
+splitting dinner 70/30 to compensate for the wage gap	FALSE	sexmodern
+the 7 distinct genders we have thus far discovered	FALSE	sexmodern
+tucking a napkin into your collar before performing cunnilingus	FALSE	sexmodern
+YouTube tutorials on satisfying a woman	FALSE	sexmodern
+a legless security guard	FALSE	shittyjobs
+a professional sandwich artist at Subway	FALSE	shittyjobs
+a toilet clogged with condoms and tampons	FALSE	shittyjobs
+an unpaid internship with important real life experience	FALSE	shittyjobs
+cleaning up a bathroom covered in piss, shit, and blood	FALSE	shittyjobs
+constant abuse from your immediate supervisor	FALSE	shittyjobs
+ending a sales call with "I love you"	FALSE	shittyjobs
+filthy, greasy carnies	FALSE	shittyjobs
+firing all of your employees three days before Christmas	FALSE	shittyjobs
+fluffing a porn star's flaccid penis	FALSE	shittyjobs
+folding the same goddamn t-shirt 200 times	FALSE	shittyjobs
+jerking off a horse to get that precious sperm	FALSE	shittyjobs
+learning how to swear in Spanish from the kitchen staff	FALSE	shittyjobs
+mopping up semen in an adult bookstore	FALSE	shittyjobs
+struggling to keep a smile on your face as a customer screams at you	FALSE	shittyjobs
+the boss's shithead son	FALSE	shittyjobs
+the TSA employee responsible for inspecting assholes	FALSE	shittyjobs
+third degree burns from the french fry machine	FALSE	shittyjobs
+washing an old man's balls	FALSE	shittyjobs
+whatever the hell Chicken McNuggets are actually made of	FALSE	shittyjobs
+a fat, rude comic book shop owner	FALSE	simpsons
+a forbidden donut	FALSE	simpsons
+a scam artist selling a monorail	FALSE	simpsons
+a Squishee from the Kwik-E-Mart	FALSE	simpsons
+an imbecile that works at a nuclear power plant	FALSE	simpsons
+breaking your mother out of jail	FALSE	simpsons
+DOH!	FALSE	simpsons
+eating while naked	FALSE	simpsons
+Krusty the Clown	FALSE	simpsons
+Lisa Simpson	FALSE	simpsons
+Planet of the Apes: The Musical	FALSE	simpsons
+Radioactive Man	FALSE	simpsons
+shooting a cannonball into your stomach over and over	FALSE	simpsons
+Sideshow Bob	FALSE	simpsons
+Spider Pig, doing whatever a Spider Pig does	FALSE	simpsons
+stupid sexy Flanders	FALSE	simpsons
+the difference between flammable and inflammable	FALSE	simpsons
+The Itchy & Scratchy Show	FALSE	simpsons
+working for an evil supervillain	FALSE	simpsons
+yelling "Boo-urns" in a movie theater	FALSE	simpsons
+fuck me shoes	FALSE	sins
+a fiery pool of heathens and fornicators	FALSE	sins
+a handful of nutsack	FALSE	sins
+a remote control vibrator	FALSE	sins
+an elaborate oil painting of yourself	FALSE	sins
+breaking up over text	FALSE	sins
+burning in fire for all eternity	FALSE	sins
+cleansing fire	FALSE	sins
+falling asleep with your dick in your hand	FALSE	sins
+filthy sinners	FALSE	sins
+giving your children to be sacrificed to Molek	FALSE	sins
+kissing ALL the boys	FALSE	sins
+nipple clamps	FALSE	sins
+pouring hot wax on your bare ass	FALSE	sins
+screwing your boss	FALSE	sins
+slowly brushing your hair while whispering "pretty girl" in a mirror	FALSE	sins
+tainted holy water	FALSE	sins
+the Italian Mafia	FALSE	sins
+the prettier sister	FALSE	sins
+touchin' butts and lickin' nuts	FALSE	sins
+a big ass rocketship	FALSE	space
+a lone astronaut drifting slowly out into space	FALSE	space
+a planet inhabited by super-intelligent cats	FALSE	space
+a sad robot singing "Happy Birthday" to itself on the surface of Mars	FALSE	space
+an astronaut cautiously flirting with Mission Control	FALSE	space
+an explosion of gas	FALSE	space
+an inconvenient alien abduction	FALSE	space
+getting sucked into a black hole	FALSE	space
+hooking up with a hottie from Neptune	FALSE	space
+Laika, the Russian space dog	FALSE	space
+Neil Armstrong	FALSE	space
+Neil Degrasse Tyson	FALSE	space
+Saturn's cock rings	FALSE	space
+sending the Hubble telescope DEEP inside Uranus	FALSE	space
+The Canadian Space program	FALSE	space
+the dark side of the moon	FALSE	space
+the incoming asteroid that will kill all of us	FALSE	space
+the mysterious message coming from Alpha Centauri	FALSE	space
+the tentacled alien race that lives just beyond the Milky Way	FALSE	space
+the Unidentified Foreign Object in my ass	FALSE	space
+a group poop	FALSE	stinkypinky
+a hottie with a body	FALSE	stinkypinky
+a nip slip	FALSE	stinkypinky
+a nude dude	FALSE	stinkypinky
+a thick dick	FALSE	stinkypinky
+a tramp stamp	FALSE	stinkypinky
+a weird beard	FALSE	stinkypinky
+an erectile projectile	FALSE	stinkypinky
+babies with rabies	FALSE	stinkypinky
+cleaner wieners	FALSE	stinkypinky
+erection perfection	FALSE	stinkypinky
+fresh flesh	FALSE	stinkypinky
+gettin' lucky in Kentucky	FALSE	stinkypinky
+poop soup	FALSE	stinkypinky
+sleeping in a coffin every so often	FALSE	stinkypinky
+stranger danger	FALSE	stinkypinky
+teenie weenies	FALSE	stinkypinky
+the bone zone	FALSE	stinkypinky
+the I.B.T.C. (Itty Bitty Titty Committee)	FALSE	stinkypinky
+your spank bank	FALSE	stinkypinky
+a "sorry about your dead son" casserole	FALSE	stranger
+a box of Eggo waffles in the woods	FALSE	stranger
+a conversation with your dead son	FALSE	stranger
+a cute kid with no teeth	FALSE	stranger
+a missing 11-year-old boy	FALSE	stranger
+alien discharge	FALSE	stranger
+banging the librarian	FALSE	stranger
+Barb from Stranger Things	FALSE	stranger
+breaking into a government lab	FALSE	stranger
+coughing up turdsnakes	FALSE	stranger
+mild stalking	FALSE	stranger
+mouthbreathers	FALSE	stranger
+peeing your pants	FALSE	stranger
+sleeping with a loaded gun	FALSE	stranger
+smoking a cigarette first thing in the morning	FALSE	stranger
+snapping someone's neck with your mind	FALSE	stranger
+the creepy girl in your basement	FALSE	stranger
+The Demogorgon	FALSE	stranger
+The Upside Down 👿🙃👿	FALSE	stranger
+watching the attractive people have fun	FALSE	stranger
