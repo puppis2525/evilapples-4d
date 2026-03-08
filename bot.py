@@ -91,7 +91,7 @@ async def start_game(ctx):
     )
     embed.add_field(name="How It Works", value=(
         "The judge rotates each round (round-robin style).\n"
-        "If fewer than 3 players, AI judges instead."
+        "If fewer than 3 players, Dr. Evil judges instead."
     ), inline=False)
     embed.add_field(name="Commands", value=(
         "`!join` - Join the game\n"
@@ -162,7 +162,7 @@ async def deal_cards(ctx):
         game["judge_id"] = None
         game["use_ai_judge"] = True
         playing_ids = list(game["players"].keys())
-        judge_name = "AI Judge"
+        judge_name = "Dr. Evil"
     else:
         game["judge_index"] = (game.get("judge_index", -1) + 1) % len(game["all_player_ids"])
         judge_id = game["all_player_ids"][game["judge_index"]]
@@ -219,7 +219,7 @@ async def deal_cards(ctx):
             deadline = int(time.time()) + timer_seconds
             timer_text = f"\n\n**Timer:** <t:{deadline}:R> to submit!"
 
-        judge_line = f"\n\n\u2696\uFE0F **Judge this round:** {judge_name}" if not use_ai_judge else "\n\n\U0001F916 **AI Judge** is judging this round"
+        judge_line = f"\n\n\u2696\uFE0F **Judge this round:** {judge_name}" if not use_ai_judge else "\n\n\U0001F608 **Dr. Evil** is judging this round"
 
         embed = discord.Embed(
             title="\U0001F7E3 PROMPT CARD",
@@ -282,7 +282,7 @@ async def ai_judge_pick(game, channel):
     )
 
     embed = discord.Embed(
-        title="\U0001F916 AI Judge Has Decided!",
+        title="\U0001F608 Dr. Evil Has Decided!",
         description=f"## {format_prompt(prompt)}\n\n{submission_text}",
         color=discord.Color.from_rgb(106, 27, 154)
     )
@@ -1375,7 +1375,7 @@ async def on_message(message):
 
         selected_card = hand[choice - 1]
         solo["submitted"] = True
-        await message.channel.send(f"Card submitted: **{selected_card}**\nThe AI judge is deciding...")
+        await message.channel.send(f"Card submitted: **{selected_card}**\nDr. Evil is deciding...")
         await finish_solo_round(player_id, player_card=selected_card)
         return
 
