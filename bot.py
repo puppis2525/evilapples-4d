@@ -1196,7 +1196,7 @@ async def on_message(message):
         if game_channel:
             card_num = len(game["submissions"])
             total = len(game["players"])
-            await game_channel.send(f"\U0001F0CF **Card {card_num}** submitted! ({card_num}/{total})")
+            await game_channel.send(f"\U0001F0CF **Card {card_num}:** {selected_card}  ({card_num}/{total})")
 
         if len(game["submissions"]) == len(game["players"]):
             if channel_id in timer_tasks:
@@ -1254,7 +1254,7 @@ async def on_message(message):
         if t_channel:
             card_num = len(round_data["submissions"])
             total = len(round_data["players"])
-            await t_channel.send(f"\U0001F0CF **Card {card_num}** submitted! ({card_num}/{total})")
+            await t_channel.send(f"\U0001F0CF **Card {card_num}:** {selected_card}  ({card_num}/{total})")
 
         if len(round_data["submissions"]) == len(round_data["players"]):
             channel = bot.get_channel(channel_id)

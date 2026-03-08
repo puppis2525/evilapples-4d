@@ -129,7 +129,7 @@ class SubmitCardButton(discord.ui.Button):
             if channel:
                 card_num = len(game["submissions"])
                 total = len(game.get("players", {}))
-                await channel.send(f"🃏 **Card {card_num}** submitted! ({card_num}/{total})")
+                await channel.send(f"\U0001F0CF **Card {card_num}:** {self.card_text}  ({card_num}/{total})")
 
             from bot import check_all_submitted
             await check_all_submitted(game, interaction)
@@ -282,7 +282,7 @@ class TournamentSubmitButton(discord.ui.Button):
         if channel:
             card_num = len(round_data["submissions"])
             total = len(round_data.get("players", {}))
-            await channel.send(f"\U0001F0CF **Card {card_num}** submitted! ({card_num}/{total})")
+            await channel.send(f"\U0001F0CF **Card {card_num}:** {self.card_text}  ({card_num}/{total})")
 
         if len(round_data["submissions"]) == len(round_data["players"]):
             from tournament import TournamentJudgingView
