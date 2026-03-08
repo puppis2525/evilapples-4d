@@ -405,8 +405,8 @@ async def solo_deal(ctx):
         await ctx.send("No solo game running. Start one with `!solo <opponents>`.")
         return
 
-    if game["state"] == "submitting":
-        await ctx.send("You still have a round in progress! Check your DMs and submit a card.")
+    if game["state"] in ("submitting", "dealing", "judging"):
+        await ctx.send("A round is already in progress! Check your DMs if you need to submit a card.")
         return
 
     game["state"] = "dealing"

@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import httpx
 from rapidfuzz import fuzz
@@ -16,6 +17,7 @@ Generate a single short, funny, edgy, and original answer card (white card).
 Rules:
 - Keep it under 15 words
 - Be creative, dark, absurd, or shocking
+- Write in English only — no other languages or scripts
 - Do NOT copy or closely paraphrase any existing Cards Against Humanity cards
 - Return ONLY the card text, no quotes, no numbering, no explanation"""
 
@@ -25,10 +27,18 @@ Rules:
 - Keep it under 20 words
 - Include exactly one _ where the answer goes
 - Be creative, dark, absurd, or provocative
+- Write in English only — no other languages or scripts
 - Do NOT copy or closely paraphrase any existing Cards Against Humanity cards
 - Return ONLY the card text, no quotes, no numbering, no explanation"""
 
 SIMILARITY_THRESHOLD = 75
+
+
+def sanitize_card_text(text: str) -> str:
+    text = re.sub(r'[^\x20-\x7E\n]', '', text)
+    text = text.strip().strip('"').strip("'").strip()
+    text = re.sub(r'\s+', ' ', text)
+    return text
 
 
 def is_duplicate(card_text: str) -> bool:
@@ -63,7 +73,13 @@ async def generate_card(card_type: str = "white") -> str:
                 resp = await client.post(VENICE_API_URL, json=payload, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
-                card_text = data["choices"][0]["message"]["content"].strip().strip('"').strip("'")
+                raw_text = data["choices"][0]["message"]["content"]
+                card_text = sanitize_card_text(raw_text)
+
+                if not card_text:
+                    if attempt == 0:
+                        continue
+                    card_text = "A card so evil it censored itself"
 
                 if not is_duplicate(card_text):
                     return card_text
