@@ -1041,14 +1041,19 @@ async def tournament_end_cmd(ctx):
         if entry_fee > 0:
             try:
                 from stripe_routes import process_tournament_payout
-                await process_tournament_payout(tournament["id"])
+                winner_discord_id = champion.get("discord_id") if isinstance(champion, dict) else str(champion.get("discord_id", ""))
+                await process_tournament_payout(tournament["id"], winner_discord_id=winner_discord_id)
                 entries = await get_paid_tournament_entries(tournament["id"])
                 total = sum(e["amount_cents"] for e in entries)
                 platform_fee = int(total * 10 / 100)
-                host_payout = total - platform_fee
+                host_received = total - platform_fee
                 embed.add_field(
-                    name="Prize Pool",
-                    value=f"Total: ${total/100:.2f} | Host Payout: ${host_payout/100:.2f} | Platform Fee: ${platform_fee/100:.2f}",
+                    name="💰 Prize Pool",
+                    value=(
+                        f"Total Collected: ${total/100:.2f}\n"
+                        f"Platform Fee (10%): ${platform_fee/100:.2f}\n"
+                        f"Host Received: ${host_received/100:.2f} (via Stripe Connect)"
+                    ),
                     inline=False
                 )
             except Exception as e:

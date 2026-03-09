@@ -15,7 +15,7 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - **discord.py** bot running as a daemon thread
 - Quick game commands: `!startgame`, `!join`, `!deal`, `!timer`, `!endgame`
 - Tournament commands: `!tournament create/join/start/status/end` (supports paid tournaments with `$fee` syntax)
-- **Paid Tournaments**: Hosts can set entry fees (e.g., `!tournament create MyTourney 5 $10`), platform keeps 10%, host gets 90% via Stripe Connect
+- **Paid Tournaments**: Hosts set entry fees (e.g., `!tournament create MyTourney 5 $10`); uses Stripe Connect destination charges — platform keeps 10% application fee, host receives 90% instantly at payment time; winners with connected accounts can receive prize transfers via source_transaction
 - Premium command: `!premium` — shows Pro status or upgrade link
 - Free tier: 3 games/day per server; Pro: unlimited
 - Solo mode: `!solo [1-5]` — Play against AI opponents with Venice.ai judging

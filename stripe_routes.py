@@ -115,9 +115,13 @@ async def stripe_webhook(request: Request):
                             async with pool.acquire() as conn:
                                 t = await conn.fetchrow("SELECT status FROM tournaments WHERE id = $1", int(tournament_id))
                             if t and t["status"] == "registration":
-                                await record_tournament_entry(int(tournament_id), discord_user_id, session_id, entry_fee)
+                                payment_intent_id = session.get("payment_intent", "")
+                                await record_tournament_entry(
+                                    int(tournament_id), discord_user_id, session_id, entry_fee,
+                                    stripe_payment_intent_id=payment_intent_id
+                                )
                                 await join_tournament(int(tournament_id), discord_user_id, discord_user_id)
-                                logger.info(f"Tournament entry paid: user={discord_user_id} tournament={tournament_id} fee=${entry_fee/100:.2f}")
+                                logger.info(f"Tournament entry paid: user={discord_user_id} tournament={tournament_id} fee=${entry_fee/100:.2f} pi={payment_intent_id}")
                             else:
                                 logger.warning(f"Tournament entry webhook: tournament {tournament_id} not in registration (status={t['status'] if t else 'missing'})")
                 else:
@@ -371,9 +375,14 @@ async def tournament_entry_checkout(request: Request):
         protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
         base_url = f"{protocol}://{host}"
 
-        session = stripe_mod.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{
+        fee_percent = tournament.get("platform_fee_percent", PLATFORM_FEE_PERCENT)
+        application_fee = int(entry_fee * fee_percent / 100)
+
+        host_account = tournament.get("host_stripe_account_id", "")
+
+        checkout_params = {
+            "payment_method_types": ["card"],
+            "line_items": [{
                 "price_data": {
                     "currency": "usd",
                     "product_data": {
@@ -384,16 +393,26 @@ async def tournament_entry_checkout(request: Request):
                 },
                 "quantity": 1,
             }],
-            mode="payment",
-            success_url=f"{base_url}/howtoplay?tournament_paid=1&tid={tournament_id}",
-            cancel_url=f"{base_url}/howtoplay?tournament_cancelled=1",
-            metadata={
+            "mode": "payment",
+            "success_url": f"{base_url}/howtoplay?tournament_paid=1&tid={tournament_id}",
+            "cancel_url": f"{base_url}/howtoplay?tournament_cancelled=1",
+            "metadata": {
                 "type": "tournament_entry",
                 "tournament_id": str(tournament_id),
                 "discord_user_id": discord_user_id,
                 "entry_fee_cents": str(entry_fee),
             },
-        )
+        }
+
+        if host_account:
+            checkout_params["payment_intent_data"] = {
+                "application_fee_amount": application_fee,
+                "transfer_data": {
+                    "destination": host_account,
+                },
+            }
+
+        session = stripe_mod.checkout.Session.create(**checkout_params)
 
         return JSONResponse(content={"url": session.url})
     except Exception as e:
@@ -401,8 +420,17 @@ async def tournament_entry_checkout(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-async def process_tournament_payout(tournament_id: int):
-    from db import get_db_pool, get_paid_tournament_entries, update_tournament_payout
+async def process_tournament_payout(tournament_id: int, winner_discord_id: str = None):
+    """Process tournament completion and optional winner prize transfers.
+
+    With destination charges, the host receives their share (minus platform fee)
+    at payment time via Stripe Connect. This function:
+    1. Logs the final tournament financials
+    2. Optionally transfers a prize to the winner from the host's connected account
+       using reverse transfers (host funds the winner prize from their received share)
+    3. Marks the tournament payout status
+    """
+    from db import get_db_pool, get_paid_tournament_entries, update_tournament_payout, get_connected_account
 
     pool = await get_db_pool()
     async with pool.acquire() as conn:
@@ -419,6 +447,7 @@ async def process_tournament_payout(tournament_id: int):
     host_account = tournament.get("host_stripe_account_id")
     if not host_account:
         logger.info(f"Payout: tournament {tournament_id} is free (no host account)")
+        await update_tournament_payout(tournament_id, "completed")
         return
 
     entries = await get_paid_tournament_entries(tournament_id)
@@ -426,34 +455,64 @@ async def process_tournament_payout(tournament_id: int):
 
     if total_collected <= 0:
         logger.info(f"Payout: no paid entries for tournament {tournament_id}")
+        await update_tournament_payout(tournament_id, "completed")
         return
 
     fee_percent = tournament.get("platform_fee_percent", PLATFORM_FEE_PERCENT)
     platform_fee = int(total_collected * fee_percent / 100)
-    host_payout = total_collected - platform_fee
+    host_received = total_collected - platform_fee
 
-    if host_payout <= 0:
-        await update_tournament_payout(tournament_id, "completed")
-        return
+    logger.info(
+        f"Payout: tournament {tournament_id} — collected ${total_collected/100:.2f}, "
+        f"platform fee ${platform_fee/100:.2f}, host received ${host_received/100:.2f} "
+        f"(via destination charges to {host_account})"
+    )
 
-    try:
-        stripe_mod = await get_stripe_client()
-        transfer = stripe_mod.Transfer.create(
-            amount=host_payout,
-            currency="usd",
-            destination=host_account,
-            metadata={
-                "tournament_id": str(tournament_id),
-                "total_collected": str(total_collected),
-                "platform_fee": str(platform_fee),
-            },
-        )
+    payout_ok = True
+
+    if winner_discord_id:
+        winner_account = await get_connected_account(winner_discord_id)
+        if winner_account and winner_account.get("onboarding_complete") and winner_account.get("stripe_account_id"):
+            try:
+                stripe_mod = await get_stripe_client()
+
+                entries_with_pi = [e for e in entries if e.get("stripe_payment_intent_id")]
+                if entries_with_pi:
+                    first_pi = entries_with_pi[0]["stripe_payment_intent_id"]
+                    pi_obj = stripe_mod.PaymentIntent.retrieve(first_pi)
+                    source_charge = pi_obj.get("latest_charge") if pi_obj else None
+                else:
+                    source_charge = None
+
+                prize_amount = int(host_received * 0.5)
+                if prize_amount > 0 and source_charge:
+                    transfer = stripe_mod.Transfer.create(
+                        amount=prize_amount,
+                        currency="usd",
+                        destination=winner_account["stripe_account_id"],
+                        source_transaction=source_charge,
+                        metadata={
+                            "tournament_id": str(tournament_id),
+                            "prize_type": "winner",
+                            "winner_discord_id": winner_discord_id,
+                        },
+                    )
+                    logger.info(
+                        f"Prize payout: tournament {tournament_id} winner {winner_discord_id} "
+                        f"received ${prize_amount/100:.2f} (transfer {transfer.id}, "
+                        f"source_transaction={source_charge})"
+                    )
+                elif prize_amount > 0:
+                    logger.warning(
+                        f"Prize payout skipped for tournament {tournament_id}: "
+                        f"no source charge available for winner transfer"
+                    )
+            except Exception as e:
+                payout_ok = False
+                logger.error(f"Winner prize transfer failed for tournament {tournament_id}: {e}")
+
+    if payout_ok:
         await update_tournament_payout(tournament_id, "completed")
-        logger.info(
-            f"Payout: tournament {tournament_id} — collected ${total_collected/100:.2f}, "
-            f"fee ${platform_fee/100:.2f}, payout ${host_payout/100:.2f} to {host_account} "
-            f"(transfer {transfer.id})"
-        )
-    except Exception as e:
-        await update_tournament_payout(tournament_id, "failed")
-        logger.error(f"Payout failed for tournament {tournament_id}: {e}")
+    else:
+        await update_tournament_payout(tournament_id, "partial")
+        logger.warning(f"Tournament {tournament_id} payout partially completed — winner transfer failed")

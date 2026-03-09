@@ -333,6 +333,7 @@ async def init_paid_tournament_tables():
                 tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
                 discord_user_id VARCHAR(64) NOT NULL,
                 stripe_session_id VARCHAR(256),
+                stripe_payment_intent_id VARCHAR(256),
                 amount_cents INTEGER NOT NULL DEFAULT 0,
                 status VARCHAR(32) DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT NOW(),
@@ -345,6 +346,7 @@ async def init_paid_tournament_tables():
             await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS platform_fee_percent INTEGER DEFAULT 10")
             await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payout_status VARCHAR(32) DEFAULT 'none'")
             await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS host_stripe_account_id VARCHAR(128)")
+            await conn.execute("ALTER TABLE tournament_entries ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(256)")
         except Exception:
             pass
 
@@ -395,15 +397,17 @@ async def create_paid_tournament(name: str, guild_id: str, channel_id: str, crea
         return row["id"]
 
 
-async def record_tournament_entry(tournament_id: int, discord_user_id: str, stripe_session_id: str, amount_cents: int):
+async def record_tournament_entry(tournament_id: int, discord_user_id: str, stripe_session_id: str,
+                                   amount_cents: int, stripe_payment_intent_id: str = None):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            """INSERT INTO tournament_entries (tournament_id, discord_user_id, stripe_session_id, amount_cents, status)
-               VALUES ($1, $2, $3, $4, 'paid')
+            """INSERT INTO tournament_entries (tournament_id, discord_user_id, stripe_session_id,
+                   stripe_payment_intent_id, amount_cents, status)
+               VALUES ($1, $2, $3, $4, $5, 'paid')
                ON CONFLICT (tournament_id, discord_user_id) DO UPDATE SET
-                   stripe_session_id = $3, amount_cents = $4, status = 'paid'""",
-            tournament_id, discord_user_id, stripe_session_id, amount_cents
+                   stripe_session_id = $3, stripe_payment_intent_id = $4, amount_cents = $5, status = 'paid'""",
+            tournament_id, discord_user_id, stripe_session_id, stripe_payment_intent_id, amount_cents
         )
         await conn.execute(
             """UPDATE tournaments SET prize_pool_cents = (

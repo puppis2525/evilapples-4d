@@ -137,14 +137,19 @@ class TournamentJudgingView(discord.ui.View):
             try:
                 from stripe_routes import process_tournament_payout
                 from db import get_paid_tournament_entries
-                await process_tournament_payout(self.tournament_data["id"])
+                winner_discord_id = champion.get("discord_id")
+                await process_tournament_payout(self.tournament_data["id"], winner_discord_id=winner_discord_id)
                 entries = await get_paid_tournament_entries(self.tournament_data["id"])
                 total = sum(e["amount_cents"] for e in entries)
                 platform_fee = int(total * 10 / 100)
-                host_payout = total - platform_fee
+                host_received = total - platform_fee
                 embed.add_field(
-                    name="Prize Pool",
-                    value=f"Total: ${total/100:.2f} | Host Payout: ${host_payout/100:.2f} | Platform Fee: ${platform_fee/100:.2f}",
+                    name="💰 Prize Pool",
+                    value=(
+                        f"Total Collected: ${total/100:.2f}\n"
+                        f"Platform Fee (10%): ${platform_fee/100:.2f}\n"
+                        f"Host Received: ${host_received/100:.2f} (via Stripe Connect)"
+                    ),
                     inline=False
                 )
             except Exception as e:
