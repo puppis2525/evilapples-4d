@@ -230,6 +230,84 @@
             </div>
         </section>
 
+        <section id="paid-tournaments">
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Paid Tournaments</h3>
+            <div class="bg-gradient-to-br from-evil-surface to-evil-card border border-green-500/30 rounded-2xl p-8 space-y-6">
+                <div class="flex items-start gap-5">
+                    <div class="w-16 h-16 rounded-xl bg-green-500/20 flex-shrink-0 flex items-center justify-center">
+                        <span class="text-4xl">&#128176;</span>
+                    </div>
+                    <div class="space-y-3 text-evil-200/80">
+                        <p>Host tournaments with real entry fees. Players pay to enter, and the prize pool is distributed when the tournament ends.</p>
+                        <div class="bg-evil-card/50 rounded-xl p-4 space-y-2 text-sm">
+                            <h4 class="text-white font-bold mb-2">How the Money Flows</h4>
+                            <div class="flex items-center gap-3">
+                                <span class="text-green-400 font-mono font-bold w-8">1.</span>
+                                <span>Player pays entry fee (e.g. $10) &rarr; Goes to Evil Apples 4D</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-green-400 font-mono font-bold w-8">2.</span>
+                                <span>Tournament ends &rarr; Results calculated</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-green-400 font-mono font-bold w-8">3.</span>
+                                <span>EA4D keeps <strong class="text-green-400">10%</strong> platform fee ($1)</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-green-400 font-mono font-bold w-8">4.</span>
+                                <span>Host receives <strong class="text-green-400">90%</strong> payout ($9) via Stripe</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 mt-4">
+                    <div class="bg-evil-bg/50 rounded-xl p-5 border border-evil-800/30">
+                        <h4 class="text-white font-bold mb-3">For Tournament Hosts</h4>
+                        <ol class="text-sm text-evil-200/70 space-y-2 list-decimal list-inside">
+                            <li>Connect your Stripe account (button below)</li>
+                            <li>Create a tournament with a fee: <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!tournament create MyTourney 5 $10</code></li>
+                            <li>Players join and pay on the website</li>
+                            <li>Run the tournament — payout happens automatically when it ends</li>
+                        </ol>
+                    </div>
+                    <div class="bg-evil-bg/50 rounded-xl p-5 border border-evil-800/30">
+                        <h4 class="text-white font-bold mb-3">For Players</h4>
+                        <ol class="text-sm text-evil-200/70 space-y-2 list-decimal list-inside">
+                            <li>Type <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!tournament join</code> in Discord</li>
+                            <li>The bot gives you a payment link</li>
+                            <li>Pay the entry fee via Stripe</li>
+                            <li>You're automatically registered once payment confirms</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="border-t border-evil-800/30 pt-6">
+                    <h4 class="text-white font-bold mb-3">Connect Your Stripe Account</h4>
+                    <p class="text-evil-200/60 text-sm mb-4">To host paid tournaments, you need to connect a Stripe account so we can send you your share of the prize pool.</p>
+                    <div id="connect-stripe-section">
+                        <div id="connect-status" class="mb-3 text-sm"></div>
+                        <button id="connect-stripe-btn" onclick="connectStripe()" class="bg-green-600 hover:bg-green-500 text-white font-bold px-6 py-3 rounded-xl transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                            Connect Stripe Account
+                        </button>
+                    </div>
+                </div>
+
+                <div class="border-t border-evil-800/30 pt-6">
+                    <h4 class="text-white font-bold mb-3">Pay Tournament Entry Fee</h4>
+                    <p class="text-evil-200/60 text-sm mb-4">Enter the Tournament ID and your Discord User ID to pay an entry fee.</p>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="number" id="entry-tournament-id" placeholder="Tournament ID" class="bg-evil-bg border border-evil-800/50 rounded-lg px-4 py-2 text-white text-sm w-full sm:w-40">
+                        <input type="text" id="entry-discord-id" placeholder="Your Discord User ID" class="bg-evil-bg border border-evil-800/50 rounded-lg px-4 py-2 text-white text-sm w-full sm:w-56">
+                        <button onclick="payTournamentEntry()" class="bg-evil-500 hover:bg-evil-600 text-white font-bold px-6 py-2 rounded-lg transition text-sm">
+                            Pay Entry Fee
+                        </button>
+                    </div>
+                    <div id="entry-status" class="mt-2 text-sm"></div>
+                </div>
+            </div>
+        </section>
+
         <section>
             <h3 class="font-brand text-3xl text-evil-300 mb-6">Card Decks &amp; Customization</h3>
             <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 space-y-4 text-evil-200/80">
@@ -356,8 +434,8 @@
                             <td class="px-6 py-3 text-evil-300 font-semibold" colspan="2">Tournaments</td>
                         </tr>
                         <tr class="border-b border-evil-800/30">
-                            <td class="px-6 py-3"><code class="text-evil-400">!tournament create &lt;name&gt; [rounds]</code></td>
-                            <td class="px-6 py-3">Create a tournament</td>
+                            <td class="px-6 py-3"><code class="text-evil-400">!tournament create &lt;name&gt; [rounds] [$fee]</code></td>
+                            <td class="px-6 py-3">Create a tournament (optional entry fee for paid tournaments)</td>
                         </tr>
                         <tr class="border-b border-evil-800/30">
                             <td class="px-6 py-3"><code class="text-evil-400">!tournament join</code></td>
@@ -455,7 +533,110 @@
         async function initAuth() {
             const user = await loadAuthUser();
             renderAuthButton(user);
+
+            if (user.logged_in && document.getElementById('entry-discord-id')) {
+                document.getElementById('entry-discord-id').value = user.discord_id;
+            }
+
+            checkConnectStatus();
         }
+
+        async function checkConnectStatus() {
+            try {
+                const resp = await fetch('/api/stripe/connect/status');
+                const data = await resp.json();
+                const statusEl = document.getElementById('connect-status');
+                const btn = document.getElementById('connect-stripe-btn');
+
+                if (!data.logged_in) {
+                    statusEl.innerHTML = '<span class="text-evil-200/50">Sign in with Discord first to connect your Stripe account.</span>';
+                    btn.disabled = true;
+                } else if (data.connected) {
+                    statusEl.innerHTML = '<span class="text-green-400">Your Stripe account is connected. You can host paid tournaments!</span>';
+                    btn.textContent = 'Already Connected';
+                    btn.disabled = true;
+                } else {
+                    statusEl.innerHTML = '<span class="text-evil-200/50">Not yet connected. Click below to set up payouts.</span>';
+                    btn.disabled = false;
+                }
+            } catch (e) {}
+        }
+
+        async function connectStripe() {
+            const btn = document.getElementById('connect-stripe-btn');
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+
+            try {
+                const resp = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
+                const data = await resp.json();
+
+                if (data.already_connected) {
+                    document.getElementById('connect-status').innerHTML = '<span class="text-green-400">Already connected!</span>';
+                    btn.textContent = 'Already Connected';
+                    return;
+                }
+
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    document.getElementById('connect-status').innerHTML = '<span class="text-red-400">' + (data.error || 'Failed to start onboarding.') + '</span>';
+                    btn.disabled = false;
+                    btn.textContent = 'Connect Stripe Account';
+                }
+            } catch (e) {
+                document.getElementById('connect-status').innerHTML = '<span class="text-red-400">Connection failed. Please try again.</span>';
+                btn.disabled = false;
+                btn.textContent = 'Connect Stripe Account';
+            }
+        }
+
+        async function payTournamentEntry() {
+            const tid = document.getElementById('entry-tournament-id').value;
+            const uid = document.getElementById('entry-discord-id').value;
+            const statusEl = document.getElementById('entry-status');
+
+            if (!tid || !uid) {
+                statusEl.innerHTML = '<span class="text-red-400">Please enter both Tournament ID and Discord User ID.</span>';
+                return;
+            }
+
+            statusEl.innerHTML = '<span class="text-evil-200/50">Processing...</span>';
+
+            try {
+                const resp = await fetch('/api/stripe/tournament/entry-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tournament_id: parseInt(tid), discord_user_id: uid })
+                });
+                const data = await resp.json();
+
+                if (data.url) {
+                    window.location.href = data.url;
+                } else if (data.already_paid) {
+                    statusEl.innerHTML = '<span class="text-green-400">You have already paid for this tournament!</span>';
+                } else {
+                    statusEl.innerHTML = '<span class="text-red-400">' + (data.error || 'Failed to create checkout.') + '</span>';
+                }
+            } catch (e) {
+                statusEl.innerHTML = '<span class="text-red-400">Payment failed. Please try again.</span>';
+            }
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('connect_success') === '1') {
+            setTimeout(() => {
+                const s = document.getElementById('connect-status');
+                if (s) s.innerHTML = '<span class="text-green-400">Stripe account connected successfully! You can now host paid tournaments.</span>';
+            }, 500);
+        }
+        if (params.get('tournament_paid') === '1') {
+            setTimeout(() => {
+                const s = document.getElementById('entry-status');
+                if (s) s.innerHTML = '<span class="text-green-400">Entry fee paid! You are registered for the tournament.</span>';
+            }, 500);
+        }
+
         initAuth();
     </script>
 </body>

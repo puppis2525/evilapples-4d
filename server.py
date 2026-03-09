@@ -34,10 +34,11 @@ async def lifespan(app: FastAPI):
     logger.info("Application starting up...")
 
     try:
-        from db import init_db, init_deck_tables, init_store_tables, seed_store_decks
+        from db import init_db, init_deck_tables, init_store_tables, seed_store_decks, init_paid_tournament_tables
         await init_db()
         await init_deck_tables()
         await init_store_tables()
+        await init_paid_tournament_tables()
         logger.info("Database initialized successfully")
         await seed_store_decks()
     except Exception as e:

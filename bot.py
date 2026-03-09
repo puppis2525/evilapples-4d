@@ -1,17 +1,21 @@
 import os
 import random
 import time
+import logging
 import discord
 from discord.ext import commands
 import asyncio
+
+logger = logging.getLogger("bot")
 from slugify import slugify
 from api_client import generate_hand, generate_prompt, ai_judge, deal_default_hands, deal_default_solo, deal_replacement_cards, HAND_SIZE
 from ui_components import JudgingView, HandView, GameLobbyView, PostRoundView, SoloControlsView, DeckSelectView
 from db import (
     batch_update_games_played, save_round,
-    create_tournament, get_active_tournament, join_tournament,
+    create_tournament, create_paid_tournament, get_active_tournament, join_tournament,
     get_tournament_players, get_tournament_player_count,
     start_tournament, end_tournament,
+    get_tournament_entry, get_paid_tournament_entries,
     is_premium_server, get_premium_server,
     get_all_decks, get_deck_by_name, get_deck_by_id,
     get_random_cards, get_random_cards_multi, get_user_deck_count,
@@ -801,7 +805,7 @@ async def tournament_group(ctx):
         color=discord.Color.purple()
     )
     embed.add_field(name="Commands", value=(
-        "`!tournament create <name> [rounds]` — Create a tournament (default 5 rounds)\n"
+        "`!tournament create <name> [rounds] [$fee]` — Create a tournament (default 5 rounds, optional entry fee)\n"
         "`!tournament join` — Join the open tournament\n"
         "`!tournament start` — Start the tournament (creator only)\n"
         "`!tournament status` — View current standings\n"
@@ -817,35 +821,83 @@ async def tournament_create(ctx, *, args: str = ""):
         await ctx.send("There's already an active tournament in this channel! Use `!tournament end` first.")
         return
 
-    parts = args.rsplit(" ", 1)
+    import re
     rounds_total = 5
+    entry_fee_cents = 0
     name = args.strip() or f"{ctx.author.display_name}'s Tournament"
 
+    fee_match = re.search(r'\$(\d+(?:\.\d{1,2})?)', args)
+    if fee_match:
+        entry_fee_cents = int(float(fee_match.group(1)) * 100)
+        args = args[:fee_match.start()].strip() + " " + args[fee_match.end():].strip()
+        args = args.strip()
+
+    parts = args.rsplit(" ", 1)
     if len(parts) > 1 and parts[-1].isdigit():
         rounds_total = max(2, min(20, int(parts[-1])))
         name = parts[0].strip() or f"{ctx.author.display_name}'s Tournament"
+    elif args.strip():
+        name = args.strip()
 
-    tournament_id = await create_tournament(
-        name=name,
-        guild_id=str(ctx.guild.id),
-        channel_id=str(ctx.channel.id),
-        creator_id=str(ctx.author.id),
-        creator_name=ctx.author.display_name,
-        rounds_total=rounds_total
-    )
+    if entry_fee_cents > 0:
+        from db import get_connected_account
+        host_account = await get_connected_account(str(ctx.author.id))
+        if not host_account or not host_account.get("onboarding_complete"):
+            await ctx.send(
+                "To host a paid tournament, you need to connect your Stripe account first.\n"
+                "Visit the website and click **Connect Stripe Account** on the How to Play page."
+            )
+            return
 
-    embed = discord.Embed(
-        title=f"Tournament Created: {name}",
-        description=(
-            f"**Rounds:** {rounds_total}\n"
-            f"**Created by:** {ctx.author.mention}\n\n"
-            f"Type `!tournament join` to enter!\n"
-            f"The creator starts it with `!tournament start` when ready."
-        ),
-        color=discord.Color.purple()
-    )
-    embed.set_footer(text=f"Tournament ID: {tournament_id} | Need at least 3 players")
-    await ctx.send(embed=embed)
+        tournament_id = await create_paid_tournament(
+            name=name,
+            guild_id=str(ctx.guild.id),
+            channel_id=str(ctx.channel.id),
+            creator_id=str(ctx.author.id),
+            creator_name=ctx.author.display_name,
+            rounds_total=rounds_total,
+            entry_fee_cents=entry_fee_cents,
+            host_stripe_account_id=host_account["stripe_account_id"],
+        )
+
+        fee_display = f"${entry_fee_cents / 100:.2f}"
+        embed = discord.Embed(
+            title=f"Paid Tournament Created: {name}",
+            description=(
+                f"**Rounds:** {rounds_total}\n"
+                f"**Entry Fee:** {fee_display}\n"
+                f"**Platform Fee:** 10% (host receives 90% of prize pool)\n"
+                f"**Created by:** {ctx.author.mention}\n\n"
+                f"Type `!tournament join` to enter!\n"
+                f"Players must pay the entry fee on the website before the tournament starts.\n"
+                f"The creator starts it with `!tournament start` when ready."
+            ),
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text=f"Tournament ID: {tournament_id} | Need at least 3 players | Entry: {fee_display}")
+        await ctx.send(embed=embed)
+    else:
+        tournament_id = await create_tournament(
+            name=name,
+            guild_id=str(ctx.guild.id),
+            channel_id=str(ctx.channel.id),
+            creator_id=str(ctx.author.id),
+            creator_name=ctx.author.display_name,
+            rounds_total=rounds_total
+        )
+
+        embed = discord.Embed(
+            title=f"Tournament Created: {name}",
+            description=(
+                f"**Rounds:** {rounds_total}\n"
+                f"**Created by:** {ctx.author.mention}\n\n"
+                f"Type `!tournament join` to enter!\n"
+                f"The creator starts it with `!tournament start` when ready."
+            ),
+            color=discord.Color.purple()
+        )
+        embed.set_footer(text=f"Tournament ID: {tournament_id} | Need at least 3 players")
+        await ctx.send(embed=embed)
 
 
 @tournament_group.command(name="join")
@@ -862,6 +914,22 @@ async def tournament_join(ctx):
     player_count = await get_tournament_player_count(tournament["id"])
     if player_count >= tournament["max_players"]:
         await ctx.send(f"Tournament is full ({tournament['max_players']} players max)!")
+        return
+
+    entry_fee = tournament.get("entry_fee_cents", 0) or 0
+    if entry_fee > 0:
+        entry = await get_tournament_entry(tournament["id"], str(ctx.author.id))
+        if entry and entry["status"] == "paid":
+            await ctx.send(f"**{ctx.author.display_name}**, you're already registered and paid!")
+            return
+
+        fee_display = f"${entry_fee / 100:.2f}"
+        await ctx.send(
+            f"**{tournament['name']}** requires a **{fee_display}** entry fee.\n"
+            f"Pay on the website to join — visit the **How to Play** page and look for tournament entry.\n"
+            f"Tournament ID: **{tournament['id']}**\n"
+            f"Your Discord ID: `{ctx.author.id}`"
+        )
         return
 
     await join_tournament(tournament["id"], str(ctx.author.id), ctx.author.display_name)
@@ -968,6 +1036,24 @@ async def tournament_end_cmd(ctx):
             description=f"**Champion:** {champion['discord_name']} with {champion['points']} points!",
             color=discord.Color.gold()
         )
+
+        entry_fee = tournament.get("entry_fee_cents", 0) or 0
+        if entry_fee > 0:
+            try:
+                from stripe_routes import process_tournament_payout
+                await process_tournament_payout(tournament["id"])
+                entries = await get_paid_tournament_entries(tournament["id"])
+                total = sum(e["amount_cents"] for e in entries)
+                platform_fee = int(total * 10 / 100)
+                host_payout = total - platform_fee
+                embed.add_field(
+                    name="Prize Pool",
+                    value=f"Total: ${total/100:.2f} | Host Payout: ${host_payout/100:.2f} | Platform Fee: ${platform_fee/100:.2f}",
+                    inline=False
+                )
+            except Exception as e:
+                logger.error(f"Tournament payout error: {e}")
+                embed.add_field(name="Payout", value="Payout processing — check website for status.", inline=False)
     else:
         embed = discord.Embed(
             title=f"Tournament Ended: {tournament['name']}",

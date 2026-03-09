@@ -14,7 +14,8 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 ### Discord Bot (bot.py)
 - **discord.py** bot running as a daemon thread
 - Quick game commands: `!startgame`, `!join`, `!deal`, `!timer`, `!endgame`
-- Tournament commands: `!tournament create/join/start/status/end`
+- Tournament commands: `!tournament create/join/start/status/end` (supports paid tournaments with `$fee` syntax)
+- **Paid Tournaments**: Hosts can set entry fees (e.g., `!tournament create MyTourney 5 $10`), platform keeps 10%, host gets 90% via Stripe Connect
 - Premium command: `!premium` — shows Pro status or upgrade link
 - Free tier: 3 games/day per server; Pro: unlimited
 - Solo mode: `!solo [1-5]` — Play against AI opponents with Venice.ai judging
@@ -110,8 +111,12 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `POST /api/admin/upload-deck` - Upload template deck CSV (admin-only)
 - `GET /api/admin/template-decks` - List template decks (admin-only)
 - `POST /api/stripe/create-checkout` - Create Stripe checkout session (Pro)
-- `POST /api/stripe/webhook` - Stripe webhook handler (handles both Pro and deck purchases)
+- `POST /api/stripe/webhook` - Stripe webhook handler (handles Pro, deck purchases, and tournament entries)
 - `GET /api/stripe/config` - Stripe publishable key
+- `POST /api/stripe/connect/onboard` - Start Stripe Connect onboarding for tournament hosts
+- `GET /api/stripe/connect/onboard/return` - Handle Stripe Connect return
+- `GET /api/stripe/connect/status` - Check if user has connected Stripe account
+- `POST /api/stripe/tournament/entry-checkout` - Create checkout for tournament entry fee
 - `GET /api/stripe/premium-status/{guild_id}` - Check server premium status
 
 ### Discord OAuth2 Login (discord_auth.py)

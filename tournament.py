@@ -132,6 +132,26 @@ class TournamentJudgingView(discord.ui.View):
         )
         embed.set_footer(text=f"{self.tournament_data['rounds_total']} rounds played")
 
+        entry_fee = self.tournament_data.get("entry_fee_cents", 0) or 0
+        if entry_fee > 0:
+            try:
+                from stripe_routes import process_tournament_payout
+                from db import get_paid_tournament_entries
+                await process_tournament_payout(self.tournament_data["id"])
+                entries = await get_paid_tournament_entries(self.tournament_data["id"])
+                total = sum(e["amount_cents"] for e in entries)
+                platform_fee = int(total * 10 / 100)
+                host_payout = total - platform_fee
+                embed.add_field(
+                    name="Prize Pool",
+                    value=f"Total: ${total/100:.2f} | Host Payout: ${host_payout/100:.2f} | Platform Fee: ${platform_fee/100:.2f}",
+                    inline=False
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger("tournament").error(f"Tournament payout error: {e}")
+                embed.add_field(name="Payout", value="Payout processing — check website for status.", inline=False)
+
         await self.channel.send(embed=embed)
 
 

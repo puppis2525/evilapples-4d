@@ -316,6 +316,146 @@ async def get_tournament_details(tournament_id: int):
         }
 
 
+async def init_paid_tournament_tables():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS connected_accounts (
+                discord_user_id VARCHAR(64) PRIMARY KEY,
+                stripe_account_id VARCHAR(128) NOT NULL,
+                onboarding_complete BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tournament_entries (
+                id SERIAL PRIMARY KEY,
+                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+                discord_user_id VARCHAR(64) NOT NULL,
+                stripe_session_id VARCHAR(256),
+                amount_cents INTEGER NOT NULL DEFAULT 0,
+                status VARCHAR(32) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE(tournament_id, discord_user_id)
+            );
+        """)
+        try:
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS entry_fee_cents INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS prize_pool_cents INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS platform_fee_percent INTEGER DEFAULT 10")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payout_status VARCHAR(32) DEFAULT 'none'")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS host_stripe_account_id VARCHAR(128)")
+        except Exception:
+            pass
+
+
+async def save_connected_account(discord_user_id: str, stripe_account_id: str, onboarding_complete: bool = False):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO connected_accounts (discord_user_id, stripe_account_id, onboarding_complete)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (discord_user_id) DO UPDATE SET
+                   stripe_account_id = $2, onboarding_complete = $3""",
+            discord_user_id, stripe_account_id, onboarding_complete
+        )
+
+
+async def get_connected_account(discord_user_id: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM connected_accounts WHERE discord_user_id = $1",
+            discord_user_id
+        )
+        return dict(row) if row else None
+
+
+async def mark_account_onboarded(stripe_account_id: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE connected_accounts SET onboarding_complete = TRUE WHERE stripe_account_id = $1",
+            stripe_account_id
+        )
+
+
+async def create_paid_tournament(name: str, guild_id: str, channel_id: str, creator_id: str,
+                                  creator_name: str, rounds_total: int, entry_fee_cents: int,
+                                  host_stripe_account_id: str, max_players: int = 20):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO tournaments (name, guild_id, channel_id, creator_id, creator_name,
+               rounds_total, max_players, entry_fee_cents, host_stripe_account_id, payout_status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending') RETURNING id""",
+            name, guild_id, channel_id, creator_id, creator_name,
+            rounds_total, max_players, entry_fee_cents, host_stripe_account_id
+        )
+        return row["id"]
+
+
+async def record_tournament_entry(tournament_id: int, discord_user_id: str, stripe_session_id: str, amount_cents: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO tournament_entries (tournament_id, discord_user_id, stripe_session_id, amount_cents, status)
+               VALUES ($1, $2, $3, $4, 'paid')
+               ON CONFLICT (tournament_id, discord_user_id) DO UPDATE SET
+                   stripe_session_id = $3, amount_cents = $4, status = 'paid'""",
+            tournament_id, discord_user_id, stripe_session_id, amount_cents
+        )
+        await conn.execute(
+            """UPDATE tournaments SET prize_pool_cents = (
+                   SELECT COALESCE(SUM(amount_cents), 0) FROM tournament_entries
+                   WHERE tournament_id = $1 AND status = 'paid'
+               ) WHERE id = $1""",
+            tournament_id
+        )
+
+
+async def get_tournament_entry(tournament_id: int, discord_user_id: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM tournament_entries WHERE tournament_id = $1 AND discord_user_id = $2",
+            tournament_id, discord_user_id
+        )
+        return dict(row) if row else None
+
+
+async def get_paid_tournament_entries(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM tournament_entries WHERE tournament_id = $1 AND status = 'paid'",
+            tournament_id
+        )
+        return [dict(r) for r in rows]
+
+
+async def update_tournament_payout(tournament_id: int, status: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tournaments SET payout_status = $2 WHERE id = $1",
+            tournament_id, status
+        )
+
+
+async def refund_tournament_entries(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tournament_entries SET status = 'refunded' WHERE tournament_id = $1",
+            tournament_id
+        )
+        await conn.execute(
+            "UPDATE tournaments SET prize_pool_cents = 0, payout_status = 'refunded' WHERE id = $1",
+            tournament_id
+        )
+
+
 async def init_deck_tables():
     pool = await get_db_pool()
     async with pool.acquire() as conn:
