@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D | How to Play</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff',
+                            100: '#e5deff',
+                            200: '#cdbbff',
+                            300: '#b08dff',
+                            400: '#9055ff',
+                            500: '#7c3aed',
+                            600: '#6d28d9',
+                            700: '#5b21b6',
+                            800: '#4c1d95',
+                            900: '#3b1578',
+                            950: '#1a0a3e',
+                            bg: '#0d0520',
+                            surface: '#170e30',
+                            card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .logo-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeInUp 0.5s ease forwards; }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .step-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .step-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(124, 58, 237, 0.25); }
+        .black-card {
+            background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+            border: 2px solid #2a2a4a;
+        }
+        .white-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f0f0f5 100%);
+        }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex items-center gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="/store" class="text-evil-300 hover:text-white transition font-semibold">Store</a>
+                <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
+                <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+                <div id="auth-btn"></div>
+            </div>
+        </div>
+    </nav>
+
+    <header class="text-center py-16 px-6 relative overflow-hidden">
+        <div class="absolute inset-0 flex items-center justify-center opacity-5">
+            <img src="/static/logo.png" alt="" class="w-96 h-96">
+        </div>
+        <div class="relative z-10">
+            <img src="/static/logo.png" alt="Evil Apples 4D" class="w-24 h-24 mx-auto mb-6 logo-float drop-shadow-2xl">
+            <h2 class="font-brand text-5xl md:text-7xl mb-4 purple-glow text-evil-300">How to Play</h2>
+            <p class="text-evil-200/60 text-lg max-w-2xl mx-auto">
+                Everything you need to dominate Evil Apples 4D &mdash; from your first game to tournament glory.
+            </p>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 pb-20 space-y-16">
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-3">What is Evil Apples 4D?</h3>
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 text-evil-200/80 text-lg leading-relaxed space-y-4">
+                <p>
+                    Evil Apples 4D is a Cards Against Humanity-style party game played entirely through Discord. Each round, a prompt card is revealed and players submit their funniest, most outrageous answer card. A rotating judge picks the winner, and <strong class="text-evil-300">Dr. Evil</strong> &mdash; our AI judge powered by Venice.ai &mdash; delivers savage commentary on every submission.
+                </p>
+                <p>
+                    Play with friends in multiplayer, challenge AI opponents in solo mode, or climb the ranks in multi-round tournaments. Your wins are tracked on the live leaderboard and Hall of Fame.
+                </p>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Getting Started</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-evil-500/20 flex items-center justify-center mb-4">
+                        <span class="font-brand text-2xl text-evil-400">1</span>
+                    </div>
+                    <h4 class="text-white font-bold text-lg mb-2">Invite the Bot</h4>
+                    <p class="text-evil-200/60 text-sm">Add Evil Apples 4D to your Discord server. The bot handles everything &mdash; dealing cards, managing rounds, and tracking scores.</p>
+                </div>
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-evil-500/20 flex items-center justify-center mb-4">
+                        <span class="font-brand text-2xl text-evil-400">2</span>
+                    </div>
+                    <h4 class="text-white font-bold text-lg mb-2">Start a Game</h4>
+                    <p class="text-evil-200/60 text-sm">Type <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!startgame</code> to create a game, <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!join</code> to hop in, then <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!deal</code> to start a round. Or type <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!solo</code> for solo play against AI.</p>
+                </div>
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-evil-500/20 flex items-center justify-center mb-4">
+                        <span class="font-brand text-2xl text-evil-400">3</span>
+                    </div>
+                    <h4 class="text-white font-bold text-lg mb-2">Play &amp; Win</h4>
+                    <p class="text-evil-200/60 text-sm">Submit your funniest card, wait for the judge's pick, and earn points. Climb the leaderboard and enter the Hall of Fame!</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Round-by-Round Gameplay</h3>
+            <div class="space-y-6">
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 flex gap-6 items-start step-card">
+                    <div class="w-10 h-10 rounded-full bg-evil-500 flex-shrink-0 flex items-center justify-center font-brand text-white text-lg">1</div>
+                    <div>
+                        <h4 class="text-white font-bold text-lg mb-1">The Prompt Appears</h4>
+                        <p class="text-evil-200/60">A black prompt card is shown to all players. It contains a fill-in-the-blank statement or question generated by Venice.ai. Each prompt is unique and unpredictable.</p>
+                        <div class="mt-3 inline-block black-card rounded-xl px-5 py-3 text-white font-semibold text-sm">
+                            "The secret ingredient in my grandma's soup is ___."
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 flex gap-6 items-start step-card">
+                    <div class="w-10 h-10 rounded-full bg-evil-500 flex-shrink-0 flex items-center justify-center font-brand text-white text-lg">2</div>
+                    <div>
+                        <h4 class="text-white font-bold text-lg mb-1">Pick Your Card</h4>
+                        <p class="text-evil-200/60">You receive a hand of <strong class="text-evil-300">7 answer cards</strong>. Click the button matching the card you want to submit. Choose the funniest, darkest, or most absurd answer &mdash; whatever you think will win.</p>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <div class="white-card rounded-lg px-4 py-2 text-gray-900 font-semibold text-sm shadow-md">A suspicious amount of glitter</div>
+                            <div class="white-card rounded-lg px-4 py-2 text-gray-900 font-semibold text-sm shadow-md border-2 border-evil-500">Existential dread</div>
+                            <div class="white-card rounded-lg px-4 py-2 text-gray-900 font-semibold text-sm shadow-md">Nicolas Cage's tears</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 flex gap-6 items-start step-card">
+                    <div class="w-10 h-10 rounded-full bg-evil-500 flex-shrink-0 flex items-center justify-center font-brand text-white text-lg">3</div>
+                    <div>
+                        <h4 class="text-white font-bold text-lg mb-1">Exchange Cards (Optional)</h4>
+                        <p class="text-evil-200/60">Don't like your hand? Hit the <strong class="text-evil-300">Exchange</strong> button to swap up to <strong class="text-evil-300">3 cards</strong> for new ones. You get one exchange per round &mdash; use it wisely! You cannot exchange after submitting your answer.</p>
+                    </div>
+                </div>
+
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 flex gap-6 items-start step-card">
+                    <div class="w-10 h-10 rounded-full bg-evil-500 flex-shrink-0 flex items-center justify-center font-brand text-white text-lg">4</div>
+                    <div>
+                        <h4 class="text-white font-bold text-lg mb-1">The Judge Decides</h4>
+                        <p class="text-evil-200/60">A rotating judge reviews all anonymous submissions and picks their favorite. The judge changes each round so everyone gets a turn. After the human judge picks, <strong class="text-evil-300">Dr. Evil</strong> delivers his AI commentary &mdash; roasting submissions and crowning his own favorite.</p>
+                    </div>
+                </div>
+
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 flex gap-6 items-start step-card">
+                    <div class="w-10 h-10 rounded-full bg-evil-500 flex-shrink-0 flex items-center justify-center font-brand text-white text-lg">5</div>
+                    <div>
+                        <h4 class="text-white font-bold text-lg mb-1">Score &amp; Repeat</h4>
+                        <p class="text-evil-200/60">The winner earns a point and bragging rights. Scores carry across rounds &mdash; keep playing to climb the live leaderboard! Type <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!deal</code> again to start the next round.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Game Modes</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="text-3xl mb-3">&#127183;</div>
+                    <h4 class="text-white font-bold text-lg mb-2">Multiplayer</h4>
+                    <p class="text-evil-200/60 text-sm mb-3">The classic experience. Gather players in a Discord channel and play with rotating judges. Every round, a new judge picks the winner.</p>
+                    <div class="text-xs text-evil-300 bg-evil-card rounded-lg px-3 py-2">
+                        <code>!startgame</code> &mdash; Create a new game<br>
+                        <code>!join</code> &mdash; Join the current game<br>
+                        <code>!deal</code> &mdash; Deal a round<br>
+                        <code>!endgame</code> &mdash; End the game
+                    </div>
+                </div>
+
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="text-3xl mb-3">&#129302;</div>
+                    <h4 class="text-white font-bold text-lg mb-2">Solo Mode</h4>
+                    <p class="text-evil-200/60 text-sm mb-3">Play against AI opponents when your friends are offline. Dr. Evil generates AI player submissions and judges the round. Your wins still count for the leaderboard!</p>
+                    <div class="text-xs text-evil-300 bg-evil-card rounded-lg px-3 py-2">
+                        <code>!solo</code> &mdash; Start a solo game (default 3 AI opponents)<br>
+                        <code>!solo deal</code> &mdash; Deal a solo round<br>
+                        <code>!solo score</code> &mdash; Check your solo stats<br>
+                        <code>!solo end</code> &mdash; End solo game
+                    </div>
+                </div>
+
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="text-3xl mb-3">&#127942;</div>
+                    <h4 class="text-white font-bold text-lg mb-2">Tournaments</h4>
+                    <p class="text-evil-200/60 text-sm mb-3">Multi-round competitions with a set number of rounds. The player with the most wins at the end takes the tournament crown. Results are saved to the Hall of Fame.</p>
+                    <div class="text-xs text-evil-300 bg-evil-card rounded-lg px-3 py-2">
+                        <code>!tournament create &lt;name&gt; [rounds]</code> &mdash; Create a tournament<br>
+                        <code>!tournament join</code> &mdash; Join a tournament<br>
+                        <code>!tournament start</code> &mdash; Begin the tournament<br>
+                        <code>!tournament status</code> &mdash; View standings
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Card Decks &amp; Customization</h3>
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 space-y-4 text-evil-200/80">
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">&#127860;</span>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Default Deck</h4>
+                        <p class="text-sm">Every game comes with 124+ built-in answer cards for free. No setup needed &mdash; just start playing.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">&#128722;</span>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Deck Store</h4>
+                        <p class="text-sm">Browse and purchase themed expansion decks from the <a href="/store" class="text-evil-400 hover:text-evil-300 underline">Deck Store</a>. Each deck adds unique cards to your games &mdash; from Surreal to Pop Culture to Tech Bro themes.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">&#128196;</span>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Custom CSV Uploads</h4>
+                        <p class="text-sm">Create your own card deck by uploading a CSV file. Each line becomes an answer card. Manage your custom decks on the <a href="/decks" class="text-evil-400 hover:text-evil-300 underline">Decks page</a>.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">&#128161;</span>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Selecting Decks</h4>
+                        <p class="text-sm">Use <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!deck use &lt;name&gt;</code> to choose which deck(s) to use in your channel. You can stack multiple decks for maximum chaos. Use <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!deck list</code> to see all available decks.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Dr. Evil &mdash; Your AI Judge</h3>
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 text-evil-200/80 leading-relaxed">
+                <div class="flex items-start gap-5">
+                    <div class="w-16 h-16 rounded-xl bg-evil-500/20 flex-shrink-0 flex items-center justify-center">
+                        <span class="text-4xl">&#128520;</span>
+                    </div>
+                    <div class="space-y-3">
+                        <p>Every round, <strong class="text-evil-300">Dr. Evil</strong> (powered by Venice.ai's Llama 3.3 70B model) reviews all submissions and delivers unfiltered commentary. He'll roast bad answers, praise creative ones, and pick his own favorite &mdash; separate from the human judge's choice.</p>
+                        <p>Dr. Evil's style is sharp, witty, and unapologetically savage. Don't take it personally... unless your card really was that bad.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Pro Membership</h3>
+            <div class="bg-gradient-to-br from-evil-surface to-evil-card border border-yellow-500/30 rounded-2xl p-8 text-evil-200/80">
+                <div class="flex items-start gap-5">
+                    <div class="w-16 h-16 rounded-xl bg-yellow-500/20 flex-shrink-0 flex items-center justify-center">
+                        <span class="text-4xl">&#11088;</span>
+                    </div>
+                    <div class="space-y-3">
+                        <p><strong class="text-yellow-400">Evil Apples Pro</strong> unlocks premium perks for power players:</p>
+                        <ul class="list-disc list-inside text-sm space-y-1 text-evil-200/70">
+                            <li>Exclusive Pro-only card decks</li>
+                            <li>Priority access to new features</li>
+                            <li>Pro badge on the leaderboard</li>
+                            <li>Support the development of Evil Apples 4D</li>
+                        </ul>
+                        <a href="/premium" class="inline-block mt-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-6 py-2 rounded-lg transition text-sm">
+                            Go Pro &#9733;
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">All Commands</h3>
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-evil-800/50 text-left">
+                            <th class="px-6 py-3 text-evil-300 font-semibold">Command</th>
+                            <th class="px-6 py-3 text-evil-300 font-semibold">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-evil-200/70">
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!startgame</code></td>
+                            <td class="px-6 py-3">Create a new multiplayer game</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!join</code></td>
+                            <td class="px-6 py-3">Join the current game</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!deal</code></td>
+                            <td class="px-6 py-3">Deal a new round of cards</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!endgame</code></td>
+                            <td class="px-6 py-3">End the current game</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!timer</code> / <code class="text-evil-400">!settimer &lt;seconds&gt;</code></td>
+                            <td class="px-6 py-3">Check or set the round timer</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30 bg-evil-card/30">
+                            <td class="px-6 py-3 text-evil-300 font-semibold" colspan="2">Solo Mode</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!solo [opponents]</code></td>
+                            <td class="px-6 py-3">Start a solo game (default: 3 AI opponents)</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!solo deal</code></td>
+                            <td class="px-6 py-3">Deal a solo round</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!solo score</code></td>
+                            <td class="px-6 py-3">View your solo stats</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!solo end</code></td>
+                            <td class="px-6 py-3">End your solo game</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30 bg-evil-card/30">
+                            <td class="px-6 py-3 text-evil-300 font-semibold" colspan="2">Tournaments</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!tournament create &lt;name&gt; [rounds]</code></td>
+                            <td class="px-6 py-3">Create a tournament</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!tournament join</code></td>
+                            <td class="px-6 py-3">Join the tournament lobby</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!tournament start</code></td>
+                            <td class="px-6 py-3">Begin the tournament</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!tournament status</code></td>
+                            <td class="px-6 py-3">View tournament standings</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!tournament end</code></td>
+                            <td class="px-6 py-3">End the tournament early</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30 bg-evil-card/30">
+                            <td class="px-6 py-3 text-evil-300 font-semibold" colspan="2">Card Decks</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!deck list</code></td>
+                            <td class="px-6 py-3">List your available decks</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!deck use &lt;name&gt;</code></td>
+                            <td class="px-6 py-3">Select a deck for the current channel</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!deck upload &lt;name&gt;</code></td>
+                            <td class="px-6 py-3">Upload a custom CSV deck (attach file)</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!deck info &lt;name&gt;</code></td>
+                            <td class="px-6 py-3">View deck details and card count</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!deck ai</code></td>
+                            <td class="px-6 py-3">Use AI-generated cards instead of a deck</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-3"><code class="text-evil-400">!premium</code></td>
+                            <td class="px-6 py-3">Check your Pro subscription status</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-3xl text-evil-300 mb-6">Tips &amp; Strategy</h3>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 step-card">
+                    <h4 class="text-white font-bold mb-2">&#127919; Know Your Judge</h4>
+                    <p class="text-evil-200/60 text-sm">Each judge has different taste. Pay attention to what wins each round and tailor your picks to whoever's judging.</p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 step-card">
+                    <h4 class="text-white font-bold mb-2">&#128171; Save Your Best Cards</h4>
+                    <p class="text-evil-200/60 text-sm">Don't blow your strongest card on a weak prompt. Wait for the perfect combo and play it when it counts.</p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 step-card">
+                    <h4 class="text-white font-bold mb-2">&#9851;&#65039; Use Your Exchange</h4>
+                    <p class="text-evil-200/60 text-sm">If your hand is garbage, swap up to 3 cards before submitting. One exchange per round &mdash; make it count.</p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 step-card">
+                    <h4 class="text-white font-bold mb-2">&#127942; Play Tournaments</h4>
+                    <p class="text-evil-200/60 text-sm">Tournaments reward consistency over multiple rounds. Pace yourself and stay focused across all rounds to claim the crown.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="text-center py-10">
+            <div class="bg-evil-card border border-evil-800/50 rounded-2xl p-10 max-w-2xl mx-auto">
+                <h3 class="font-brand text-3xl text-evil-300 mb-3">Ready to Play?</h3>
+                <p class="text-evil-200/60 mb-6">Add Evil Apples 4D to your Discord server and start your first game in seconds.</p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="/" class="bg-evil-500 hover:bg-evil-600 text-white font-bold px-8 py-3 rounded-xl transition text-sm">
+                        View Leaderboard
+                    </a>
+                    <a href="/store" class="bg-evil-surface border border-evil-500 hover:bg-evil-700 text-evil-300 font-bold px-8 py-3 rounded-xl transition text-sm">
+                        Browse Decks
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-evil-800/50 py-8 text-center text-evil-200/30 text-sm">
+        <p>&copy; 2025 Evil Apples 4D. All rights reserved. Play responsibly... or don't.</p>
+    </footer>
+
+    <script src="/static/auth.js"></script>
+    <script>
+        async function initAuth() {
+            const user = await loadAuthUser();
+            renderAuthButton(user);
+        }
+        initAuth();
+    </script>
+</body>
+</html>

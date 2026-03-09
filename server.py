@@ -77,6 +77,11 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@app.get("/howtoplay", response_class=HTMLResponse)
+async def howtoplay_page(request: Request):
+    return templates.TemplateResponse("howtoplay.html", {"request": request})
+
+
 @app.get("/premium", response_class=HTMLResponse)
 async def premium_page(request: Request):
     return templates.TemplateResponse("premium.html", {"request": request})

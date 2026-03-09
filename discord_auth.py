@@ -31,7 +31,7 @@ COOKIE_NAME = "evil_session"
 STATE_COOKIE = "oauth_state"
 COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
-ALLOWED_NEXT_PATHS = {"/", "/store", "/decks", "/premium"}
+ALLOWED_NEXT_PATHS = {"/", "/store", "/decks", "/premium", "/howtoplay"}
 
 
 def _get_redirect_uri(request: Request) -> str:

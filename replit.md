@@ -152,6 +152,7 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `templates/store.html` - Deck store (browse & purchase)
 - `templates/store_success.html` - Purchase success page
 - `templates/admin.html` - Admin panel (manage store listings, pricing, bundling)
+- `templates/howtoplay.html` - How to Play guide (gameplay instructions, all commands, tips)
 - `static/logo.png` - Brand logo
 - `static/surreal-dali-deck.png` - Sample deck artwork (5:7 portrait)
 
