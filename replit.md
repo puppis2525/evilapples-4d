@@ -13,7 +13,12 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 
 ### Discord Bot (bot.py)
 - **discord.py** bot running as a daemon thread
-- Quick game commands: `!startgame`, `!join`, `!deal`, `!timer`, `!endgame`
+- Quick game commands: `!startgame [mode]`, `!join`, `!deal`, `!timer`, `!endgame`
+- **Game modes**: `!startgame` (friend, default), `!startgame swap`, `!startgame wildcard`
+  - **Friend mode**: 2-20 players, no timer, first to 7 points wins
+  - **Swap mode**: 5+ players, hands rotated between players each round
+  - **Wildcard mode**: 5+ players, no pre-made cards — players type custom answers via Discord modal
+- **Score tracking**: `game["scores"]` dict tracks points per player; auto-ends at 7 points with game-over embed; warns at 5 points
 - Tournament commands: `!tournament create/join/start/status/end` (supports paid tournaments with `$fee` syntax)
 - **Paid Tournaments**: Hosts set entry fees (e.g., `!tournament create MyTourney 5 $10`); uses Stripe Connect destination charges — platform keeps 10% application fee, host receives 90% instantly at payment time; winners with connected accounts can receive prize transfers via source_transaction
 - Premium command: `!premium` — shows Pro status or upgrade link

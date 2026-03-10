@@ -337,6 +337,15 @@ class JudgingView(discord.ui.View):
             item.disabled = True
         await interaction.response.edit_message(view=self)
 
+        from bot import handle_round_winner
+        game_over = await handle_round_winner(self.game_session, winner_id, winner_name, self.channel)
+
+        scores = self.game_session.setdefault("scores", {})
+        scores_text = " | ".join(
+            f"{'**' if pid == winner_id else ''}{self.game_session['players'].get(pid, pid)}: {scores.get(pid, 0)}{'**' if pid == winner_id else ''}"
+            for pid in sorted(scores, key=lambda p: -scores.get(p, 0))
+        )
+
         embed = discord.Embed(
             title="\U0001F3C6 We Have a Winner!",
             color=discord.Color.from_rgb(106, 27, 154)
@@ -344,9 +353,13 @@ class JudgingView(discord.ui.View):
         embed.add_field(name="Prompt", value=format_prompt(prompt), inline=False)
         embed.add_field(name="Winning Card", value=winning_card, inline=False)
         embed.add_field(name="Winner", value=f"**{winner_name}**", inline=False)
+        embed.add_field(name="Scores", value=scores_text, inline=False)
         embed.set_footer(text=f"Round saved as: /rounds/{slug}")
 
-        await self.channel.send(embed=embed, view=PostRoundView())
+        if not game_over:
+            await self.channel.send(embed=embed, view=PostRoundView())
+        else:
+            await self.channel.send(embed=embed)
 
         self.game_session["state"] = "finished"
 
@@ -613,6 +626,8 @@ class GameLobbyView(discord.ui.View):
         game["players"][player_id] = interaction.user.display_name
         if player_id not in game["all_player_ids"]:
             game["all_player_ids"].append(player_id)
+        if player_id not in game.get("scores", {}):
+            game.setdefault("scores", {})[player_id] = 0
         await interaction.response.send_message(
             f"**{interaction.user.display_name}** has joined! ({len(game['players'])} players)"
         )
@@ -836,3 +851,86 @@ class SoloControlsView(discord.ui.View):
             await interaction.channel.send(f"Solo game ended! Final score: **{wins}W / {losses}L**")
         else:
             await interaction.channel.send("No active solo game to quit.")
+
+
+class WildcardModal(discord.ui.Modal, title="Write Your Answer"):
+    answer = discord.ui.TextInput(
+        label="Your custom answer card",
+        placeholder="Type your funniest, most outrageous answer...",
+        style=discord.TextStyle.short,
+        max_length=200,
+        required=True,
+    )
+
+    def __init__(self, game_session, channel):
+        super().__init__()
+        self.game_session = game_session
+        self.channel = channel
+
+    async def on_submit(self, interaction: discord.Interaction):
+        player_id = str(interaction.user.id)
+
+        if player_id not in self.game_session.get("players", {}):
+            await interaction.response.send_message("You're not in this game!", ephemeral=True)
+            return
+
+        if player_id == self.game_session.get("judge_id") and not self.game_session.get("use_ai_judge"):
+            await interaction.response.send_message("You're the judge this round!", ephemeral=True)
+            return
+
+        if player_id in self.game_session.get("submissions", {}):
+            await interaction.response.send_message("You already submitted an answer!", ephemeral=True)
+            return
+
+        card_text = self.answer.value.strip()
+        if not card_text:
+            await interaction.response.send_message("You can't submit an empty answer!", ephemeral=True)
+            return
+
+        self.game_session["submissions"][player_id] = card_text
+
+        submitted = len(self.game_session["submissions"])
+        playing_ids = self.game_session.get("playing_ids", [])
+        total = len(playing_ids)
+
+        await interaction.response.send_message(
+            f"Your answer has been submitted!", ephemeral=True
+        )
+
+        await self.channel.send(
+            f"\U0001F4DD Card **{submitted}** of **{total}** submitted!"
+        )
+
+        from bot import check_all_submitted
+        await check_all_submitted(self.game_session, interaction)
+
+
+class WildcardView(discord.ui.View):
+    def __init__(self, game_session, channel=None):
+        super().__init__(timeout=300)
+        self.game_session = game_session
+        self.channel = channel
+
+    @discord.ui.button(label="Write Your Answer", style=discord.ButtonStyle.green, emoji="\u270D\uFE0F")
+    async def write_answer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player_id = str(interaction.user.id)
+
+        if player_id not in self.game_session.get("players", {}):
+            await interaction.response.send_message("You're not in this game!", ephemeral=True)
+            return
+
+        if player_id == self.game_session.get("judge_id") and not self.game_session.get("use_ai_judge"):
+            await interaction.response.send_message("You're the judge this round! Wait for answers, then pick the winner.", ephemeral=True)
+            return
+
+        if self.game_session.get("state") != "submitting":
+            await interaction.response.send_message("No round in progress right now.", ephemeral=True)
+            return
+
+        if player_id in self.game_session.get("submissions", {}):
+            await interaction.response.send_message("You already submitted an answer!", ephemeral=True)
+            return
+
+        game_channel = self.channel or interaction.channel
+        modal = WildcardModal(self.game_session, game_channel)
+        await interaction.response.send_modal(modal)

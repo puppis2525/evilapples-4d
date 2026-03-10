@@ -53,8 +53,15 @@ AI_OPPONENT_NAMES = [
 round_counter = {}
 
 
+GAME_MODES = {
+    "friend": {"min_players": 2, "hand_size": HAND_SIZE, "win_score": 7, "warn_score": 5, "description": "Casual game with friends — no timer, first to 7 wins"},
+    "swap": {"min_players": 5, "hand_size": HAND_SIZE, "win_score": 7, "warn_score": 5, "description": "Cards rotate between players each round — chaos mode"},
+    "wildcard": {"min_players": 5, "hand_size": 0, "win_score": 7, "warn_score": 5, "description": "Write your own answers — no pre-made cards"},
+}
+
+
 class GameSession:
-    def __init__(self, channel_id, starter_id, starter_name):
+    def __init__(self, channel_id, starter_id, starter_name, game_mode="friend"):
         self.data = {
             "channel_id": channel_id,
             "host_id": str(starter_id),
@@ -68,9 +75,14 @@ class GameSession:
             "submissions": {},
             "prompt": "",
             "round_id": 0,
+            "game_mode": game_mode,
+            "scores": {},
+            "win_score": GAME_MODES[game_mode]["win_score"],
+            "warn_score": GAME_MODES[game_mode]["warn_score"],
         }
         self.data["players"][str(starter_id)] = starter_name
         self.data["all_player_ids"].append(str(starter_id))
+        self.data["scores"][str(starter_id)] = 0
 
     def to_dict(self):
         return self.data
@@ -82,22 +94,35 @@ async def on_ready():
 
 
 @bot.command(name="startgame")
-async def start_game(ctx):
+async def start_game(ctx, mode: str = "friend"):
     if ctx.channel.id in active_games:
         await ctx.send("A game is already running in this channel! Use `!endgame` to stop it.")
         return
 
-    session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name)
+    mode = mode.lower().strip()
+    if mode not in GAME_MODES:
+        modes_list = ", ".join(f"`{m}`" for m in GAME_MODES)
+        await ctx.send(f"Unknown game mode `{mode}`. Available modes: {modes_list}")
+        return
+
+    mode_info = GAME_MODES[mode]
+    session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name, game_mode=mode)
     active_games[ctx.channel.id] = session.to_dict()
 
     channel_decks.pop(ctx.channel.id, None)
 
+    mode_labels = {"friend": "FRIEND", "swap": "SWAP", "wildcard": "WILDCARD"}
+    mode_label = mode_labels.get(mode, mode.upper())
+
     embed = discord.Embed(
-        title="Evil Apples 4D",
+        title=f"Evil Apples 4D — {mode_label} Mode",
         description=f"A new game is starting! Type `!join` to play.\n**{ctx.author.display_name}** has joined! (1 player)\n\nAnyone can type `!deal` when ready.",
         color=discord.Color.purple()
     )
-    embed.add_field(name="How It Works", value=(
+    embed.add_field(name="Mode", value=f"**{mode_label}** — {mode_info['description']}", inline=False)
+    embed.add_field(name="Rules", value=(
+        f"First to **{mode_info['win_score']} points** wins!\n"
+        f"Min players: {mode_info['min_players']}\n"
         "The judge rotates each round (round-robin style).\n"
         "If fewer than 3 players, Dr. Evil judges instead."
     ), inline=False)
@@ -129,6 +154,8 @@ async def join_game(ctx):
     game["players"][player_id] = ctx.author.display_name
     if player_id not in game["all_player_ids"]:
         game["all_player_ids"].append(player_id)
+    if player_id not in game.get("scores", {}):
+        game.setdefault("scores", {})[player_id] = 0
     await ctx.send(f"**{ctx.author.display_name}** has joined! ({len(game['players'])} players)")
 
 
@@ -139,8 +166,10 @@ async def deal_cards(ctx):
         await ctx.send("No active game.")
         return
 
-    if len(game["players"]) < 2:
-        await ctx.send("Need at least 2 players to start! Have players type `!join`.")
+    game_mode = game.get("game_mode", "friend")
+    min_players = GAME_MODES.get(game_mode, {}).get("min_players", 2)
+    if len(game["players"]) < min_players:
+        await ctx.send(f"Need at least {min_players} players for **{game_mode.upper()}** mode! Have players type `!join`.")
         return
 
     if game["state"] not in ("waiting_for_players", "finished"):
@@ -217,26 +246,40 @@ async def deal_cards(ctx):
             prompt = await generate_prompt()
         game["prompt"] = prompt
 
-        if deck_ids:
-            total_needed = len(playing_ids) * HAND_SIZE
-            all_answers = await get_random_cards_multi(deck_ids, "answer", total_needed)
-            if len(all_answers) < total_needed:
-                await ctx.send(f"Not enough answer cards in selected decks (need {total_needed}, have {len(all_answers)}). Using default cards.")
-                hands = deal_default_hands(len(playing_ids), HAND_SIZE)
-            else:
-                import random as _rng
-                _rng.shuffle(all_answers)
-                hands = [all_answers[i*HAND_SIZE:(i+1)*HAND_SIZE] for i in range(len(playing_ids))]
+        if game_mode == "wildcard":
+            game["hands"] = {}
         else:
-            hands = deal_default_hands(len(playing_ids), HAND_SIZE)
-        for player_id, hand in zip(playing_ids, hands):
-            game["hands"][player_id] = hand
+            if deck_ids:
+                total_needed = len(playing_ids) * HAND_SIZE
+                all_answers = await get_random_cards_multi(deck_ids, "answer", total_needed)
+                if len(all_answers) < total_needed:
+                    await ctx.send(f"Not enough answer cards in selected decks (need {total_needed}, have {len(all_answers)}). Using default cards.")
+                    hands = deal_default_hands(len(playing_ids), HAND_SIZE)
+                else:
+                    import random as _rng
+                    _rng.shuffle(all_answers)
+                    hands = [all_answers[i*HAND_SIZE:(i+1)*HAND_SIZE] for i in range(len(playing_ids))]
+            else:
+                hands = deal_default_hands(len(playing_ids), HAND_SIZE)
+
+            if game_mode == "swap":
+                original_owners = list(playing_ids)
+                shift = random.randint(1, max(1, len(hands) - 1))
+                hands = hands[shift:] + hands[:shift]
+                game["_swap_sources"] = {
+                    pid: game["players"].get(original_owners[(playing_ids.index(pid) + shift) % len(playing_ids)], "someone")
+                    for pid in playing_ids
+                }
+            for player_id, hand in zip(playing_ids, hands):
+                game["hands"][player_id] = hand
 
         game["state"] = "submitting"
         game["playing_ids"] = playing_ids
         game["exchanged"] = set()
 
         timer_seconds = channel_timers.get(ctx.channel.id)
+        if game_mode == "friend":
+            timer_seconds = None
         timer_text = ""
         if timer_seconds:
             deadline = int(time.time()) + timer_seconds
@@ -244,13 +287,33 @@ async def deal_cards(ctx):
 
         judge_line = f"\n\n\u2696\uFE0F **Judge this round:** {judge_name}" if not use_ai_judge else "\n\n\U0001F608 **Dr. Evil** is judging this round"
 
+        mode_label = {"friend": "FRIEND", "swap": "SWAP", "wildcard": "WILDCARD"}.get(game_mode, "")
+        scores_text = ""
+        if game.get("scores"):
+            scores_text = "\n\n**Scores:** " + " | ".join(
+                f"{game['players'].get(pid, pid)}: {pts}" for pid, pts in
+                sorted(game["scores"].items(), key=lambda x: -x[1])
+            )
+
+        if game_mode == "wildcard":
+            submit_instructions = "Click the button below to write your own answer!"
+        else:
+            submit_instructions = "Click the button below to view your hand and submit a card!"
+        if game_mode == "swap":
+            submit_instructions = "\U0001F500 Cards have been shuffled between players!\n" + submit_instructions
+
         embed = discord.Embed(
-            title="\U0001F7E3 PROMPT CARD",
-            description=f"## {format_prompt(prompt)}{judge_line}\n\nClick the button below to view your hand and submit a card!{timer_text}",
+            title=f"\U0001F7E3 PROMPT CARD — {mode_label}",
+            description=f"## {format_prompt(prompt)}{judge_line}\n\n{submit_instructions}{timer_text}{scores_text}",
             color=discord.Color.from_rgb(106, 27, 154)
         )
-        embed.set_footer(text=f"Waiting for {len(playing_ids)} submissions...")
-        view = HandView(game, mode="multiplayer", channel=ctx.channel)
+        embed.set_footer(text=f"Waiting for {len(playing_ids)} submissions... | First to {game.get('win_score', 7)} wins!")
+
+        if game_mode == "wildcard":
+            from ui_components import WildcardView
+            view = WildcardView(game, channel=ctx.channel)
+        else:
+            view = HandView(game, mode="multiplayer", channel=ctx.channel)
         await ctx.send(embed=embed, view=view)
 
         if timer_seconds:
@@ -270,6 +333,42 @@ async def deal_cards(ctx):
     except Exception as e:
         game["state"] = "waiting_for_players"
         await ctx.send(f"Error generating cards: {str(e)}")
+
+
+async def handle_round_winner(game, winner_id, winner_name, channel):
+    scores = game.setdefault("scores", {})
+    scores[winner_id] = scores.get(winner_id, 0) + 1
+    player_score = scores[winner_id]
+    win_score = game.get("win_score", 7)
+    warn_score = game.get("warn_score", 5)
+
+    if player_score >= win_score:
+        game["state"] = "game_over"
+        scores_text = "\n".join(
+            f"{'> ' if pid == winner_id else ''}{game['players'].get(pid, pid)}: **{pts}**"
+            for pid, pts in sorted(scores.items(), key=lambda x: -x[1])
+        )
+        embed = discord.Embed(
+            title="\U0001F3C6 GAME OVER!",
+            description=f"**{winner_name}** wins the game with **{player_score} points**!",
+            color=discord.Color.gold()
+        )
+        embed.add_field(name="Final Scores", value=scores_text, inline=False)
+        mode_label = game.get("game_mode", "friend").upper()
+        embed.set_footer(text=f"Mode: {mode_label} | Start a new game with !startgame")
+        await channel.send(embed=embed)
+
+        if channel.id in active_games:
+            del active_games[channel.id]
+        if channel.id in timer_tasks:
+            timer_tasks[channel.id].cancel()
+            del timer_tasks[channel.id]
+        return True
+
+    if player_score >= warn_score:
+        await channel.send(f"\U0001F525 **{winner_name}** has **{player_score} points** — getting close to winning!")
+
+    return False
 
 
 async def ai_judge_pick(game, channel):
@@ -318,6 +417,14 @@ async def ai_judge_pick(game, channel):
         f"\U0001F0CF **Card {i+1}:** {card}" for i, card in enumerate(card_texts)
     )
 
+    game_over = await handle_round_winner(game, winner_id, winner_name, channel)
+
+    scores = game.setdefault("scores", {})
+    scores_text = " | ".join(
+        f"{'**' if pid == winner_id else ''}{game['players'].get(pid, pid)}: {scores.get(pid, 0)}{'**' if pid == winner_id else ''}"
+        for pid in sorted(scores, key=lambda p: -scores.get(p, 0))
+    )
+
     embed = discord.Embed(
         title="\U0001F608 Dr. Evil Has Decided!",
         description=f"## {format_prompt(prompt)}\n\n{submission_text}",
@@ -327,9 +434,13 @@ async def ai_judge_pick(game, channel):
     embed.add_field(name="Winner", value=f"**{winner_name}**", inline=False)
     if roast:
         embed.add_field(name="\U0001F608 Dr. Evil Says", value=f"*{roast}*", inline=False)
+    embed.add_field(name="Scores", value=scores_text, inline=False)
     embed.set_footer(text=f"Round saved as: /rounds/{slug}")
 
-    await channel.send(embed=embed, view=PostRoundView())
+    if not game_over:
+        await channel.send(embed=embed, view=PostRoundView())
+    else:
+        await channel.send(embed=embed)
 
 
 async def check_all_submitted(game, interaction):

@@ -191,16 +191,49 @@
 
         <section>
             <h3 class="font-brand text-3xl text-evil-300 mb-6">Game Modes</h3>
-            <div class="grid md:grid-cols-3 gap-6">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
-                    <div class="text-3xl mb-3">&#127183;</div>
-                    <h4 class="text-white font-bold text-lg mb-2">Multiplayer</h4>
-                    <p class="text-evil-200/60 text-sm mb-3">The classic experience. Gather players in a Discord channel and play with rotating judges. Every round, a new judge picks the winner.</p>
+                    <div class="text-3xl mb-3">&#128106;</div>
+                    <h4 class="text-white font-bold text-lg mb-2">FRIEND Mode</h4>
+                    <p class="text-evil-200/60 text-sm mb-3">The classic experience. Invite your friends, play at your own pace with no timer pressure. First to 7 points wins!</p>
+                    <div class="text-xs text-evil-200/50 space-y-1 mb-3">
+                        <p>&#128101; 2-20 players</p>
+                        <p>&#127183; 7 cards per hand</p>
+                        <p>&#127942; First to 7 points wins</p>
+                        <p>&#9200; No timer &mdash; unlimited time per round</p>
+                    </div>
                     <div class="text-xs text-evil-300 bg-evil-card rounded-lg px-3 py-2">
-                        <code>!startgame</code> &mdash; Create a new game<br>
-                        <code>!join</code> &mdash; Join the current game<br>
-                        <code>!deal</code> &mdash; Deal a round<br>
-                        <code>!endgame</code> &mdash; End the game
+                        <code>!startgame</code> or <code>!startgame friend</code>
+                    </div>
+                </div>
+
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="text-3xl mb-3">&#128260;</div>
+                    <h4 class="text-white font-bold text-lg mb-2">SWAP Mode</h4>
+                    <p class="text-evil-200/60 text-sm mb-3">Cards are shuffled between players each round! You never know whose cards you'll get. Pure chaos and unpredictable fun.</p>
+                    <div class="text-xs text-evil-200/50 space-y-1 mb-3">
+                        <p>&#128101; 5+ players required</p>
+                        <p>&#127183; 7 cards per hand (shuffled between players!)</p>
+                        <p>&#127942; First to 7 points wins</p>
+                        <p>&#127922; Cards rotate every round</p>
+                    </div>
+                    <div class="text-xs text-evil-300 bg-evil-card rounded-lg px-3 py-2">
+                        <code>!startgame swap</code>
+                    </div>
+                </div>
+
+                <div class="step-card bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                    <div class="text-3xl mb-3">&#9997;&#65039;</div>
+                    <h4 class="text-white font-bold text-lg mb-2">WILDCARD Mode</h4>
+                    <p class="text-evil-200/60 text-sm mb-3">No pre-made cards &mdash; you write your own answers! Type whatever you want in response to each prompt. Unleash your inner comedian.</p>
+                    <div class="text-xs text-evil-200/50 space-y-1 mb-3">
+                        <p>&#128101; 5+ players required</p>
+                        <p>&#9997;&#65039; 0 cards &mdash; write your own!</p>
+                        <p>&#127942; First to 7 points wins</p>
+                        <p>&#128161; Type custom answers via a popup</p>
+                    </div>
+                    <div class="text-xs text-evil-300 bg-evil-card rounded-lg px-3 py-2">
+                        <code>!startgame wildcard</code>
                     </div>
                 </div>
 
@@ -221,7 +254,7 @@
                     <h4 class="text-white font-bold text-lg mb-2">Tournaments</h4>
                     <p class="text-evil-200/60 text-sm mb-3">Multi-round competitions with a set number of rounds. The player with the most wins at the end takes the tournament crown. Results are saved to the Hall of Fame.</p>
                     <div class="text-xs text-evil-300 bg-evil-card rounded-lg px-3 py-2">
-                        <code>!tournament create &lt;name&gt; [rounds]</code> &mdash; Create a tournament<br>
+                        <code>!tournament create &lt;name&gt; [rounds] [$fee]</code> &mdash; Create a tournament<br>
                         <code>!tournament join</code> &mdash; Join a tournament<br>
                         <code>!tournament start</code> &mdash; Begin the tournament<br>
                         <code>!tournament status</code> &mdash; View standings
@@ -392,8 +425,8 @@
                     </thead>
                     <tbody class="text-evil-200/70">
                         <tr class="border-b border-evil-800/30">
-                            <td class="px-6 py-3"><code class="text-evil-400">!startgame</code></td>
-                            <td class="px-6 py-3">Create a new multiplayer game</td>
+                            <td class="px-6 py-3"><code class="text-evil-400">!startgame [mode]</code></td>
+                            <td class="px-6 py-3">Create a new multiplayer game (modes: friend, swap, wildcard)</td>
                         </tr>
                         <tr class="border-b border-evil-800/30">
                             <td class="px-6 py-3"><code class="text-evil-400">!join</code></td>
