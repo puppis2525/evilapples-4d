@@ -154,6 +154,13 @@ Pick the funniest, most creative, or most fittingly dark answer.
 Consider shock value, comedic timing, and how well the answer completes the prompt.
 Return ONLY the number of the winning card (1-based index). Nothing else — just the number."""
 
+SYSTEM_PROMPT_ROAST = """You are Dr. Evil — a diabolical, sarcastic villain who judges a Cards Against Humanity-style game called Evil Apples.
+You just finished judging a round and you're appalled (yet secretly impressed) by how depraved and twisted the players' submissions were.
+Write a short, savage roast (1-3 sentences max) commenting on the cards that were played. Be theatrical, condescending, and darkly funny.
+Reference the actual card content in your roast. Act disgusted but entertained.
+Channel the energy of a Bond villain who can't believe what he just read.
+Do NOT use asterisks or markdown formatting. Just plain text. Keep it under 200 characters if possible."""
+
 
 async def ai_judge(prompt: str, submissions: list[str]) -> int:
     choices_text = "\n".join(f"{i+1}. {text}" for i, text in enumerate(submissions))
@@ -190,3 +197,33 @@ async def ai_judge(prompt: str, submissions: list[str]) -> int:
             return 0
     except Exception:
         return 0
+
+
+async def dr_evil_roast(prompt: str, submissions: list[str]) -> str:
+    cards_text = "\n".join(f"- {card}" for card in submissions)
+    user_msg = f'The prompt was: "{prompt}"\n\nThe players submitted these cards:\n{cards_text}\n\nRoast these degenerates.'
+
+    headers = {
+        "Authorization": f"Bearer {VENICE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "llama-3.3-70b",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT_ROAST},
+            {"role": "user", "content": user_msg},
+        ],
+        "max_tokens": 100,
+        "temperature": 0.9,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(VENICE_API_URL, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            roast = data["choices"][0]["message"]["content"].strip().strip('"')
+            return roast
+    except Exception:
+        return ""

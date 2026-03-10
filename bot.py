@@ -8,7 +8,7 @@ import asyncio
 
 logger = logging.getLogger("bot")
 from slugify import slugify
-from api_client import generate_hand, generate_prompt, ai_judge, deal_default_hands, deal_default_solo, deal_replacement_cards, HAND_SIZE
+from api_client import generate_hand, generate_prompt, ai_judge, dr_evil_roast, deal_default_hands, deal_default_solo, deal_replacement_cards, HAND_SIZE
 from ui_components import JudgingView, HandView, GameLobbyView, PostRoundView, SoloControlsView, DeckSelectView
 from db import (
     batch_update_games_played, save_round,
@@ -301,6 +301,10 @@ async def ai_judge_pick(game, channel):
 
     chosen_index = await ai_judge(prompt, card_texts)
 
+    roast = ""
+    if random.random() < 0.4:
+        roast = await dr_evil_roast(prompt, card_texts)
+
     winner_id, winning_card = submissions[chosen_index]
     winner_member = channel.guild.get_member(int(winner_id)) if channel.guild else None
     winner_name = winner_member.display_name if winner_member else game["players"].get(winner_id, "Unknown")
@@ -321,6 +325,8 @@ async def ai_judge_pick(game, channel):
     )
     embed.add_field(name="\U0001F3C6 Winning Card", value=winning_card, inline=False)
     embed.add_field(name="Winner", value=f"**{winner_name}**", inline=False)
+    if roast:
+        embed.add_field(name="\U0001F608 Dr. Evil Says", value=f"*{roast}*", inline=False)
     embed.set_footer(text=f"Round saved as: /rounds/{slug}")
 
     await channel.send(embed=embed, view=PostRoundView())
@@ -706,6 +712,10 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
         except Exception:
             winner_idx = 0
 
+        roast = ""
+        if random.random() < 0.4:
+            roast = await dr_evil_roast(game["prompt"], submission_cards)
+
         winner_name, winner_card = all_entries[winner_idx]
         game["scores"][winner_name] = game["scores"].get(winner_name, 0) + 1
 
@@ -737,6 +747,8 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
 
         result_embed.add_field(name="Result", value=verdict, inline=False)
         result_embed.add_field(name="Scores", value=scores_text, inline=False)
+        if roast:
+            result_embed.add_field(name="\U0001F608 Dr. Evil Says", value=f"*{roast}*", inline=False)
         await channel.send(embed=result_embed, view=SoloControlsView(player_id))
 
         game["state"] = "idle"
