@@ -43,10 +43,10 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - `all_players` dict preserved across rounds (bug fix: judge rotation no longer removes players)
 
 ### Card System (api_client.py)
-- **Default card pool**: 124+ answer cards in classic_cards.json — dealt randomly to all players for free
+- **Default card pool**: 166 answer cards + 430 prompt cards in classic_cards.json — dealt randomly to all players for free
 - **Hand size**: 7 cards per player (configurable via `HAND_SIZE` in api_client.py)
 - **Card exchange**: Players can swap up to 3 cards for new ones, once per round (Exchange button in hand view)
-- Prompts still generated via **Venice.ai** API (llama-3.3-70b model) each round
+- Prompts drawn randomly from the 430-card seed pool in classic_cards.json (falls back to Venice.ai generation if pool is empty)
 - `deal_default_hands()` and `deal_default_solo()` draw from the default pool
 - Custom deck cards override the default pool when a deck is selected
 - AI card generation (`generate_hand()`) available as fallback

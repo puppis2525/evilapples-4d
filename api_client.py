@@ -145,6 +145,10 @@ async def generate_hand(count: int = HAND_SIZE) -> list[str]:
 
 
 async def generate_prompt() -> str:
+    import random
+    black_cards = CLASSIC_CARDS.get("black_cards", [])
+    if black_cards:
+        return random.choice(black_cards)
     return await generate_card("black")
 
 
