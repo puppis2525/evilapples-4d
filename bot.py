@@ -289,6 +289,16 @@ async def ai_judge_pick(game, channel):
     random.shuffle(submissions)
 
     card_texts = [card for _, card in submissions]
+
+    deliberation_embed = discord.Embed(
+        title="\U0001F608 Dr. Evil is deliberating...",
+        description=f"## {format_prompt(prompt)}\n\n" + "\n".join(f"\U0001F0CF **Card {i+1}:** {card}" for i, card in enumerate(card_texts)),
+        color=discord.Color.from_rgb(106, 27, 154)
+    )
+    deliberation_embed.set_footer(text="The judgment is coming...")
+    await channel.send(embed=deliberation_embed)
+    await asyncio.sleep(10)
+
     chosen_index = await ai_judge(prompt, card_texts)
 
     winner_id, winning_card = submissions[chosen_index]
@@ -683,11 +693,13 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
         )
 
         judging_embed = discord.Embed(
-            title="\U0001F608 Dr. Evil is judging...",
+            title="\U0001F608 Dr. Evil is deliberating...",
             description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}",
             color=discord.Color.from_rgb(106, 27, 154)
         )
+        judging_embed.set_footer(text="The judgment is coming...")
         await channel.send(embed=judging_embed)
+        await asyncio.sleep(10)
 
         try:
             winner_idx = await ai_judge(game["prompt"], submission_cards)
