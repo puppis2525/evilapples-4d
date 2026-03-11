@@ -1262,7 +1262,7 @@ async def get_premium_stats():
 STORE_DECK_META = {
     "420": ("420 Blaze It", "Light up the party with 20 weed-themed answer cards"),
     "addictions": ("Addictions", "20 cards about all the things you just can't quit"),
-    "adulting": ("Adulting", "20 cards for when you're pretending to be a grown-up"),
+    "adulting": ("Adulting", "48 cards for when you're pretending to be a grown-up"),
     "babes": ("Babes", "20 cards featuring the hottest names in Hollywood"),
     "british": ("British AF", "20 cards from across the pond, innit"),
     "college": ("College", "20 cards about the best/worst years of your life"),
