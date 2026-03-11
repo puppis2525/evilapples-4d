@@ -636,6 +636,16 @@ class GameLobbyView(discord.ui.View):
             f"**{interaction.user.display_name}** has joined! ({len(game['players'])} players)"
         )
 
+        from db import get_user_deck_count, get_all_decks
+        deck_count = await get_user_deck_count(player_id)
+        if deck_count > 0:
+            decks = await get_all_decks(discord_user_id=player_id)
+            if decks:
+                await interaction.channel.send(
+                    f"**{interaction.user.display_name}**, you own card decks! Pick up to 3 to play with, or skip to use default cards.",
+                    view=DeckSelectView(decks, player_id, interaction.channel_id)
+                )
+
     @discord.ui.button(label="Deal", style=discord.ButtonStyle.primary, emoji="\U0001F0CF")
     async def deal_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         from bot import active_games, bot
@@ -706,7 +716,7 @@ class DeckSelectView(discord.ui.View):
 
     async def on_select(self, interaction: discord.Interaction):
         if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("Only the person who started this can pick decks!", ephemeral=True)
+            await interaction.response.send_message("This deck selector is for someone else!", ephemeral=True)
             return
 
         from bot import channel_decks
@@ -714,36 +724,48 @@ class DeckSelectView(discord.ui.View):
 
         from db import get_deck_by_id
         names = []
+        verified_ids = []
         for did in selected_ids:
             d = await get_deck_by_id(did)
-            if d:
+            if d and d.get("discord_user_id") == self.user_id:
                 names.append(d["name"])
+                verified_ids.append(did)
+        selected_ids = verified_ids
 
-        channel_decks[self.channel_id] = {
+        if not selected_ids:
+            await interaction.response.send_message("None of those decks belong to you!", ephemeral=True)
+            return
+
+        if self.channel_id not in channel_decks:
+            channel_decks[self.channel_id] = {}
+        channel_decks[self.channel_id][self.user_id] = {
             "ids": selected_ids,
             "names": names,
         }
 
         for item in self.children:
             item.disabled = True
+        player_name = interaction.user.display_name
         await interaction.response.edit_message(
-            content=f"**Selected deck{'s' if len(names) > 1 else ''}:** {', '.join(names)}\nNow press **Deal** or type `!deal` to start!",
+            content=f"**{player_name}** selected deck{'s' if len(names) > 1 else ''}: {', '.join(names)}",
             view=self,
         )
 
     @discord.ui.button(label="Skip — Use Default Cards", style=discord.ButtonStyle.secondary, emoji="⏭️", row=1)
     async def skip_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("Only the person who started this can skip!", ephemeral=True)
+            await interaction.response.send_message("This deck selector is for someone else!", ephemeral=True)
             return
 
         from bot import channel_decks
-        channel_decks.pop(self.channel_id, None)
+        ch_decks = channel_decks.get(self.channel_id, {})
+        ch_decks.pop(self.user_id, None)
 
         for item in self.children:
             item.disabled = True
+        player_name = interaction.user.display_name
         await interaction.response.edit_message(
-            content="Using **default cards** for this game.\nNow press **Deal** or type `!deal` to start!",
+            content=f"**{player_name}** will use **default cards**.",
             view=self,
         )
 

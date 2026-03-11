@@ -369,7 +369,7 @@
                     <span class="text-2xl">&#128161;</span>
                     <div>
                         <h4 class="text-white font-bold mb-1">Selecting Decks</h4>
-                        <p class="text-sm">Use <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!deck use &lt;name&gt;</code> to choose which deck(s) to use in your channel. You can stack multiple decks for maximum chaos. Use <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!deck list</code> to see all available decks.</p>
+                        <p class="text-sm">Each player picks their own decks! When you start or join a game, you'll be prompted to select up to 3 of your decks. Cards from your decks are dealt <strong>only to you</strong> &mdash; other players get their own deck cards or default cards. Use <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!decks</code> to view or change your selection, or <code class="bg-evil-card px-2 py-0.5 rounded text-evil-300">!deck use &lt;name&gt;</code> to quick-select a deck.</p>
                     </div>
                 </div>
             </div>
@@ -494,8 +494,16 @@
                             <td class="px-6 py-3">List your available decks</td>
                         </tr>
                         <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!decks</code></td>
+                            <td class="px-6 py-3">View/change your deck selection for the current game</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
                             <td class="px-6 py-3"><code class="text-evil-400">!deck use &lt;name&gt;</code></td>
-                            <td class="px-6 py-3">Select a deck for the current channel</td>
+                            <td class="px-6 py-3">Quick-select one of your decks for this channel</td>
+                        </tr>
+                        <tr class="border-b border-evil-800/30">
+                            <td class="px-6 py-3"><code class="text-evil-400">!deck ai</code></td>
+                            <td class="px-6 py-3">Switch back to default cards</td>
                         </tr>
                         <tr class="border-b border-evil-800/30">
                             <td class="px-6 py-3"><code class="text-evil-400">!deck upload &lt;name&gt;</code></td>
@@ -504,10 +512,6 @@
                         <tr class="border-b border-evil-800/30">
                             <td class="px-6 py-3"><code class="text-evil-400">!deck info &lt;name&gt;</code></td>
                             <td class="px-6 py-3">View deck details and card count</td>
-                        </tr>
-                        <tr class="border-b border-evil-800/30">
-                            <td class="px-6 py-3"><code class="text-evil-400">!deck ai</code></td>
-                            <td class="px-6 py-3">Use AI-generated cards instead of a deck</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-3"><code class="text-evil-400">!premium</code></td>

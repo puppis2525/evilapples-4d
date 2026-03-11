@@ -28,8 +28,9 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - **Dr. Evil fallback**: When fewer than 3 players, Dr. Evil (Venice.ai) judges automatically instead of a human; if AI API fails, falls back to random pick; if human judge doesn't pick within 2 minutes, Dr. Evil takes over
 - The game starter is a player, not a permanent judge; anyone can `!deal`
 - Configurable countdown timer: `!timer <10-60>` — any player can set per-channel, skips non-submitters on expiry
-- **Deck selection at game start**: If the host owns purchased decks, a dropdown menu appears letting them pick 1-3 decks to play with (or skip to use default cards)
-- Multi-deck support: cards are pooled from all selected decks for more variety
+- **Per-player deck selection**: Each player can select up to 3 of their own decks when starting or joining a game. Cards from a player's decks are dealt **only to that player** — other players get their own deck cards or default cards. `!decks` command to view/change selection; `!deck use <name>` for quick-select
+- `channel_decks` structure: `{channel_id: {player_id: {"ids": [...], "names": [...]}}}`
+- Prompt cards always come from the default pool (shared by all players)
 - In-channel card viewing & submission via ephemeral "View My Hand" button (no DMs needed)
 - DM-based submission still supported as fallback
 - Interactive judging with Discord Buttons (ui_components.py)

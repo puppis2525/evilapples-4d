@@ -158,6 +158,15 @@ async def join_game(ctx):
         game.setdefault("scores", {})[player_id] = 0
     await ctx.send(f"**{ctx.author.display_name}** has joined! ({len(game['players'])} players)")
 
+    deck_count = await get_user_deck_count(player_id)
+    if deck_count > 0:
+        decks = await get_all_decks(discord_user_id=player_id)
+        if decks:
+            await ctx.send(
+                f"**{ctx.author.display_name}**, you own card decks! Pick up to 3 to play with, or skip to use default cards.",
+                view=DeckSelectView(decks, player_id, ctx.channel.id)
+            )
+
 
 @bot.command(name="deal")
 async def deal_cards(ctx):
@@ -219,59 +228,62 @@ async def deal_cards(ctx):
     game["round_id"] = game.get("round_id", 0) + 1
     current_round_id = game["round_id"]
 
-    deck_info = channel_decks.get(ctx.channel.id)
-    deck_ids = None
-    deck_label = None
-    if deck_info:
-        if "ids" in deck_info:
-            deck_ids = deck_info["ids"]
-            deck_label = ", ".join(deck_info["names"])
-        elif "id" in deck_info:
-            deck_ids = [deck_info["id"]]
-            deck_label = deck_info["name"]
+    ch_decks = channel_decks.get(ctx.channel.id, {})
+    players_with_decks = []
+    for pid in playing_ids:
+        pinfo = ch_decks.get(pid)
+        if pinfo and pinfo.get("ids"):
+            players_with_decks.append((pid, pinfo))
 
-    if deck_ids:
-        await ctx.send(f"Drawing cards from **{deck_label}**...")
+    if players_with_decks:
+        deck_summary = ", ".join(
+            f"**{game['players'].get(pid, 'Unknown')}** ({', '.join(info['names'])})"
+            for pid, info in players_with_decks
+        )
+        await ctx.send(f"Custom decks in play: {deck_summary}\nPlayers without decks get default cards.")
     else:
         await ctx.send("Dealing hands from the default card pool...")
 
     try:
-        if deck_ids:
-            prompts = await get_random_cards_multi(deck_ids, "prompt", 1)
-            if not prompts:
-                prompt = await generate_prompt()
-            else:
-                prompt = prompts[0]
-        else:
-            prompt = await generate_prompt()
+        prompt = await generate_prompt()
         game["prompt"] = prompt
 
         if game_mode == "wildcard":
             game["hands"] = {}
         else:
-            if deck_ids:
-                total_needed = len(playing_ids) * HAND_SIZE
-                all_answers = await get_random_cards_multi(deck_ids, "answer", total_needed)
-                if len(all_answers) < total_needed:
-                    await ctx.send(f"Not enough answer cards in selected decks (need {total_needed}, have {len(all_answers)}). Using default cards.")
-                    hands = deal_default_hands(len(playing_ids), HAND_SIZE)
+            default_player_ids = [pid for pid in playing_ids if pid not in ch_decks or not ch_decks.get(pid, {}).get("ids")]
+            default_hands = deal_default_hands(len(default_player_ids), HAND_SIZE) if default_player_ids else []
+
+            hands_map = {}
+            di = 0
+            for pid in playing_ids:
+                player_deck_info = ch_decks.get(pid)
+                if player_deck_info and player_deck_info.get("ids"):
+                    deck_ids = player_deck_info["ids"]
+                    cards = await get_random_cards_multi(deck_ids, "answer", HAND_SIZE)
+                    if len(cards) < HAND_SIZE:
+                        hands_map[pid] = deal_default_hands(1, HAND_SIZE)[0]
+                    else:
+                        random.shuffle(cards)
+                        hands_map[pid] = cards[:HAND_SIZE]
                 else:
-                    import random as _rng
-                    _rng.shuffle(all_answers)
-                    hands = [all_answers[i*HAND_SIZE:(i+1)*HAND_SIZE] for i in range(len(playing_ids))]
-            else:
-                hands = deal_default_hands(len(playing_ids), HAND_SIZE)
+                    hands_map[pid] = default_hands[di]
+                    di += 1
 
             if game_mode == "swap":
+                ordered_hands = [hands_map[pid] for pid in playing_ids]
                 original_owners = list(playing_ids)
-                shift = random.randint(1, max(1, len(hands) - 1))
-                hands = hands[shift:] + hands[:shift]
+                shift = random.randint(1, max(1, len(ordered_hands) - 1))
+                ordered_hands = ordered_hands[shift:] + ordered_hands[:shift]
                 game["_swap_sources"] = {
                     pid: game["players"].get(original_owners[(playing_ids.index(pid) + shift) % len(playing_ids)], "someone")
                     for pid in playing_ids
                 }
-            for player_id, hand in zip(playing_ids, hands):
-                game["hands"][player_id] = hand
+                for player_id, hand in zip(playing_ids, ordered_hands):
+                    game["hands"][player_id] = hand
+            else:
+                for player_id, hand in hands_map.items():
+                    game["hands"][player_id] = hand
 
         game["state"] = "submitting"
         game["playing_ids"] = playing_ids
@@ -549,6 +561,30 @@ async def end_game(ctx):
     await ctx.send("Game ended. Start a new one with `!startgame`.")
 
 
+@bot.command(name="decks")
+async def show_decks(ctx):
+    game = active_games.get(ctx.channel.id)
+    user_id = str(ctx.author.id)
+    ch_decks = channel_decks.get(ctx.channel.id, {})
+    player_info = ch_decks.get(user_id)
+
+    if player_info and player_info.get("names"):
+        current = ", ".join(player_info["names"])
+        msg = f"**{ctx.author.display_name}**, your selected decks: **{current}**"
+    else:
+        msg = f"**{ctx.author.display_name}**, you're using **default cards**."
+
+    if game and game.get("state") in ("waiting_for_players", "finished"):
+        deck_count = await get_user_deck_count(user_id)
+        if deck_count > 0:
+            decks = await get_all_decks(discord_user_id=user_id)
+            if decks:
+                await ctx.send(msg, view=DeckSelectView(decks, user_id, ctx.channel.id))
+                return
+
+    await ctx.send(msg)
+
+
 @bot.command(name="timer")
 async def set_timer(ctx, seconds: int = None):
     game = active_games.get(ctx.channel.id)
@@ -696,7 +732,8 @@ async def solo_group(ctx, opponents: int = 3):
     for name in ai_names:
         solo_games[player_id]["scores"][name] = 0
 
-    channel_decks.pop(ctx.channel.id, None)
+    if ctx.channel.id in channel_decks:
+        channel_decks[ctx.channel.id].pop(player_id, None)
 
     embed = discord.Embed(
         title="Solo Mode — Evil Apples 4D",
@@ -743,32 +780,23 @@ async def solo_deal(ctx):
         await ctx.send(f"**Round {game['round_number']}** — Generating cards...")
 
         try:
-            deck_info = channel_decks.get(ctx.channel.id)
+            ch_decks = channel_decks.get(ctx.channel.id, {})
+            player_deck_info = ch_decks.get(player_id)
             solo_deck_ids = None
-            if deck_info:
-                if "ids" in deck_info:
-                    solo_deck_ids = deck_info["ids"]
-                elif "id" in deck_info:
-                    solo_deck_ids = [deck_info["id"]]
+            if player_deck_info and player_deck_info.get("ids"):
+                solo_deck_ids = player_deck_info["ids"]
+
+            prompt = await generate_prompt()
 
             if solo_deck_ids:
-                prompts = await get_random_cards_multi(solo_deck_ids, "prompt", 1)
-                if prompts:
-                    prompt = prompts[0]
+                player_cards = await get_random_cards_multi(solo_deck_ids, "answer", HAND_SIZE)
+                if len(player_cards) >= HAND_SIZE:
+                    random.shuffle(player_cards)
+                    player_hand = player_cards[:HAND_SIZE]
                 else:
-                    prompt = await generate_prompt()
-
-                total_needed = HAND_SIZE + len(game["ai_opponents"])
-                all_answers = await get_random_cards_multi(solo_deck_ids, "answer", total_needed)
-                if len(all_answers) >= total_needed:
-                    import random as _rng
-                    _rng.shuffle(all_answers)
-                    player_hand = all_answers[:HAND_SIZE]
-                    ai_cards = all_answers[HAND_SIZE:]
-                else:
-                    player_hand, ai_cards = deal_default_solo(HAND_SIZE, len(game["ai_opponents"]))
+                    player_hand, _ = deal_default_solo(HAND_SIZE, 0)
+                _, ai_cards = deal_default_solo(0, len(game["ai_opponents"]))
             else:
-                prompt = await generate_prompt()
                 player_hand, ai_cards = deal_default_solo(HAND_SIZE, len(game["ai_opponents"]))
 
             game["prompt"] = prompt
@@ -1303,15 +1331,17 @@ async def deck_group(ctx):
         "`!deck delete <name>` — Delete one of your decks"
     ), inline=False)
 
-    current = channel_decks.get(ctx.channel.id)
-    if current:
+    user_id = str(ctx.author.id)
+    ch_decks = channel_decks.get(ctx.channel.id, {})
+    player_info = ch_decks.get(user_id)
+    if player_info and player_info.get("names"):
         embed.add_field(
-            name="Current Deck",
-            value=f"**{current['name']}** ({current['prompt_count']} prompts, {current['answer_count']} answers)",
+            name="Your Selected Decks",
+            value=", ".join(player_info["names"]),
             inline=False
         )
     else:
-        embed.add_field(name="Current Mode", value="AI-Generated Cards (Venice.ai)", inline=False)
+        embed.add_field(name="Your Current Mode", value="Default Cards", inline=False)
 
     await ctx.send(embed=embed)
 
@@ -1440,34 +1470,36 @@ async def deck_use(ctx, *, name: str = ""):
         await ctx.send(f"Deck **{name}** not found in your decks. Use `!deck list` to see your decks.")
         return
 
-    if deck["prompt_count"] < 1:
-        await ctx.send(f"Deck **{deck['name']}** has no prompt cards. You need at least 1 prompt to play.")
-        return
     if deck["answer_count"] < 5:
         await ctx.send(f"Deck **{deck['name']}** only has {deck['answer_count']} answer cards. You need at least 5 to deal a hand.")
         return
 
-    channel_decks[ctx.channel.id] = {
+    if ctx.channel.id not in channel_decks:
+        channel_decks[ctx.channel.id] = {}
+    channel_decks[ctx.channel.id][user_id] = {
         "ids": [deck["id"]],
         "names": [deck["name"]],
     }
 
     embed = discord.Embed(
         title=f"Deck Selected: {deck['name']}",
-        description=f"**{deck['prompt_count']}** prompts and **{deck['answer_count']}** answers loaded.\nCards will now be drawn from this deck instead of AI generation.",
+        description=f"**{deck['answer_count']}** answer cards loaded for **{ctx.author.display_name}**.\nYour cards will be drawn from this deck.",
         color=discord.Color.green()
     )
-    embed.set_footer(text="Use !deck ai to switch back to AI-generated cards")
+    embed.set_footer(text="Use !deck ai to switch back to default cards")
     await ctx.send(embed=embed)
 
 
 @deck_group.command(name="ai")
 async def deck_ai(ctx):
-    if ctx.channel.id in channel_decks:
-        old = channel_decks.pop(ctx.channel.id)
-        await ctx.send(f"Switched from **{old['name']}** back to **AI-generated cards** (Venice.ai).")
+    user_id = str(ctx.author.id)
+    ch_decks = channel_decks.get(ctx.channel.id, {})
+    if user_id in ch_decks:
+        old = ch_decks.pop(user_id)
+        old_names = ", ".join(old.get("names", ["custom deck"]))
+        await ctx.send(f"**{ctx.author.display_name}** switched from **{old_names}** back to **default cards**.")
     else:
-        await ctx.send("Already using AI-generated cards!")
+        await ctx.send("You're already using default cards!")
 
 
 @deck_group.command(name="info")
