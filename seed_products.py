@@ -30,12 +30,12 @@ async def main():
 
     monthly_price = stripe_mod.Price.create(
         product=product.id,
-        unit_amount=599,
+        unit_amount=1900,
         currency="usd",
         recurring={"interval": "month"},
         metadata={"plan": "pro_monthly"},
     )
-    logger.info(f"Created monthly price: {monthly_price.id} ($5.99/month)")
+    logger.info(f"Created monthly price: {monthly_price.id} ($19/month)")
 
     yearly_price = stripe_mod.Price.create(
         product=product.id,

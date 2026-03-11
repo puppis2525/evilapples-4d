@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D | Tournament</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex items-center gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="/tournaments" class="text-evil-300 hover:text-white transition font-semibold">Tournaments</a>
+                <a href="/howtoplay" class="text-evil-300 hover:text-white transition font-semibold">How to Play</a>
+                <a href="/store" class="text-evil-300 hover:text-white transition font-semibold">Store</a>
+                <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
+                <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+                <div id="auth-btn"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto px-6 py-10">
+        <div id="loading" class="text-center py-20 text-evil-400">Loading tournament...</div>
+        <div id="not-found" class="hidden text-center py-20">
+            <p class="text-evil-400 text-lg">Tournament not found.</p>
+            <a href="/tournaments" class="text-evil-400 hover:text-evil-300 text-sm mt-4 inline-block">Back to Tournaments</a>
+        </div>
+        <div id="tournament-content" class="hidden space-y-8">
+            <div class="flex items-start justify-between flex-wrap gap-4">
+                <div>
+                    <a href="/tournaments" class="text-evil-500 hover:text-evil-400 text-sm mb-2 inline-block">&larr; All Tournaments</a>
+                    <h2 id="t-name" class="font-brand text-3xl md:text-4xl text-evil-300 purple-glow"></h2>
+                    <p class="text-evil-400 text-sm mt-1">Created by <span id="t-creator" class="text-evil-300"></span></p>
+                </div>
+                <div id="t-status-badge"></div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-evil-surface border border-evil-800/50 rounded-xl p-4 text-center">
+                    <p class="text-evil-400 text-xs uppercase tracking-wider mb-1">Players</p>
+                    <p id="t-players" class="text-white text-xl font-bold"></p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-xl p-4 text-center">
+                    <p class="text-evil-400 text-xs uppercase tracking-wider mb-1">Entry Fee</p>
+                    <p id="t-fee" class="text-white text-xl font-bold"></p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-xl p-4 text-center">
+                    <p class="text-evil-400 text-xs uppercase tracking-wider mb-1">Prize Pool</p>
+                    <p id="t-prize-pool" class="text-yellow-400 text-xl font-bold"></p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-xl p-4 text-center">
+                    <p class="text-evil-400 text-xs uppercase tracking-wider mb-1">Rounds</p>
+                    <p id="t-rounds" class="text-white text-xl font-bold"></p>
+                </div>
+            </div>
+
+            <div id="prize-dist-section" class="hidden bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                <h3 class="font-brand text-xl text-evil-300 mb-4">Prize Distribution</h3>
+                <div id="prize-dist-table" class="space-y-2"></div>
+            </div>
+
+            <div id="sponsors-section" class="hidden bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-brand text-xl text-evil-300">Sponsors</h3>
+                    <button id="sponsor-btn" onclick="showSponsorModal()" class="hidden px-4 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm font-semibold hover:bg-yellow-500/30 transition">
+                        Become a Sponsor
+                    </button>
+                </div>
+                <div id="sponsors-list" class="space-y-3"></div>
+                <p id="sponsors-empty" class="text-evil-500 text-sm hidden">No sponsors yet. Be the first!</p>
+            </div>
+
+            <div id="teams-section" class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                <h3 class="font-brand text-xl text-evil-300 mb-4">Teams</h3>
+                <div id="teams-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <div id="host-panel" class="hidden bg-evil-surface border border-red-500/20 rounded-2xl p-6">
+                <h3 class="font-brand text-xl text-red-400 mb-4">Host Management</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="closeRegistration()" id="close-reg-btn" class="px-4 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm font-semibold hover:bg-yellow-500/30 transition">
+                        Close Registration
+                    </button>
+                    <button onclick="copyShareLink()" class="px-4 py-2 bg-evil-500/20 text-evil-300 border border-evil-500/30 rounded-lg text-sm font-semibold hover:bg-evil-500/30 transition">
+                        Copy Share Link
+                    </button>
+                </div>
+                <p id="host-msg" class="text-evil-400 text-xs mt-3 hidden"></p>
+            </div>
+
+            <div id="standings-section" class="hidden bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                <h3 class="font-brand text-xl text-evil-300 mb-4">Standings</h3>
+                <div id="standings-table"></div>
+            </div>
+
+            <div id="rounds-section" class="hidden bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                <h3 class="font-brand text-xl text-evil-300 mb-4">Round History</h3>
+                <div id="rounds-list" class="space-y-3"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="sponsor-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 max-w-md w-full space-y-4">
+            <h3 class="font-brand text-xl text-evil-300">Become a Sponsor</h3>
+            <div>
+                <label class="block text-evil-400 text-sm font-semibold mb-2">Your Name / Brand</label>
+                <input type="text" id="sponsor-name-input" placeholder="e.g. Acme Corp"
+                    class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+            </div>
+            <p id="sponsor-price-display" class="text-evil-300 text-sm"></p>
+            <p id="sponsor-error" class="text-red-400 text-sm hidden"></p>
+            <div class="flex gap-3">
+                <button onclick="submitSponsor()" class="flex-1 px-4 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition">Sponsor</button>
+                <button onclick="closeSponsorModal()" class="px-4 py-3 bg-evil-card text-evil-300 rounded-xl hover:bg-evil-700 transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+    </footer>
+
+    <script src="/static/auth.js"></script>
+    <script>
+        const TOURNAMENT_ID = {{ tournament_id }};
+        let tournamentData = null;
+        let currentUser = null;
+
+        function statusBadge(status) {
+            const colors = {
+                registration: 'bg-green-500/20 text-green-400 border-green-500/30',
+                ready: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                active: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                completed: 'bg-evil-600/20 text-evil-400 border-evil-600/30',
+            };
+            const labels = { registration: 'Registration Open', ready: 'Ready to Start', active: 'In Progress', completed: 'Completed' };
+            return `<span class="text-sm font-semibold px-3 py-1.5 rounded-full border ${colors[status] || colors.completed}">${labels[status] || status}</span>`;
+        }
+
+        function renderTournament(data) {
+            const t = data.tournament;
+            tournamentData = data;
+
+            document.title = `Evil Apples 4D | ${t.name}`;
+            document.getElementById('t-name').textContent = t.name;
+            document.getElementById('t-creator').textContent = t.creator_name;
+            document.getElementById('t-status-badge').innerHTML = statusBadge(t.status);
+
+            const maxPlayers = (t.team_count || 0) * (t.team_size || 0);
+            document.getElementById('t-players').textContent = maxPlayers ? `${data.players.length}/${maxPlayers}` : data.players.length;
+            document.getElementById('t-fee').textContent = t.entry_fee_cents ? `$${(t.entry_fee_cents / 100).toFixed(2)}` : 'Free';
+            document.getElementById('t-prize-pool').textContent = t.prize_pool_cents ? `$${(t.prize_pool_cents / 100).toFixed(2)}` : (t.entry_fee_cents ? 'TBD' : 'None');
+            document.getElementById('t-rounds').textContent = t.status === 'active' ? `${t.current_round}/${t.rounds_total}` : t.rounds_total;
+
+            let prizeDist = [];
+            try { prizeDist = JSON.parse(t.prize_distribution || '[]'); } catch(e) {}
+            if (prizeDist.length > 0) {
+                document.getElementById('prize-dist-section').classList.remove('hidden');
+                const medals = ['&#x1F947;', '&#x1F948;', '&#x1F949;'];
+                document.getElementById('prize-dist-table').innerHTML = prizeDist.map((p, i) => `
+                    <div class="flex justify-between items-center py-2 px-3 rounded-lg ${i === 0 ? 'bg-yellow-500/10' : 'bg-evil-card/30'}">
+                        <span class="text-evil-300">${medals[i] || '#' + p.place} Place ${p.place}</span>
+                        <span class="text-white font-bold">$${parseFloat(p.amount).toFixed(2)}</span>
+                    </div>`).join('');
+            }
+
+            if (t.sponsor_enabled) {
+                document.getElementById('sponsors-section').classList.remove('hidden');
+                const sponsorSlots = t.sponsor_slots || 0;
+                const currentSponsors = data.sponsors.length;
+
+                if (data.sponsors.length > 0) {
+                    document.getElementById('sponsors-list').innerHTML = data.sponsors.map(s => `
+                        <div class="flex items-center justify-between py-2 px-3 bg-evil-card/30 rounded-lg">
+                            <span class="text-yellow-400 font-semibold">${s.sponsor_name}</span>
+                            <span class="text-evil-400 text-xs">$${(s.amount_cents / 100).toFixed(2)}</span>
+                        </div>`).join('');
+                } else {
+                    document.getElementById('sponsors-empty').classList.remove('hidden');
+                }
+
+                if (currentSponsors < sponsorSlots && t.status === 'registration' && currentUser && currentUser.logged_in) {
+                    document.getElementById('sponsor-btn').classList.remove('hidden');
+                    document.getElementById('sponsor-price-display').textContent = t.sponsor_price_cents ? `Sponsorship fee: $${(t.sponsor_price_cents / 100).toFixed(2)}` : 'Free sponsorship';
+                }
+            }
+
+            renderTeams(data);
+
+            if (currentUser && currentUser.logged_in && currentUser.discord_id === t.creator_id && t.status === 'registration') {
+                document.getElementById('host-panel').classList.remove('hidden');
+            }
+
+            if (t.status === 'active' || t.status === 'completed') {
+                renderStandings(data);
+            }
+
+            if (data.rounds && data.rounds.length > 0) {
+                document.getElementById('rounds-section').classList.remove('hidden');
+                document.getElementById('rounds-list').innerHTML = data.rounds.map(r => `
+                    <div class="flex items-center justify-between py-2 px-3 bg-evil-card/30 rounded-lg">
+                        <div>
+                            <span class="text-evil-400 text-xs">Round ${r.round_number}</span>
+                            <p class="text-evil-300 text-sm">${r.prompt || ''}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-white text-sm font-semibold">${r.winner_name || ''}</p>
+                            <p class="text-evil-400 text-xs">${r.winning_card || ''}</p>
+                        </div>
+                    </div>`).join('');
+            }
+
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('tournament-content').classList.remove('hidden');
+        }
+
+        function renderTeams(data) {
+            const t = data.tournament;
+            const isHost = currentUser && currentUser.logged_in && currentUser.discord_id === t.creator_id;
+            const isRegistration = t.status === 'registration';
+            const isLoggedIn = currentUser && currentUser.logged_in;
+            const alreadyJoined = isLoggedIn && data.players.some(p => p.discord_id === currentUser.discord_id);
+            const joinMode = t.join_mode || 'open';
+
+            document.getElementById('teams-grid').innerHTML = data.teams.map(team => {
+                const members = team.members || [];
+                const teamSize = t.team_size || 5;
+                const isFull = members.length >= teamSize;
+                const isCaptain = isLoggedIn && team.captain_discord_id === currentUser.discord_id;
+                const hasCaptain = !!team.captain_discord_id;
+
+                let actionBtn = '';
+                if (isRegistration && isLoggedIn && !alreadyJoined) {
+                    if (joinMode === 'open' && !isFull) {
+                        actionBtn = `<button onclick="joinTeam(${team.id})" class="w-full mt-3 px-3 py-2 bg-evil-500 hover:bg-evil-400 text-white text-sm font-semibold rounded-lg transition">Join Team</button>`;
+                    } else if (joinMode === 'closed' && !hasCaptain) {
+                        actionBtn = `<button onclick="showClaimModal(${team.id})" class="w-full mt-3 px-3 py-2 bg-evil-500 hover:bg-evil-400 text-white text-sm font-semibold rounded-lg transition">Claim Team</button>`;
+                    } else if (joinMode === 'closed' && hasCaptain && !isFull) {
+                        actionBtn = `<button onclick="joinTeam(${team.id})" class="w-full mt-3 px-3 py-2 bg-evil-500 hover:bg-evil-400 text-white text-sm font-semibold rounded-lg transition">Join Team</button>`;
+                    }
+                }
+
+                const membersList = members.length > 0
+                    ? members.map(m => `<div class="flex justify-between py-1"><span class="text-evil-200 text-sm">${m.discord_name}</span><span class="text-evil-400 text-xs">${m.points || 0} pts</span></div>`).join('')
+                    : '<p class="text-evil-500 text-xs py-1">No members yet</p>';
+
+                const slotsText = `${members.length}/${teamSize}`;
+                const captainText = hasCaptain ? `<span class="text-evil-400 text-xs">Captain: ${team.captain_name}</span>` : '';
+
+                return `
+                <div class="bg-evil-card/50 border border-evil-800/30 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-bold text-white">${team.name}</h4>
+                        <span class="text-evil-400 text-xs">${slotsText}</span>
+                    </div>
+                    ${captainText}
+                    <div class="mt-2 space-y-0.5">${membersList}</div>
+                    ${isFull ? '<p class="text-evil-500 text-xs mt-2 text-center">Team Full</p>' : ''}
+                    ${actionBtn}
+                </div>`;
+            }).join('');
+        }
+
+        function renderStandings(data) {
+            if (!data.teams || data.teams.length === 0) return;
+
+            document.getElementById('standings-section').classList.remove('hidden');
+            const teamScores = data.teams.map(team => {
+                const totalPoints = (team.members || []).reduce((sum, m) => sum + (m.points || 0), 0);
+                const totalWins = (team.members || []).reduce((sum, m) => sum + (m.rounds_won || 0), 0);
+                return { ...team, totalPoints, totalWins };
+            }).sort((a, b) => b.totalPoints - a.totalPoints || b.totalWins - a.totalWins);
+
+            const medals = ['&#x1F947;', '&#x1F948;', '&#x1F949;'];
+            document.getElementById('standings-table').innerHTML = `
+                <div class="space-y-2">
+                    ${teamScores.map((t, i) => `
+                        <div class="flex items-center justify-between py-3 px-4 rounded-lg ${i === 0 ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-evil-card/30'}">
+                            <div class="flex items-center gap-3">
+                                <span class="text-lg">${medals[i] || '#' + (i+1)}</span>
+                                <span class="text-white font-semibold">${t.name}</span>
+                                <span class="text-evil-400 text-xs">(${(t.members || []).length} members)</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-white font-bold">${t.totalPoints} pts</span>
+                                <span class="text-evil-400 text-xs ml-2">${t.totalWins} wins</span>
+                            </div>
+                        </div>`).join('')}
+                </div>`;
+        }
+
+        async function joinTeam(teamId) {
+            if (!currentUser || !currentUser.logged_in) {
+                window.location.href = `/auth/discord/login?next=/tournaments/${TOURNAMENT_ID}`;
+                return;
+            }
+            try {
+                const resp = await fetch(`/api/tournaments/${TOURNAMENT_ID}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ team_id: teamId }),
+                });
+                const data = await resp.json();
+                if (data.payment_required && data.url) {
+                    window.location.href = data.url;
+                } else if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to join team');
+                }
+            } catch (e) { alert('Connection error'); }
+        }
+
+        function showClaimModal(teamId) {
+            const name = prompt('Enter your team name:');
+            if (name && name.trim()) {
+                claimTeam(teamId, name.trim());
+            }
+        }
+
+        async function claimTeam(teamId, teamName) {
+            try {
+                const resp = await fetch(`/api/tournaments/${TOURNAMENT_ID}/teams`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ team_id: teamId, team_name: teamName }),
+                });
+                const data = await resp.json();
+                if (data.success) location.reload();
+                else alert(data.error || 'Failed to claim team');
+            } catch (e) { alert('Connection error'); }
+        }
+
+        async function closeRegistration() {
+            if (!confirm('Close registration? No more players can join after this.')) return;
+            try {
+                const resp = await fetch(`/api/tournaments/${TOURNAMENT_ID}/close-registration`, { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) location.reload();
+                else alert(data.error || 'Failed');
+            } catch (e) { alert('Connection error'); }
+        }
+
+        function copyShareLink() {
+            navigator.clipboard.writeText(window.location.href);
+            const msg = document.getElementById('host-msg');
+            msg.textContent = 'Share link copied!';
+            msg.classList.remove('hidden');
+            setTimeout(() => msg.classList.add('hidden'), 3000);
+        }
+
+        function showSponsorModal() {
+            document.getElementById('sponsor-modal').classList.remove('hidden');
+        }
+        function closeSponsorModal() {
+            document.getElementById('sponsor-modal').classList.add('hidden');
+        }
+
+        async function submitSponsor() {
+            const name = document.getElementById('sponsor-name-input').value.trim();
+            const errorEl = document.getElementById('sponsor-error');
+            errorEl.classList.add('hidden');
+
+            if (!name) {
+                errorEl.textContent = 'Please enter a name.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/tournaments/${TOURNAMENT_ID}/sponsor`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sponsor_name: name }),
+                });
+                const data = await resp.json();
+                if (data.payment_required && data.url) {
+                    window.location.href = data.url;
+                } else if (data.success) {
+                    location.reload();
+                } else {
+                    errorEl.textContent = data.error || 'Failed';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection error';
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        (async () => {
+            currentUser = await initAuth();
+            try {
+                const resp = await fetch(`/api/tournaments/${TOURNAMENT_ID}`);
+                if (!resp.ok) {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('not-found').classList.remove('hidden');
+                    return;
+                }
+                const data = await resp.json();
+                if (data.error) {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('not-found').classList.remove('hidden');
+                    return;
+                }
+                renderTournament(data);
+            } catch (e) {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('not-found').classList.remove('hidden');
+            }
+        })();
+    </script>
+</body>
+</html>

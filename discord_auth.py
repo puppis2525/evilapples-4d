@@ -31,7 +31,17 @@ COOKIE_NAME = "evil_session"
 STATE_COOKIE = "oauth_state"
 COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
-ALLOWED_NEXT_PATHS = {"/", "/store", "/decks", "/premium", "/howtoplay"}
+ALLOWED_NEXT_PATHS = {"/", "/store", "/decks", "/premium", "/howtoplay", "/tournaments", "/tournaments/create"}
+import re
+_ALLOWED_NEXT_PATTERN = re.compile(r'^/tournaments/\d+$')
+
+
+def _is_allowed_next_path(path: str) -> bool:
+    if path in ALLOWED_NEXT_PATHS:
+        return True
+    if _ALLOWED_NEXT_PATTERN.match(path):
+        return True
+    return False
 
 
 def _get_redirect_uri(request: Request) -> str:
@@ -84,7 +94,7 @@ async def discord_login(request: Request):
     url = f"{DISCORD_AUTHORIZE_URL}?{urllib.parse.urlencode(params)}"
 
     next_path = request.query_params.get("next", "/")
-    if next_path not in ALLOWED_NEXT_PATHS:
+    if not _is_allowed_next_path(next_path):
         next_path = "/"
 
     response = RedirectResponse(url=url)
@@ -117,7 +127,7 @@ async def discord_callback(request: Request, code: str = "", error: str = "", st
         return RedirectResponse(url="/?auth_error=1")
 
     next_path = state_data.get("next", "/")
-    if next_path not in ALLOWED_NEXT_PATHS:
+    if not _is_allowed_next_path(next_path):
         next_path = "/"
 
     redirect_uri = _get_redirect_uri(request)

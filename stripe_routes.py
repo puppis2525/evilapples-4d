@@ -120,12 +120,29 @@ async def stripe_webhook(request: Request):
                                     int(tournament_id), discord_user_id, session_id, entry_fee,
                                     stripe_payment_intent_id=payment_intent_id
                                 )
-                                await join_tournament(int(tournament_id), discord_user_id, discord_user_id)
+                                team_id = metadata.get("team_id", "")
+                                if team_id:
+                                    from db import join_tournament_team
+                                    await join_tournament_team(int(tournament_id), int(team_id), discord_user_id, discord_user_id)
+                                else:
+                                    await join_tournament(int(tournament_id), discord_user_id, discord_user_id)
                                 logger.info(f"Tournament entry paid: user={discord_user_id} tournament={tournament_id} fee=${entry_fee/100:.2f} pi={payment_intent_id}")
                             else:
                                 logger.warning(f"Tournament entry webhook: tournament {tournament_id} not in registration (status={t['status'] if t else 'missing'})")
                 else:
                     logger.warning(f"Tournament entry not paid: status={payment_status}")
+
+            elif metadata.get("type") == "tournament_sponsor":
+                payment_status = session.get("payment_status", "")
+                if payment_status == "paid":
+                    t_id = metadata.get("tournament_id", "")
+                    sponsor_name = metadata.get("sponsor_name", "Sponsor")
+                    amount = int(metadata.get("amount_cents", "0"))
+                    session_id = session.get("id", "")
+                    if t_id:
+                        from db import create_tournament_sponsor
+                        await create_tournament_sponsor(int(t_id), sponsor_name, amount, stripe_session_id=session_id)
+                        logger.info(f"Sponsor payment: {sponsor_name} for tournament {t_id} ${amount/100:.2f}")
 
             elif metadata.get("type") == "deck_purchase":
                 payment_status = session.get("payment_status", "")

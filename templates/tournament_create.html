@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D | Create Tournament</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        input, select { color-scheme: dark; }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex items-center gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="/tournaments" class="text-evil-300 hover:text-white transition font-semibold">Tournaments</a>
+                <a href="/howtoplay" class="text-evil-300 hover:text-white transition font-semibold">How to Play</a>
+                <a href="/store" class="text-evil-300 hover:text-white transition font-semibold">Store</a>
+                <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
+                <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+                <div id="auth-btn"></div>
+            </div>
+        </div>
+    </nav>
+
+    <header class="text-center py-10 px-6">
+        <h2 class="font-brand text-4xl mb-3 purple-glow text-evil-300">Create Tournament</h2>
+        <p class="text-evil-200/60 max-w-lg mx-auto">Set up your tournament, configure teams and prizes, then share it with your community.</p>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-6 pb-20">
+        <div id="login-prompt" class="hidden bg-evil-surface border border-evil-800/50 rounded-2xl p-8 text-center">
+            <p class="text-evil-300 mb-4">You need to sign in with Discord to create a tournament.</p>
+            <a href="/auth/discord/login?next=/tournaments/create" class="inline-flex items-center gap-2 px-6 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold rounded-xl transition">
+                <svg width="16" height="12" viewBox="0 0 71 55" fill="currentColor"><path d="M60.1 4.9A58.5 58.5 0 0045.4.2a.2.2 0 00-.2.1 40.8 40.8 0 00-1.8 3.7 54 54 0 00-16.2 0A37.3 37.3 0 0025.4.3a.2.2 0 00-.2-.1A58.4 58.4 0 0010.5 5a.2.2 0 00-.1 0A59.7 59.7 0 00.3 45.3a.2.2 0 000 .2 58.8 58.8 0 0017.7 9a.2.2 0 00.3-.1 42 42 0 003.6-5.9.2.2 0 00-.1-.3 38.8 38.8 0 01-5.5-2.6.2.2 0 01 0-.4l1.1-.9a.2.2 0 01.2 0 42 42 0 0035.6 0 .2.2 0 01.2 0l1.1.9a.2.2 0 010 .3 36.4 36.4 0 01-5.5 2.7.2.2 0 00-.1.3 47.2 47.2 0 003.6 5.8.2.2 0 00.3.1 58.6 58.6 0 0017.7-9 .2.2 0 000-.1A59.2 59.2 0 0060.2 5a.2.2 0 00-.1 0z"/></svg>
+                Sign In with Discord
+            </a>
+        </div>
+
+        <form id="tournament-form" class="hidden space-y-6">
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 space-y-5">
+                <h3 class="font-brand text-xl text-evil-300">Basic Info</h3>
+                <div>
+                    <label class="block text-evil-400 text-sm font-semibold mb-2">Tournament Name</label>
+                    <input type="text" id="t-name" placeholder="e.g. Friday Night Showdown" maxlength="100"
+                        class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-evil-400 text-sm font-semibold mb-2">Rounds</label>
+                        <input type="number" id="t-rounds" value="5" min="1" max="50"
+                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-evil-400 text-sm font-semibold mb-2">Game Mode</label>
+                        <select id="t-mode"
+                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                            <option value="friend">Friend Mode</option>
+                            <option value="swap">Swap Mode</option>
+                            <option value="wildcard">Wildcard Mode</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 space-y-5">
+                <h3 class="font-brand text-xl text-evil-300">Team Setup</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-evil-400 text-sm font-semibold mb-2">Number of Teams</label>
+                        <input type="number" id="t-team-count" value="2" min="2" max="20"
+                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-evil-400 text-sm font-semibold mb-2">Players per Team</label>
+                        <input type="number" id="t-team-size" value="5" min="1" max="10"
+                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-evil-400 text-sm font-semibold mb-2">Join Mode</label>
+                    <select id="t-join-mode"
+                        class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                        <option value="open">Open Invite - Anyone can join any team</option>
+                        <option value="closed">Closed Teams - Captains claim teams, then invite members</option>
+                    </select>
+                </div>
+                <div class="bg-evil-card/50 rounded-xl p-4">
+                    <p class="text-evil-300 text-sm">Total capacity: <span id="capacity-display" class="text-white font-bold">10 players</span></p>
+                </div>
+            </div>
+
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 space-y-5">
+                <h3 class="font-brand text-xl text-evil-300">Entry Fee & Prizes</h3>
+                <div>
+                    <label class="block text-evil-400 text-sm font-semibold mb-2">Entry Fee per Player (USD)</label>
+                    <input type="number" id="t-fee" value="0" min="0" step="0.50"
+                        class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                    <p class="text-evil-500 text-xs mt-1">Set to 0 for a free tournament</p>
+                </div>
+                <div id="stripe-warning" class="hidden bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                    <p class="text-red-400 text-sm">You need to connect your Stripe account to create paid tournaments.</p>
+                    <button type="button" onclick="connectStripe()" class="mt-2 px-4 py-2 bg-evil-500 hover:bg-evil-400 text-white text-sm font-semibold rounded-lg transition">
+                        Connect Stripe Account
+                    </button>
+                </div>
+                <div id="prize-section" class="space-y-4">
+                    <label class="block text-evil-400 text-sm font-semibold">Prize Distribution</label>
+                    <div id="prize-rows" class="space-y-2"></div>
+                    <button type="button" onclick="addPrizeRow()" class="text-evil-400 hover:text-evil-300 text-sm font-semibold transition">+ Add placement prize</button>
+                </div>
+                <div id="revenue-preview" class="bg-evil-card/50 rounded-xl p-4 space-y-2 hidden">
+                    <h4 class="text-evil-300 font-semibold text-sm mb-2">Revenue Preview</h4>
+                    <div class="flex justify-between text-sm"><span class="text-evil-400">Total Collected</span><span id="rp-total" class="text-white font-bold">$0</span></div>
+                    <div class="flex justify-between text-sm"><span class="text-evil-400">EA4D Platform Fee (10%)</span><span id="rp-platform" class="text-evil-300">$0</span></div>
+                    <div class="flex justify-between text-sm"><span class="text-evil-400">Total Prizes</span><span id="rp-prizes" class="text-yellow-400">$0</span></div>
+                    <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Host Keeps</span><span id="rp-host" class="text-green-400 font-bold">$0</span></div>
+                    <p id="rp-warning" class="text-red-400 text-xs hidden"></p>
+                </div>
+            </div>
+
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 space-y-5">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-brand text-xl text-evil-300">Sponsorships</h3>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="t-sponsor-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-evil-card peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-evil-500"></div>
+                    </label>
+                </div>
+                <div id="sponsor-fields" class="hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-evil-400 text-sm font-semibold mb-2">Sponsor Slots</label>
+                            <input type="number" id="t-sponsor-slots" value="3" min="1" max="10"
+                                class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-evil-400 text-sm font-semibold mb-2">Price per Slot (USD)</label>
+                            <input type="number" id="t-sponsor-price" value="50" min="0" step="1"
+                                class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white focus:outline-none focus:border-evil-500 transition">
+                        </div>
+                    </div>
+                    <p class="text-evil-500 text-xs">Sponsors get their name displayed on the tournament page and during Discord gameplay.</p>
+                </div>
+            </div>
+
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 space-y-5">
+                <h3 class="font-brand text-xl text-evil-300">Discord Server (Optional)</h3>
+                <p class="text-evil-500 text-sm">Link this tournament to a Discord server so the bot can run it with <code class="bg-evil-card px-1 rounded">!tournament start</code></p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-evil-400 text-sm font-semibold mb-2">Server ID</label>
+                        <input type="text" id="t-guild-id" placeholder="e.g. 123456789012345678"
+                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-evil-400 text-sm font-semibold mb-2">Channel ID</label>
+                        <input type="text" id="t-channel-id" placeholder="e.g. 123456789012345678"
+                            class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <p id="form-error" class="text-red-400 text-sm text-center hidden"></p>
+
+            <button type="submit" id="submit-btn"
+                class="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-evil-500 to-evil-600 hover:from-evil-400 hover:to-evil-500 text-white font-bold text-lg transition-all transform hover:scale-[1.02] shadow-lg">
+                Create Tournament
+            </button>
+        </form>
+    </main>
+
+    <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+    </footer>
+
+    <script src="/static/auth.js"></script>
+    <script>
+        let stripeConnected = false;
+        let prizeRowCount = 0;
+
+        function addPrizeRow(place, amount) {
+            prizeRowCount++;
+            const n = place || prizeRowCount;
+            const v = amount || '';
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-3';
+            row.innerHTML = `
+                <span class="text-evil-300 text-sm font-semibold w-8">#${n}</span>
+                <input type="number" data-prize-place="${n}" value="${v}" min="0" step="1" placeholder="Prize amount ($)"
+                    class="flex-1 px-4 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white text-sm focus:outline-none focus:border-evil-500 transition prize-input">
+                <button type="button" onclick="this.parentElement.remove(); updateRevenuePreview();" class="text-evil-600 hover:text-red-400 transition text-lg">&times;</button>
+            `;
+            document.getElementById('prize-rows').appendChild(row);
+            row.querySelector('.prize-input').addEventListener('input', updateRevenuePreview);
+        }
+
+        function getPrizeDistribution() {
+            const prizes = [];
+            document.querySelectorAll('.prize-input').forEach(input => {
+                const place = parseInt(input.dataset.prizePlace);
+                const amount = parseFloat(input.value) || 0;
+                if (amount > 0) prizes.push({ place, amount });
+            });
+            return prizes.sort((a, b) => a.place - b.place);
+        }
+
+        function updateRevenuePreview() {
+            const fee = parseFloat(document.getElementById('t-fee').value) || 0;
+            const teamCount = parseInt(document.getElementById('t-team-count').value) || 2;
+            const teamSize = parseInt(document.getElementById('t-team-size').value) || 5;
+            const totalPlayers = teamCount * teamSize;
+            const totalCollected = fee * totalPlayers;
+
+            document.getElementById('capacity-display').textContent = `${totalPlayers} players`;
+
+            if (fee <= 0) {
+                document.getElementById('revenue-preview').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('revenue-preview').classList.remove('hidden');
+            const platformFee = totalCollected * 0.10;
+            const prizes = getPrizeDistribution();
+            const totalPrizes = prizes.reduce((sum, p) => sum + p.amount, 0);
+            const hostKeeps = totalCollected - platformFee - totalPrizes;
+
+            document.getElementById('rp-total').textContent = `$${totalCollected.toFixed(2)}`;
+            document.getElementById('rp-platform').textContent = `$${platformFee.toFixed(2)}`;
+            document.getElementById('rp-prizes').textContent = `$${totalPrizes.toFixed(2)}`;
+            document.getElementById('rp-host').textContent = `$${hostKeeps.toFixed(2)}`;
+
+            const warning = document.getElementById('rp-warning');
+            if (totalPrizes > (totalCollected - platformFee)) {
+                warning.textContent = 'Warning: Prize pool exceeds available funds after platform fee.';
+                warning.classList.remove('hidden');
+            } else {
+                warning.classList.add('hidden');
+            }
+        }
+
+        async function connectStripe() {
+            try {
+                const resp = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
+                const data = await resp.json();
+                if (data.url) window.location.href = data.url;
+                else if (data.already_connected) {
+                    stripeConnected = true;
+                    document.getElementById('stripe-warning').classList.add('hidden');
+                }
+            } catch (e) {
+                alert('Failed to connect Stripe. Please try again.');
+            }
+        }
+
+        async function checkStripeStatus() {
+            try {
+                const resp = await fetch('/api/stripe/connect/status');
+                const data = await resp.json();
+                stripeConnected = data.connected;
+            } catch (e) {
+                stripeConnected = false;
+            }
+        }
+
+        document.getElementById('t-fee').addEventListener('input', function() {
+            const fee = parseFloat(this.value) || 0;
+            if (fee > 0 && !stripeConnected) {
+                document.getElementById('stripe-warning').classList.remove('hidden');
+            } else {
+                document.getElementById('stripe-warning').classList.add('hidden');
+            }
+            updateRevenuePreview();
+        });
+
+        document.getElementById('t-team-count').addEventListener('input', updateRevenuePreview);
+        document.getElementById('t-team-size').addEventListener('input', updateRevenuePreview);
+
+        document.getElementById('t-sponsor-toggle').addEventListener('change', function() {
+            document.getElementById('sponsor-fields').classList.toggle('hidden', !this.checked);
+        });
+
+        document.getElementById('tournament-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const errorEl = document.getElementById('form-error');
+            errorEl.classList.add('hidden');
+
+            const name = document.getElementById('t-name').value.trim();
+            if (!name || name.length < 3) {
+                errorEl.textContent = 'Tournament name must be at least 3 characters.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            const fee = parseFloat(document.getElementById('t-fee').value) || 0;
+            if (fee > 0 && !stripeConnected) {
+                errorEl.textContent = 'Connect your Stripe account first to create paid tournaments.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            const sponsorEnabled = document.getElementById('t-sponsor-toggle').checked;
+
+            const body = {
+                name,
+                rounds: parseInt(document.getElementById('t-rounds').value) || 5,
+                game_mode: document.getElementById('t-mode').value,
+                team_count: parseInt(document.getElementById('t-team-count').value) || 2,
+                team_size: parseInt(document.getElementById('t-team-size').value) || 5,
+                join_mode: document.getElementById('t-join-mode').value,
+                entry_fee: fee,
+                prize_distribution: getPrizeDistribution(),
+                sponsor_enabled: sponsorEnabled,
+                sponsor_slots: sponsorEnabled ? parseInt(document.getElementById('t-sponsor-slots').value) || 0 : 0,
+                sponsor_price: sponsorEnabled ? parseFloat(document.getElementById('t-sponsor-price').value) || 0 : 0,
+                guild_id: document.getElementById('t-guild-id').value.trim(),
+                channel_id: document.getElementById('t-channel-id').value.trim(),
+            };
+
+            const btn = document.getElementById('submit-btn');
+            btn.textContent = 'Creating...';
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch('/api/tournaments/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await resp.json();
+                if (data.success && data.tournament_id) {
+                    window.location.href = `/tournaments/${data.tournament_id}`;
+                } else {
+                    errorEl.textContent = data.error || 'Failed to create tournament.';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.classList.remove('hidden');
+            }
+
+            btn.textContent = 'Create Tournament';
+            btn.disabled = false;
+        });
+
+        (async () => {
+            const user = await initAuth();
+            if (!user.logged_in) {
+                document.getElementById('login-prompt').classList.remove('hidden');
+            } else {
+                document.getElementById('tournament-form').classList.remove('hidden');
+                await checkStripeStatus();
+                addPrizeRow(1, '');
+                addPrizeRow(2, '');
+                addPrizeRow(3, '');
+                updateRevenuePreview();
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D | Tournaments</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .logo-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(124, 58, 237, 0.25); }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex items-center gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="/tournaments" class="text-white transition font-semibold">Tournaments</a>
+                <a href="/howtoplay" class="text-evil-300 hover:text-white transition font-semibold">How to Play</a>
+                <a href="/store" class="text-evil-300 hover:text-white transition font-semibold">Store</a>
+                <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
+                <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+                <div id="auth-btn"></div>
+            </div>
+        </div>
+    </nav>
+
+    <header class="text-center py-12 px-6">
+        <img src="/static/logo.png" alt="" class="w-16 h-16 mx-auto mb-4 logo-float drop-shadow-2xl">
+        <h2 class="font-brand text-4xl md:text-5xl mb-3 purple-glow text-evil-300">Tournaments</h2>
+        <p class="text-evil-200/60 text-lg max-w-xl mx-auto mb-6">
+            Create or join team tournaments with real prize pools. Compete, win, and earn.
+        </p>
+        <a href="/tournaments/create" id="create-btn"
+           class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-evil-500 to-evil-600 hover:from-evil-400 hover:to-evil-500 text-white font-bold rounded-xl transition shadow-lg hover:shadow-xl">
+            + Create Tournament
+        </a>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 pb-20">
+        <div class="flex gap-3 mb-8 flex-wrap">
+            <button onclick="filterTournaments('all')" data-filter="all" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-evil-500 text-white transition">All</button>
+            <button onclick="filterTournaments('registration')" data-filter="registration" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-evil-card text-evil-300 hover:bg-evil-surface transition">Registration Open</button>
+            <button onclick="filterTournaments('active')" data-filter="active" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-evil-card text-evil-300 hover:bg-evil-surface transition">Active</button>
+            <button onclick="filterTournaments('completed')" data-filter="completed" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-evil-card text-evil-300 hover:bg-evil-surface transition">Completed</button>
+        </div>
+
+        <div id="tournaments-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center text-evil-400 py-16">Loading tournaments...</div>
+        </div>
+
+        <div id="empty-state" class="hidden text-center py-16">
+            <p class="text-evil-400 text-lg mb-4">No tournaments yet.</p>
+            <a href="/tournaments/create" class="inline-flex items-center gap-2 px-6 py-3 bg-evil-500 hover:bg-evil-400 text-white font-bold rounded-xl transition">
+                Create the first one
+            </a>
+        </div>
+    </main>
+
+    <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+    </footer>
+
+    <script src="/static/auth.js"></script>
+    <script>
+        let currentFilter = 'all';
+
+        function statusBadge(status) {
+            const colors = {
+                registration: 'bg-green-500/20 text-green-400 border-green-500/30',
+                ready: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                active: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                completed: 'bg-evil-600/20 text-evil-400 border-evil-600/30',
+            };
+            const labels = { registration: 'Registration Open', ready: 'Ready', active: 'In Progress', completed: 'Completed' };
+            return `<span class="text-xs font-semibold px-2 py-1 rounded-full border ${colors[status] || colors.completed}">${labels[status] || status}</span>`;
+        }
+
+        function renderTournaments(data) {
+            const grid = document.getElementById('tournaments-grid');
+            const empty = document.getElementById('empty-state');
+
+            if (!data.length) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            grid.innerHTML = data.map(t => {
+                const fee = t.entry_fee_cents ? `$${(t.entry_fee_cents / 100).toFixed(2)}` : 'Free';
+                const prizePool = t.prize_pool_cents ? `$${(t.prize_pool_cents / 100).toFixed(2)}` : (t.entry_fee_cents ? 'TBD' : 'None');
+                const maxPlayers = (t.team_count || 0) * (t.team_size || 0);
+                const capacity = maxPlayers ? `${t.player_count || 0}/${maxPlayers}` : `${t.player_count || 0} players`;
+                const teams = t.team_count ? `${t.team_count} teams of ${t.team_size}` : '';
+                const mode = t.game_mode ? t.game_mode.charAt(0).toUpperCase() + t.game_mode.slice(1) : '';
+                const sponsors = t.sponsor_count ? `<span class="text-yellow-400 text-xs">${t.sponsor_count} sponsor${t.sponsor_count > 1 ? 's' : ''}</span>` : '';
+
+                return `
+                <a href="/tournaments/${t.id}" class="block bg-evil-surface border border-evil-800/50 rounded-2xl p-6 card-hover">
+                    <div class="flex items-start justify-between mb-3">
+                        <h3 class="font-bold text-lg text-white truncate pr-2">${t.name}</h3>
+                        ${statusBadge(t.status)}
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between text-evil-300">
+                            <span>Players</span><span class="text-white">${capacity}</span>
+                        </div>
+                        ${teams ? `<div class="flex justify-between text-evil-300"><span>Teams</span><span class="text-white">${teams}</span></div>` : ''}
+                        <div class="flex justify-between text-evil-300">
+                            <span>Entry Fee</span><span class="text-white">${fee}</span>
+                        </div>
+                        <div class="flex justify-between text-evil-300">
+                            <span>Prize Pool</span><span class="text-white font-semibold">${prizePool}</span>
+                        </div>
+                        <div class="flex justify-between text-evil-300">
+                            <span>Rounds</span><span class="text-white">${t.rounds_total}</span>
+                        </div>
+                        ${mode ? `<div class="flex justify-between text-evil-300"><span>Mode</span><span class="text-white">${mode}</span></div>` : ''}
+                    </div>
+                    <div class="flex items-center justify-between mt-4 pt-3 border-t border-evil-800/30">
+                        <span class="text-evil-400 text-xs">by ${t.creator_name}</span>
+                        ${sponsors}
+                    </div>
+                </a>`;
+            }).join('');
+        }
+
+        async function loadTournaments(status) {
+            try {
+                const url = status && status !== 'all' ? `/api/tournaments?status=${status}` : '/api/tournaments';
+                const resp = await fetch(url);
+                const data = await resp.json();
+                renderTournaments(data);
+            } catch (e) {
+                document.getElementById('tournaments-grid').innerHTML = '<div class="col-span-full text-center text-red-400 py-12">Failed to load tournaments</div>';
+            }
+        }
+
+        function filterTournaments(status) {
+            currentFilter = status;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.filter === status) {
+                    btn.className = 'filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-evil-500 text-white transition';
+                } else {
+                    btn.className = 'filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-evil-card text-evil-300 hover:bg-evil-surface transition';
+                }
+            });
+            loadTournaments(status);
+        }
+
+        initAuth();
+        loadTournaments('all');
+    </script>
+</body>
+</html>

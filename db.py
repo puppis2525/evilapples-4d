@@ -214,6 +214,40 @@ async def get_active_tournament(channel_id: str):
         return dict(row) if row else None
 
 
+async def get_tournament_by_id(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM tournaments WHERE id = $1", tournament_id)
+        return dict(row) if row else None
+
+
+async def link_tournament_to_channel(tournament_id: int, guild_id: str, channel_id: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tournaments SET guild_id = $1, channel_id = $2 WHERE id = $3",
+            guild_id, channel_id, tournament_id
+        )
+
+
+async def get_team_standings(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT tt.id, tt.name, tt.captain_name,
+                      COALESCE(SUM(tp.points), 0) as total_points,
+                      COALESCE(SUM(tp.rounds_won), 0) as total_wins,
+                      COUNT(tp.id) as member_count
+               FROM tournament_teams tt
+               LEFT JOIN tournament_players tp ON tp.team_id = tt.id
+               WHERE tt.tournament_id = $1
+               GROUP BY tt.id, tt.name, tt.captain_name
+               ORDER BY total_points DESC, total_wins DESC""",
+            tournament_id
+        )
+        return [dict(r) for r in rows]
+
+
 async def join_tournament(tournament_id: int, discord_id: str, discord_name: str):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
@@ -368,6 +402,42 @@ async def init_paid_tournament_tables():
         except Exception:
             pass
 
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tournament_teams (
+                id SERIAL PRIMARY KEY,
+                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+                name VARCHAR(128) NOT NULL,
+                captain_discord_id VARCHAR(64),
+                captain_name VARCHAR(128) DEFAULT '',
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tournament_sponsors (
+                id SERIAL PRIMARY KEY,
+                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+                sponsor_name VARCHAR(256) NOT NULL,
+                logo_url TEXT DEFAULT '',
+                amount_cents INTEGER NOT NULL DEFAULT 0,
+                stripe_session_id VARCHAR(256),
+                status VARCHAR(32) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        try:
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_count INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_size INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS join_mode VARCHAR(32) DEFAULT 'open'")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS prize_distribution TEXT DEFAULT '[]'")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsor_enabled BOOLEAN DEFAULT FALSE")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsor_slots INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsor_price_cents INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS web_created BOOLEAN DEFAULT FALSE")
+            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS game_mode VARCHAR(32) DEFAULT 'friend'")
+            await conn.execute("ALTER TABLE tournament_players ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES tournament_teams(id) ON DELETE SET NULL")
+        except Exception:
+            pass
+
 
 async def save_connected_account(discord_user_id: str, stripe_account_id: str, onboarding_complete: bool = False):
     pool = await get_db_pool()
@@ -478,6 +548,250 @@ async def refund_tournament_entries(tournament_id: int):
                 "UPDATE tournaments SET prize_pool_cents = 0, payout_status = 'refunded' WHERE id = $1",
                 tournament_id
             )
+
+
+async def create_web_tournament(name: str, creator_id: str, creator_name: str,
+                                rounds_total: int, team_count: int, team_size: int,
+                                join_mode: str, game_mode: str, entry_fee_cents: int,
+                                prize_distribution: str, host_stripe_account_id: str,
+                                sponsor_enabled: bool, sponsor_slots: int,
+                                sponsor_price_cents: int, guild_id: str = '', channel_id: str = ''):
+    pool = await get_db_pool()
+    max_players = team_count * team_size if team_count and team_size else 20
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO tournaments (name, guild_id, channel_id, creator_id, creator_name,
+               rounds_total, max_players, entry_fee_cents, host_stripe_account_id,
+               payout_status, team_count, team_size, join_mode, game_mode,
+               prize_distribution, sponsor_enabled, sponsor_slots, sponsor_price_cents,
+               web_created)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending',
+                       $10, $11, $12, $13, $14, $15, $16, $17, TRUE)
+               RETURNING id""",
+            name, guild_id, channel_id, creator_id, creator_name,
+            rounds_total, max_players, entry_fee_cents, host_stripe_account_id,
+            team_count, team_size, join_mode, game_mode,
+            prize_distribution, sponsor_enabled, sponsor_slots, sponsor_price_cents
+        )
+        tournament_id = row["id"]
+        for i in range(1, team_count + 1):
+            await conn.execute(
+                "INSERT INTO tournament_teams (tournament_id, name) VALUES ($1, $2)",
+                tournament_id, f"Team {i}"
+            )
+        return tournament_id
+
+
+async def get_tournament_teams(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT tt.id, tt.name, tt.captain_discord_id, tt.captain_name,
+                      (SELECT COUNT(*) FROM tournament_players tp WHERE tp.team_id = tt.id) as member_count
+               FROM tournament_teams tt
+               WHERE tt.tournament_id = $1
+               ORDER BY tt.id""",
+            tournament_id
+        )
+        return [dict(r) for r in rows]
+
+
+async def get_team_members(team_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT discord_id, discord_name, points, rounds_won FROM tournament_players WHERE team_id = $1 ORDER BY points DESC",
+            team_id
+        )
+        return [dict(r) for r in rows]
+
+
+async def join_tournament_team(tournament_id: int, team_id: int, discord_id: str, discord_name: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            team = await conn.fetchrow(
+                "SELECT id FROM tournament_teams WHERE id = $1 AND tournament_id = $2",
+                team_id, tournament_id
+            )
+            if not team:
+                raise ValueError(f"Team {team_id} does not belong to tournament {tournament_id}")
+            await conn.execute(
+                """INSERT INTO tournament_players (tournament_id, discord_id, discord_name, team_id)
+                   VALUES ($1, $2, $3, $4)
+                   ON CONFLICT (tournament_id, discord_id) DO UPDATE SET team_id = $4""",
+                tournament_id, discord_id, discord_name, team_id
+            )
+
+
+async def claim_team(tournament_id: int, team_id: int, discord_id: str, discord_name: str, team_name: str = ''):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        team = await conn.fetchrow("SELECT * FROM tournament_teams WHERE id = $1 AND tournament_id = $2", team_id, tournament_id)
+        if not team:
+            return False
+        if team["captain_discord_id"] and team["captain_discord_id"] != discord_id:
+            return False
+        updates = {"captain_discord_id": discord_id, "captain_name": discord_name}
+        if team_name:
+            await conn.execute(
+                "UPDATE tournament_teams SET captain_discord_id = $1, captain_name = $2, name = $3 WHERE id = $4",
+                discord_id, discord_name, team_name, team_id
+            )
+        else:
+            await conn.execute(
+                "UPDATE tournament_teams SET captain_discord_id = $1, captain_name = $2 WHERE id = $3",
+                discord_id, discord_name, team_id
+            )
+        return True
+
+
+async def create_tournament_sponsor(tournament_id: int, sponsor_name: str, amount_cents: int,
+                                     stripe_session_id: str = '', logo_url: str = ''):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO tournament_sponsors (tournament_id, sponsor_name, logo_url, amount_cents, stripe_session_id, status)
+               VALUES ($1, $2, $3, $4, $5, 'paid') RETURNING id""",
+            tournament_id, sponsor_name, logo_url, amount_cents, stripe_session_id
+        )
+        return row["id"]
+
+
+async def get_tournament_sponsors(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, sponsor_name, logo_url, amount_cents, status, created_at FROM tournament_sponsors WHERE tournament_id = $1 AND status = 'paid' ORDER BY created_at",
+            tournament_id
+        )
+        return [dict(r) for r in rows]
+
+
+async def get_tournament_sponsor_count(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT COUNT(*) as cnt FROM tournament_sponsors WHERE tournament_id = $1 AND status = 'paid'",
+            tournament_id
+        )
+        return row["cnt"]
+
+
+async def close_tournament_registration(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tournaments SET status = 'ready' WHERE id = $1 AND status = 'registration'",
+            tournament_id
+        )
+
+
+async def get_web_tournaments(status_filter: str = None, limit: int = 50):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        if status_filter and status_filter != 'all':
+            rows = await conn.fetch(
+                """SELECT t.id, t.name, t.status, t.rounds_total, t.current_round,
+                          t.creator_name, t.creator_id, t.created_at, t.completed_at,
+                          t.entry_fee_cents, t.prize_pool_cents, t.team_count, t.team_size,
+                          t.join_mode, t.game_mode, t.sponsor_enabled, t.prize_distribution,
+                          (SELECT COUNT(*) FROM tournament_players WHERE tournament_id = t.id) as player_count,
+                          (SELECT COUNT(*) FROM tournament_sponsors WHERE tournament_id = t.id AND status = 'paid') as sponsor_count
+                   FROM tournaments t
+                   WHERE t.status = $1
+                   ORDER BY t.created_at DESC LIMIT $2""",
+                status_filter, limit
+            )
+        else:
+            rows = await conn.fetch(
+                """SELECT t.id, t.name, t.status, t.rounds_total, t.current_round,
+                          t.creator_name, t.creator_id, t.created_at, t.completed_at,
+                          t.entry_fee_cents, t.prize_pool_cents, t.team_count, t.team_size,
+                          t.join_mode, t.game_mode, t.sponsor_enabled, t.prize_distribution,
+                          (SELECT COUNT(*) FROM tournament_players WHERE tournament_id = t.id) as player_count,
+                          (SELECT COUNT(*) FROM tournament_sponsors WHERE tournament_id = t.id AND status = 'paid') as sponsor_count
+                   FROM tournaments t
+                   ORDER BY t.created_at DESC LIMIT $1""",
+                limit
+            )
+        return [dict(r) for r in rows]
+
+
+async def get_full_tournament_detail(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        tournament = await conn.fetchrow("SELECT * FROM tournaments WHERE id = $1", tournament_id)
+        if not tournament:
+            return None
+        t = dict(tournament)
+
+        players = await conn.fetch(
+            """SELECT tp.discord_id, tp.discord_name, tp.points, tp.rounds_won, tp.team_id, tp.joined_at
+               FROM tournament_players tp WHERE tp.tournament_id = $1
+               ORDER BY tp.points DESC, tp.rounds_won DESC""",
+            tournament_id
+        )
+
+        teams = await conn.fetch(
+            """SELECT tt.id, tt.name, tt.captain_discord_id, tt.captain_name
+               FROM tournament_teams tt WHERE tt.tournament_id = $1
+               ORDER BY tt.id""",
+            tournament_id
+        )
+
+        sponsors = await conn.fetch(
+            "SELECT id, sponsor_name, logo_url, amount_cents FROM tournament_sponsors WHERE tournament_id = $1 AND status = 'paid' ORDER BY created_at",
+            tournament_id
+        )
+
+        rounds = await conn.fetch(
+            """SELECT round_number, prompt, winning_card, winner_name, completed_at
+               FROM tournament_rounds WHERE tournament_id = $1 ORDER BY round_number""",
+            tournament_id
+        )
+
+        team_list = []
+        for team in teams:
+            td = dict(team)
+            td["members"] = [dict(p) for p in players if p["team_id"] == team["id"]]
+            team_list.append(td)
+
+        return {
+            "tournament": t,
+            "players": [dict(p) for p in players],
+            "teams": team_list,
+            "sponsors": [dict(s) for s in sponsors],
+            "rounds": [dict(r) for r in rounds],
+        }
+
+
+async def update_tournament_team(tournament_id: int, team_id: int, name: str = None):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        if name:
+            await conn.execute(
+                "UPDATE tournament_teams SET name = $1 WHERE id = $2 AND tournament_id = $3",
+                name, team_id, tournament_id
+            )
+
+
+async def move_player_to_team(tournament_id: int, discord_id: str, team_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tournament_players SET team_id = $1 WHERE tournament_id = $2 AND discord_id = $3",
+            team_id, tournament_id, discord_id
+        )
+
+
+async def remove_tournament_player(tournament_id: int, discord_id: str):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM tournament_players WHERE tournament_id = $1 AND discord_id = $2",
+            tournament_id, discord_id
+        )
 
 
 async def init_deck_tables():

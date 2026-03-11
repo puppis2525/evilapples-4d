@@ -79,7 +79,7 @@
             </a>
             <div class="flex items-center gap-6 text-sm">
                 <a href="#leaderboard" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
-                <a href="#tournaments" class="text-evil-300 hover:text-white transition font-semibold">Tournaments</a>
+                <a href="/tournaments" class="text-evil-300 hover:text-white transition font-semibold">Tournaments</a>
                 <a href="#hall-of-fame" class="text-evil-300 hover:text-white transition font-semibold">Hall of Fame</a>
                 <a href="/howtoplay" class="text-evil-300 hover:text-white transition font-semibold">How to Play</a>
                 <a href="/store" class="text-evil-300 hover:text-white transition font-semibold">Store</a>
@@ -138,9 +138,12 @@
         </section>
 
         <section id="tournaments" class="mb-20">
-            <h3 class="font-brand text-3xl mb-8 flex items-center gap-3 text-evil-300">
-                <span class="text-purple-400">&#9876;</span> Tournaments
-            </h3>
+            <div class="flex items-center justify-between mb-8">
+                <h3 class="font-brand text-3xl flex items-center gap-3 text-evil-300">
+                    <span class="text-purple-400">&#9876;</span> Tournaments
+                </h3>
+                <a href="/tournaments" class="text-evil-400 hover:text-evil-300 text-sm font-semibold transition">View All &rarr;</a>
+            </div>
             <div id="tournaments-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="col-span-full text-center text-evil-400 py-12">
                     Loading tournaments...

@@ -7,7 +7,8 @@ from db import (
     create_tournament, get_active_tournament, join_tournament,
     get_tournament_players, get_tournament_player_count,
     start_tournament, advance_tournament_round, end_tournament,
-    save_round, batch_update_games_played
+    save_round, batch_update_games_played,
+    get_team_standings
 )
 
 active_tournament_rounds = {}
@@ -85,6 +86,20 @@ class TournamentJudgingView(discord.ui.View):
         standings_embed.set_footer(
             text=f"Round {round_number}/{self.tournament_data['rounds_total']} complete"
         )
+
+        team_count = self.tournament_data.get("team_count", 0) or 0
+        if team_count > 0:
+            try:
+                teams = await get_team_standings(tournament_id)
+                if teams:
+                    team_text = "\n".join(
+                        f"**{i+1}.** **{t['name']}** — {t['total_points']} pts"
+                        for i, t in enumerate(teams)
+                    )
+                    standings_embed.add_field(name="Team Standings", value=team_text, inline=False)
+            except Exception:
+                pass
+
         await self.channel.send(embed=standings_embed)
 
         channel_key = int(self.tournament_data["channel_id"])
@@ -131,6 +146,21 @@ class TournamentJudgingView(discord.ui.View):
             inline=False
         )
         embed.set_footer(text=f"{self.tournament_data['rounds_total']} rounds played")
+
+        team_count = self.tournament_data.get("team_count", 0) or 0
+        if team_count > 0:
+            try:
+                teams = await get_team_standings(self.tournament_data["id"])
+                if teams:
+                    team_medals = ["🥇", "🥈", "🥉"]
+                    team_text = "\n".join(
+                        f"{team_medals[i] if i < len(team_medals) else f'**{i+1}.**'} "
+                        f"**{t['name']}** — {t['total_points']} pts ({t['total_wins']} wins)"
+                        for i, t in enumerate(teams)
+                    )
+                    embed.add_field(name="Team Standings", value=team_text, inline=False)
+            except Exception:
+                pass
 
         entry_fee = self.tournament_data.get("entry_fee_cents", 0) or 0
         if entry_fee > 0:

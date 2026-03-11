@@ -16,6 +16,7 @@ from db import (
     get_tournament_players, get_tournament_player_count,
     start_tournament, end_tournament,
     get_tournament_entry, get_paid_tournament_entries,
+    get_tournament_by_id, link_tournament_to_channel, get_team_standings,
     is_premium_server, get_premium_server,
     get_all_decks, get_deck_by_name, get_deck_by_id,
     get_random_cards, get_random_cards_multi, get_user_deck_count,
@@ -1020,9 +1021,11 @@ async def tournament_group(ctx):
     )
     embed.add_field(name="Commands", value=(
         "`!tournament create <name> [rounds] [$fee]` — Create a tournament (default 5 rounds, optional entry fee)\n"
+        "`!tournament link <id>` — Link a web-created tournament to this channel\n"
         "`!tournament join` — Join the open tournament\n"
         "`!tournament start` — Start the tournament (creator only)\n"
         "`!tournament status` — View current standings\n"
+        "`!tournament teams` — View team standings\n"
         "`!tournament end` — End the tournament early"
     ), inline=False)
     await ctx.send(embed=embed)
@@ -1143,6 +1146,14 @@ async def tournament_join(ctx):
             f"Pay on the website to join — visit the **How to Play** page and look for tournament entry.\n"
             f"Tournament ID: **{tournament['id']}**\n"
             f"Your Discord ID: `{ctx.author.id}`"
+        )
+        return
+
+    team_count = tournament.get("team_count", 0) or 0
+    if team_count > 0:
+        await ctx.send(
+            f"**{tournament['name']}** uses teams! Join a team on the website or ask the host for details.\n"
+            f"Use `!tournament teams` to view current team standings."
         )
         return
 
@@ -1284,6 +1295,96 @@ async def tournament_end_cmd(ctx):
 
     if ctx.channel.id in active_tournament_rounds:
         del active_tournament_rounds[ctx.channel.id]
+
+
+@tournament_group.command(name="link")
+async def tournament_link(ctx, tournament_id: int = None):
+    if tournament_id is None:
+        await ctx.send("Usage: `!tournament link <id>` — Link a web-created tournament to this channel.")
+        return
+
+    existing = await get_active_tournament(str(ctx.channel.id))
+    if existing:
+        await ctx.send("There's already an active tournament in this channel! Use `!tournament end` first.")
+        return
+
+    tournament = await get_tournament_by_id(tournament_id)
+    if not tournament:
+        await ctx.send(f"Tournament #{tournament_id} not found.")
+        return
+
+    if not tournament.get("web_created"):
+        await ctx.send("That tournament was created via Discord — no need to link it.")
+        return
+
+    if tournament["status"] not in ("registration",):
+        await ctx.send(f"Tournament #{tournament_id} is already **{tournament['status']}** — can only link during registration.")
+        return
+
+    if str(ctx.author.id) != tournament["creator_id"]:
+        await ctx.send("Only the tournament creator can link it to a channel!")
+        return
+
+    if tournament["channel_id"] and tournament["channel_id"] != str(ctx.channel.id):
+        await ctx.send(f"Tournament #{tournament_id} is already linked to another channel.")
+        return
+
+    await link_tournament_to_channel(tournament_id, str(ctx.guild.id), str(ctx.channel.id))
+
+    team_count = tournament.get("team_count", 0) or 0
+    team_info = f"**Teams:** {team_count}\n" if team_count > 0 else ""
+    fee = tournament.get("entry_fee_cents", 0) or 0
+    fee_display = f"${fee / 100:.2f}" if fee > 0 else "Free"
+
+    embed = discord.Embed(
+        title=f"🔗 Tournament Linked: {tournament['name']}",
+        description=(
+            f"Web tournament **#{tournament_id}** is now linked to this channel!\n\n"
+            f"**Rounds:** {tournament['rounds_total']}\n"
+            f"{team_info}"
+            f"**Entry:** {fee_display}\n"
+            f"**Created by:** {tournament.get('creator_name', 'Unknown')}\n\n"
+            f"Players can join on the website or use `!tournament join`.\n"
+            f"The creator starts it with `!tournament start` when ready."
+        ),
+        color=discord.Color.green()
+    )
+    embed.set_footer(text=f"Tournament ID: {tournament_id}")
+    await ctx.send(embed=embed)
+
+
+@tournament_group.command(name="teams")
+async def tournament_teams_cmd(ctx):
+    tournament = await get_active_tournament(str(ctx.channel.id))
+    if not tournament:
+        await ctx.send("No active tournament in this channel.")
+        return
+
+    team_count = tournament.get("team_count", 0) or 0
+    if team_count == 0:
+        await ctx.send("This tournament doesn't use teams.")
+        return
+
+    teams = await get_team_standings(tournament["id"])
+    if not teams:
+        await ctx.send("No teams found for this tournament.")
+        return
+
+    team_lines = []
+    medals = ["🥇", "🥈", "🥉"]
+    for i, t in enumerate(teams):
+        medal = medals[i] if i < len(medals) else f"**{i+1}.**"
+        captain = f" (Captain: {t['captain_name']})" if t.get("captain_name") else ""
+        team_lines.append(
+            f"{medal} **{t['name']}** — {t['total_points']} pts ({t['total_wins']} wins, {t['member_count']} members){captain}"
+        )
+
+    embed = discord.Embed(
+        title=f"Team Standings: {tournament['name']}",
+        description="\n".join(team_lines),
+        color=discord.Color.purple()
+    )
+    await ctx.send(embed=embed)
 
 
 channel_decks = {}
