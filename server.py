@@ -250,6 +250,23 @@ async def api_tournaments(request: Request):
         return JSONResponse(content=[], status_code=200)
 
 
+@app.get("/api/tournaments/fee-tier")
+async def api_tournament_fee_tier(request: Request, guild_id: str = ""):
+    from db import get_server_monthly_tournament_count, get_tiered_fee_percent
+    monthly_count = await get_server_monthly_tournament_count(guild_id) if guild_id else 0
+    fee_percent = get_tiered_fee_percent(monthly_count)
+    return JSONResponse(content={
+        "monthly_count": monthly_count,
+        "fee_percent": fee_percent,
+        "tiers": [
+            {"range": "1-2", "fee": 10},
+            {"range": "3-5", "fee": 15},
+            {"range": "6-10", "fee": 20},
+            {"range": "11+", "fee": 25},
+        ]
+    })
+
+
 @app.get("/api/tournaments/{tournament_id}")
 async def api_tournament_detail(tournament_id: int):
     from db import get_full_tournament_detail
@@ -283,7 +300,7 @@ async def api_tournament_detail(tournament_id: int):
 @app.post("/api/tournaments/create")
 async def api_create_tournament(request: Request):
     from discord_auth import get_discord_user
-    from db import create_web_tournament, get_connected_account
+    from db import create_web_tournament, get_connected_account, get_server_monthly_tournament_count, get_tiered_fee_percent
     import json
 
     user = get_discord_user(request)
@@ -337,6 +354,9 @@ async def api_create_tournament(request: Request):
         guild_id = body.get("guild_id", "")
         channel_id = body.get("channel_id", "")
 
+        monthly_count = await get_server_monthly_tournament_count(guild_id) if guild_id else 0
+        fee_percent = get_tiered_fee_percent(monthly_count)
+
         tournament_id = await create_web_tournament(
             name=name, creator_id=user["discord_id"], creator_name=user.get("global_name", user.get("username", "Unknown")),
             rounds_total=rounds_total, team_count=team_count, team_size=team_size,
@@ -344,9 +364,10 @@ async def api_create_tournament(request: Request):
             prize_distribution=prize_distribution_str, host_stripe_account_id=host_stripe_account_id,
             sponsor_enabled=sponsor_enabled, sponsor_slots=sponsor_slots,
             sponsor_price_cents=sponsor_price_cents, guild_id=guild_id, channel_id=channel_id,
+            platform_fee_percent=fee_percent,
         )
 
-        return JSONResponse(content={"success": True, "tournament_id": tournament_id})
+        return JSONResponse(content={"success": True, "tournament_id": tournament_id, "fee_percent": fee_percent})
     except Exception as e:
         logger.error(f"Create tournament error: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)

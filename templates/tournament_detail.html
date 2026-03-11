@@ -122,6 +122,7 @@
                         Copy Share Link
                     </button>
                 </div>
+                <p id="host-fee-tier" class="text-evil-400 text-xs mt-3 hidden"></p>
                 <p id="host-msg" class="text-evil-400 text-xs mt-3 hidden"></p>
             </div>
 
@@ -228,8 +229,18 @@
 
             renderTeams(data);
 
-            if (currentUser && currentUser.logged_in && currentUser.discord_id === t.creator_id && t.status === 'registration') {
-                document.getElementById('host-panel').classList.remove('hidden');
+            if (currentUser && currentUser.logged_in && currentUser.discord_id === t.creator_id) {
+                if (t.status === 'registration') {
+                    document.getElementById('host-panel').classList.remove('hidden');
+                }
+                const feePct = t.platform_fee_percent || 10;
+                const feeEl = document.getElementById('host-fee-tier');
+                feeEl.textContent = `Platform fee for this tournament: ${feePct}% (host keeps ${100 - feePct}%)`;
+                feeEl.classList.remove('hidden');
+                if (t.status !== 'registration') {
+                    document.getElementById('host-panel').classList.remove('hidden');
+                    document.getElementById('close-reg-btn').classList.add('hidden');
+                }
             }
 
             if (t.status === 'active' || t.status === 'completed') {

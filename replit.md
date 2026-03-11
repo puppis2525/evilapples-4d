@@ -21,7 +21,7 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 
 ### Tournament System
 - **Multi-round structure**: Supports individual and team-based tournaments with rotating judges and points-based standings.
-- **Paid Tournaments**: Hosts can set entry fees using Stripe Connect, with a platform fee and instant payouts.
+- **Paid Tournaments**: Hosts can set entry fees using Stripe Connect, with tiered platform fees (10/15/20/25% based on monthly tournament count per server) and instant payouts.
 - **Web Integration**: Tournaments created on the web can be linked to Discord channels.
 - **Sponsorships**: Paid sponsor slots are available on tournament pages.
 

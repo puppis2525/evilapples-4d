@@ -17,6 +17,7 @@ from db import (
     start_tournament, end_tournament,
     get_tournament_entry, get_paid_tournament_entries,
     get_tournament_by_id, link_tournament_to_channel, get_team_standings,
+    get_tiered_fee_percent, get_server_monthly_tournament_count,
     is_premium_server, get_premium_server,
     get_all_decks, get_deck_by_name, get_deck_by_id,
     get_random_cards, get_random_cards_multi, get_user_deck_count,
@@ -1056,6 +1057,10 @@ async def tournament_create(ctx, *, args: str = ""):
     elif args.strip():
         name = args.strip()
 
+    monthly_count = await get_server_monthly_tournament_count(str(ctx.guild.id))
+    fee_percent = get_tiered_fee_percent(monthly_count)
+    host_keeps = 100 - fee_percent
+
     if entry_fee_cents > 0:
         from db import get_connected_account
         host_account = await get_connected_account(str(ctx.author.id))
@@ -1075,6 +1080,7 @@ async def tournament_create(ctx, *, args: str = ""):
             rounds_total=rounds_total,
             entry_fee_cents=entry_fee_cents,
             host_stripe_account_id=host_account["stripe_account_id"],
+            platform_fee_percent=fee_percent,
         )
 
         fee_display = f"${entry_fee_cents / 100:.2f}"
@@ -1083,7 +1089,7 @@ async def tournament_create(ctx, *, args: str = ""):
             description=(
                 f"**Rounds:** {rounds_total}\n"
                 f"**Entry Fee:** {fee_display}\n"
-                f"**Platform Fee:** 10% (host receives 90% of prize pool)\n"
+                f"**Platform Fee:** {fee_percent}% (host receives {host_keeps}% of prize pool)\n"
                 f"**Created by:** {ctx.author.mention}\n\n"
                 f"Type `!tournament join` to enter!\n"
                 f"Players must pay the entry fee on the website before the tournament starts.\n"
@@ -1100,7 +1106,8 @@ async def tournament_create(ctx, *, args: str = ""):
             channel_id=str(ctx.channel.id),
             creator_id=str(ctx.author.id),
             creator_name=ctx.author.display_name,
-            rounds_total=rounds_total
+            rounds_total=rounds_total,
+            platform_fee_percent=fee_percent,
         )
 
         embed = discord.Embed(
