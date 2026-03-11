@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import asyncpg
 
@@ -12,15 +13,29 @@ _pool = None
 async def get_db_pool():
     global _pool
     if _pool is None or _pool._closed:
-        logger.info("Creating database connection pool...")
-        _pool = await asyncpg.create_pool(
-            DATABASE_URL,
-            min_size=2,
-            max_size=15,
-            command_timeout=30,
-            server_settings={"application_name": "evil_apples_4d"}
-        )
-        logger.info("Database pool created successfully")
+        max_retries = 5
+        for attempt in range(1, max_retries + 1):
+            try:
+                logger.info(f"Creating database connection pool (attempt {attempt}/{max_retries})...")
+                _pool = await asyncio.wait_for(
+                    asyncpg.create_pool(
+                        DATABASE_URL,
+                        min_size=2,
+                        max_size=15,
+                        command_timeout=30,
+                        server_settings={"application_name": "evil_apples_4d"}
+                    ),
+                    timeout=15
+                )
+                logger.info("Database pool created successfully")
+                return _pool
+            except (asyncio.TimeoutError, OSError, asyncpg.PostgresError) as e:
+                logger.warning(f"Database connection attempt {attempt} failed: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(2 * attempt)
+                else:
+                    logger.error("All database connection attempts failed")
+                    raise
     return _pool
 
 
