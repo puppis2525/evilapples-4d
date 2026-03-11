@@ -1,0 +1,63 @@
+	15,000 pounds of pure Colombian nose candy	0	crime
+	a bullet proof vest	0	crime
+	dirty cops	0	crime
+	a hit and run	0	crime
+	a prison shank made from a toothbrush	0	crime
+	concealing a gun inside your va-jay-jay	0	crime
+	conjugal visits	0	crime
+	Dick Wolf	0	crime
+	DNA evidence	0	crime
+	fake Rolexes	0	crime
+	fuzzy handcuffs	0	crime
+	going undercover	0	crime
+	indecent exposure	0	crime
+	lethal injection	0	crime
+	peeping Toms	0	crime
+	police brutality	0	crime
+	prank calling 911	0	crime
+	texting while driving	0	crime
+	the electric chair	0	crime
+	the Hamburglar	0	crime
+	the Manitowoc County Sheriff's Department	0	crime
+	200 consecutive life sentences	0	crime
+	cold blooded murder	0	crime
+	a double murder suicide	0	crime
+	a DUI in a golf cart	0	crime
+	a loose cannon cop who doesn't play by the rules	0	crime
+	a restraining order	0	crime
+	a threat to national security	0	crime
+	a warrant for your arrest	0	crime
+	an ankle bracelet	0	crime
+	burning down your childhood home so no one else can have it	0	crime
+	destroying the evidence	0	crime
+	drive-by shootings	0	crime
+	keeping your victims' heads in the freezer	0	crime
+	leaving your kids locked in the car while you sit in the strip club	0	crime
+	playing good cock/bad cock	0	crime
+	prison food	0	crime
+	solitary confinement in a straight jacket	0	crime
+	spilling hot coffee on a mob boss	0	crime
+	stealing a loaf of bread and spending 19 years in a French jail	0	crime
+	wheelin' and dealin'	0	crime
+	a citizen's arrest	0	crime
+	Jeffrey Dahmer	0	crime
+	Jack the Stripper	0	crime
+	making your mugshot your profile picture	0	crime
+	a cat burglar	0	crime
+	a judge who never wears pants	0	crime
+	drug paraphernalia 	0	crime
+	#BlackLivesMatter	0	crime
+	a really convincing fake ID	0	crime
+	underage drinking	0	crime
+	Charles Manson	0	crime
+	illegal lubricant	0	crime
+	forehead tattoos	0	crime
+	Tasers	0	crime
+	a full body cavity search	0	crime
+	firing a warning shot	0	crime
+	defense attorney and internet heartthrob Dean Strang	0	crime
+	stealing lube from the Walmart	0	crime
+	Bloods and Crips	0	crime
+	The Witness Protection Program	0	crime
+	cannibalism	0	crime
+	cyberbullying	0	crime
