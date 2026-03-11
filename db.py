@@ -15,8 +15,8 @@ async def get_db_pool():
         logger.info("Creating database connection pool...")
         _pool = await asyncpg.create_pool(
             DATABASE_URL,
-            min_size=1,
-            max_size=5,
+            min_size=2,
+            max_size=15,
             command_timeout=30,
             server_settings={"application_name": "evil_apples_4d"}
         )
@@ -109,36 +109,38 @@ async def init_db():
 async def save_round(prompt: str, winning_card: str, winner_discord_id: str, winner_name: str, slug: str):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO game_rounds (prompt, winning_card, winner_discord_id, winner_name, slug)
-               VALUES ($1, $2, $3, $4, $5)""",
-            prompt, winning_card, winner_discord_id, winner_name, slug
-        )
-        await conn.execute(
-            """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, updated_at)
-               VALUES ($1, $2, 1, 1, NOW())
-               ON CONFLICT (discord_id) DO UPDATE
-               SET wins = leaderboard.wins + 1,
-                   games_played = leaderboard.games_played + 1,
-                   discord_name = $2,
-                   updated_at = NOW()""",
-            winner_discord_id, winner_name
-        )
+        async with conn.transaction():
+            await conn.execute(
+                """INSERT INTO game_rounds (prompt, winning_card, winner_discord_id, winner_name, slug)
+                   VALUES ($1, $2, $3, $4, $5)""",
+                prompt, winning_card, winner_discord_id, winner_name, slug
+            )
+            await conn.execute(
+                """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, updated_at)
+                   VALUES ($1, $2, 1, 1, NOW())
+                   ON CONFLICT (discord_id) DO UPDATE
+                   SET wins = leaderboard.wins + 1,
+                       games_played = leaderboard.games_played + 1,
+                       discord_name = $2,
+                       updated_at = NOW()""",
+                winner_discord_id, winner_name
+            )
 
 
 async def batch_update_games_played(players: dict):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        for discord_id, discord_name in players.items():
-            await conn.execute(
-                """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, updated_at)
-                   VALUES ($1, $2, 0, 1, NOW())
-                   ON CONFLICT (discord_id) DO UPDATE
-                   SET games_played = leaderboard.games_played + 1,
-                       discord_name = $2,
-                       updated_at = NOW()""",
-                discord_id, discord_name
-            )
+        async with conn.transaction():
+            for discord_id, discord_name in players.items():
+                await conn.execute(
+                    """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, updated_at)
+                       VALUES ($1, $2, 0, 1, NOW())
+                       ON CONFLICT (discord_id) DO UPDATE
+                       SET games_played = leaderboard.games_played + 1,
+                           discord_name = $2,
+                           updated_at = NOW()""",
+                    discord_id, discord_name
+                )
 
 
 async def get_recent_rounds(limit: int = 20):
@@ -243,30 +245,31 @@ async def start_tournament(tournament_id: int):
 async def advance_tournament_round(tournament_id: int, round_number: int, prompt: str, winning_card: str, winner_discord_id: str, winner_name: str):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO tournament_rounds (tournament_id, round_number, prompt, winning_card, winner_discord_id, winner_name, completed_at)
-               VALUES ($1, $2, $3, $4, $5, $6, NOW())""",
-            tournament_id, round_number, prompt, winning_card, winner_discord_id, winner_name
-        )
-        await conn.execute(
-            """UPDATE tournament_players
-               SET points = points + 1, rounds_won = rounds_won + 1
-               WHERE tournament_id = $1 AND discord_id = $2""",
-            tournament_id, winner_discord_id
-        )
-        tournament = await conn.fetchrow("SELECT * FROM tournaments WHERE id = $1", tournament_id)
-        if tournament and round_number >= tournament["rounds_total"]:
+        async with conn.transaction():
             await conn.execute(
-                "UPDATE tournaments SET status = 'completed', current_round = $2, completed_at = NOW() WHERE id = $1",
-                tournament_id, round_number
+                """INSERT INTO tournament_rounds (tournament_id, round_number, prompt, winning_card, winner_discord_id, winner_name, completed_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, NOW())""",
+                tournament_id, round_number, prompt, winning_card, winner_discord_id, winner_name
             )
-            return True
-        else:
             await conn.execute(
-                "UPDATE tournaments SET current_round = $2 + 1 WHERE id = $1",
-                tournament_id, round_number
+                """UPDATE tournament_players
+                   SET points = points + 1, rounds_won = rounds_won + 1
+                   WHERE tournament_id = $1 AND discord_id = $2""",
+                tournament_id, winner_discord_id
             )
-            return False
+            tournament = await conn.fetchrow("SELECT * FROM tournaments WHERE id = $1", tournament_id)
+            if tournament and round_number >= tournament["rounds_total"]:
+                await conn.execute(
+                    "UPDATE tournaments SET status = 'completed', current_round = $2, completed_at = NOW() WHERE id = $1",
+                    tournament_id, round_number
+                )
+                return True
+            else:
+                await conn.execute(
+                    "UPDATE tournaments SET current_round = $2 + 1 WHERE id = $1",
+                    tournament_id, round_number
+                )
+                return False
 
 
 async def end_tournament(tournament_id: int):
@@ -401,21 +404,22 @@ async def record_tournament_entry(tournament_id: int, discord_user_id: str, stri
                                    amount_cents: int, stripe_payment_intent_id: str = None):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO tournament_entries (tournament_id, discord_user_id, stripe_session_id,
-                   stripe_payment_intent_id, amount_cents, status)
-               VALUES ($1, $2, $3, $4, $5, 'paid')
-               ON CONFLICT (tournament_id, discord_user_id) DO UPDATE SET
-                   stripe_session_id = $3, stripe_payment_intent_id = $4, amount_cents = $5, status = 'paid'""",
-            tournament_id, discord_user_id, stripe_session_id, stripe_payment_intent_id, amount_cents
-        )
-        await conn.execute(
-            """UPDATE tournaments SET prize_pool_cents = (
-                   SELECT COALESCE(SUM(amount_cents), 0) FROM tournament_entries
-                   WHERE tournament_id = $1 AND status = 'paid'
-               ) WHERE id = $1""",
-            tournament_id
-        )
+        async with conn.transaction():
+            await conn.execute(
+                """INSERT INTO tournament_entries (tournament_id, discord_user_id, stripe_session_id,
+                       stripe_payment_intent_id, amount_cents, status)
+                   VALUES ($1, $2, $3, $4, $5, 'paid')
+                   ON CONFLICT (tournament_id, discord_user_id) DO UPDATE SET
+                       stripe_session_id = $3, stripe_payment_intent_id = $4, amount_cents = $5, status = 'paid'""",
+                tournament_id, discord_user_id, stripe_session_id, stripe_payment_intent_id, amount_cents
+            )
+            await conn.execute(
+                """UPDATE tournaments SET prize_pool_cents = (
+                       SELECT COALESCE(SUM(amount_cents), 0) FROM tournament_entries
+                       WHERE tournament_id = $1 AND status = 'paid'
+                   ) WHERE id = $1""",
+                tournament_id
+            )
 
 
 async def get_tournament_entry(tournament_id: int, discord_user_id: str):
@@ -450,14 +454,15 @@ async def update_tournament_payout(tournament_id: int, status: str):
 async def refund_tournament_entries(tournament_id: int):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
-            "UPDATE tournament_entries SET status = 'refunded' WHERE tournament_id = $1",
-            tournament_id
-        )
-        await conn.execute(
-            "UPDATE tournaments SET prize_pool_cents = 0, payout_status = 'refunded' WHERE id = $1",
-            tournament_id
-        )
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE tournament_entries SET status = 'refunded' WHERE tournament_id = $1",
+                tournament_id
+            )
+            await conn.execute(
+                "UPDATE tournaments SET prize_pool_cents = 0, payout_status = 'refunded' WHERE id = $1",
+                tournament_id
+            )
 
 
 async def init_deck_tables():
@@ -486,6 +491,12 @@ async def init_deck_tables():
         try:
             await conn.execute(
                 "ALTER TABLE custom_decks ADD COLUMN IF NOT EXISTS discord_user_id VARCHAR(64)"
+            )
+        except Exception:
+            pass
+        try:
+            await conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_custom_decks_name_user ON custom_decks (LOWER(name), discord_user_id) WHERE discord_user_id IS NOT NULL"
             )
         except Exception:
             pass
@@ -742,74 +753,75 @@ async def record_store_purchase(discord_user_id, listing_id, stripe_session_id):
 async def fulfill_store_purchase(discord_user_id: str, listing_id: int):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        listing = await conn.fetchrow(
-            "SELECT * FROM store_listings WHERE id = $1", listing_id
-        )
-        if not listing:
-            logger.warning(f"Fulfill: listing {listing_id} not found")
-            return
-
-        deck_ids_str = listing.get("deck_ids", "")
-        if not deck_ids_str:
-            logger.warning(f"Fulfill: listing {listing_id} has no deck_ids")
-            return
-
-        source_deck_ids = []
-        for part in deck_ids_str.split(","):
-            part = part.strip()
-            if part.isdigit():
-                source_deck_ids.append(int(part))
-
-        if not source_deck_ids:
-            logger.warning(f"Fulfill: listing {listing_id} has no valid deck_ids")
-            return
-
-        for source_id in source_deck_ids:
-            source_deck = await conn.fetchrow(
-                "SELECT * FROM custom_decks WHERE id = $1", source_id
+        async with conn.transaction():
+            listing = await conn.fetchrow(
+                "SELECT * FROM store_listings WHERE id = $1", listing_id
             )
-            if not source_deck:
-                logger.warning(f"Fulfill: source deck {source_id} not found")
-                continue
+            if not listing:
+                logger.warning(f"Fulfill: listing {listing_id} not found")
+                return
 
-            existing = await conn.fetchrow(
-                """SELECT id FROM custom_decks
-                   WHERE LOWER(name) = LOWER($1) AND discord_user_id = $2""",
-                source_deck["name"], discord_user_id
-            )
-            if existing:
-                logger.info(f"Fulfill: user {discord_user_id} already has deck '{source_deck['name']}'")
-                continue
+            deck_ids_str = listing.get("deck_ids", "")
+            if not deck_ids_str:
+                logger.warning(f"Fulfill: listing {listing_id} has no deck_ids")
+                return
 
-            new_deck = await conn.fetchrow(
-                """INSERT INTO custom_decks (name, description, creator_name, discord_user_id)
-                   VALUES ($1, $2, $3, $4) RETURNING id""",
-                source_deck["name"],
-                source_deck.get("description", ""),
-                source_deck.get("creator_name", "Store"),
-                discord_user_id
-            )
-            new_deck_id = new_deck["id"]
+            source_deck_ids = []
+            for part in deck_ids_str.split(","):
+                part = part.strip()
+                if part.isdigit():
+                    source_deck_ids.append(int(part))
 
-            cards = await conn.fetch(
-                "SELECT card_type, card_text FROM custom_cards WHERE deck_id = $1",
-                source_id
-            )
+            if not source_deck_ids:
+                logger.warning(f"Fulfill: listing {listing_id} has no valid deck_ids")
+                return
 
-            if cards:
-                await conn.executemany(
-                    "INSERT INTO custom_cards (deck_id, card_type, card_text) VALUES ($1, $2, $3)",
-                    [(new_deck_id, c["card_type"], c["card_text"]) for c in cards]
+            for source_id in source_deck_ids:
+                source_deck = await conn.fetchrow(
+                    "SELECT * FROM custom_decks WHERE id = $1", source_id
+                )
+                if not source_deck:
+                    logger.warning(f"Fulfill: source deck {source_id} not found")
+                    continue
+
+                existing = await conn.fetchrow(
+                    """SELECT id FROM custom_decks
+                       WHERE LOWER(name) = LOWER($1) AND discord_user_id = $2""",
+                    source_deck["name"], discord_user_id
+                )
+                if existing:
+                    logger.info(f"Fulfill: user {discord_user_id} already has deck '{source_deck['name']}'")
+                    continue
+
+                new_deck = await conn.fetchrow(
+                    """INSERT INTO custom_decks (name, description, creator_name, discord_user_id)
+                       VALUES ($1, $2, $3, $4) RETURNING id""",
+                    source_deck["name"],
+                    source_deck.get("description", ""),
+                    source_deck.get("creator_name", "Store"),
+                    discord_user_id
+                )
+                new_deck_id = new_deck["id"]
+
+                cards = await conn.fetch(
+                    "SELECT card_type, card_text FROM custom_cards WHERE deck_id = $1",
+                    source_id
                 )
 
-                prompt_count = sum(1 for c in cards if c["card_type"] == "prompt")
-                answer_count = sum(1 for c in cards if c["card_type"] == "answer")
-                await conn.execute(
-                    "UPDATE custom_decks SET prompt_count = $2, answer_count = $3 WHERE id = $1",
-                    new_deck_id, prompt_count, answer_count
-                )
+                if cards:
+                    await conn.executemany(
+                        "INSERT INTO custom_cards (deck_id, card_type, card_text) VALUES ($1, $2, $3)",
+                        [(new_deck_id, c["card_type"], c["card_text"]) for c in cards]
+                    )
 
-            logger.info(f"Fulfill: copied deck '{source_deck['name']}' ({len(cards)} cards) to user {discord_user_id}")
+                    prompt_count = sum(1 for c in cards if c["card_type"] == "prompt")
+                    answer_count = sum(1 for c in cards if c["card_type"] == "answer")
+                    await conn.execute(
+                        "UPDATE custom_decks SET prompt_count = $2, answer_count = $3 WHERE id = $1",
+                        new_deck_id, prompt_count, answer_count
+                    )
+
+                logger.info(f"Fulfill: copied deck '{source_deck['name']}' ({len(cards)} cards) to user {discord_user_id}")
 
 
 async def get_user_purchases(discord_user_id):

@@ -76,7 +76,9 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - **PostgreSQL** via asyncpg
 - Tables: `game_rounds`, `leaderboard`, `tournaments`, `tournament_players`, `tournament_rounds`, `premium_servers`, `custom_decks`, `custom_cards`, `store_listings`, `store_purchases`
 - Shared between bot and web frontend
-- Connection pool with auto-reconnect
+- Connection pool: min 2, max 15 connections, 30s command timeout
+- All multi-step write operations wrapped in `async with conn.transaction()` for atomicity
+- Unique index on `custom_decks(LOWER(name), discord_user_id)` prevents duplicate deck fulfillment
 
 ### Frontend
 - **templates/index.html** — Main leaderboard, tournaments, Hall of Fame
