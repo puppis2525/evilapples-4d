@@ -4,11 +4,13 @@ import asyncio
 import threading
 import logging
 import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
 
 logging.basicConfig(
@@ -17,6 +19,95 @@ logging.basicConfig(
     stream=sys.stdout
 )
 logger = logging.getLogger("server")
+
+
+class RateLimiter:
+    TIERS = {
+        "strict": {"requests": 5, "window": 60},
+        "moderate": {"requests": 30, "window": 60},
+        "relaxed": {"requests": 60, "window": 60},
+    }
+
+    ROUTE_TIERS = {
+        "/api/store/checkout": "strict",
+        "/api/stripe/create-checkout": "strict",
+        "/api/stripe/tournament/entry-checkout": "strict",
+        "/api/stripe/connect/onboard": "strict",
+        "/api/admin/": "moderate",
+        "/auth/discord/login": "moderate",
+        "/api/generate": "moderate",
+    }
+
+    def __init__(self):
+        self._hits = defaultdict(list)
+        self._last_cleanup = time.time()
+
+    def _cleanup(self):
+        now = time.time()
+        if now - self._last_cleanup < 30:
+            return
+        self._last_cleanup = now
+        stale = [k for k, v in self._hits.items() if not v or v[-1] < now - 120]
+        for k in stale:
+            del self._hits[k]
+
+    def _get_tier(self, path: str):
+        for prefix, tier in self.ROUTE_TIERS.items():
+            if path.startswith(prefix):
+                return tier
+        if path.startswith("/api/"):
+            return "relaxed"
+        return None
+
+    def is_allowed(self, client_ip: str, path: str) -> bool:
+        tier_name = self._get_tier(path)
+        if tier_name is None:
+            return True
+
+        tier = self.TIERS[tier_name]
+        now = time.time()
+        key = f"{client_ip}:{tier_name}"
+
+        self._cleanup()
+
+        timestamps = self._hits[key]
+        cutoff = now - tier["window"]
+        while timestamps and timestamps[0] < cutoff:
+            timestamps.pop(0)
+
+        if len(timestamps) >= tier["requests"]:
+            return False
+
+        timestamps.append(now)
+        return True
+
+
+rate_limiter = RateLimiter()
+
+
+RATE_LIMIT_SKIP = {"/static", "/api/stripe/webhook", "/favicon.ico"}
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if any(path.startswith(s) for s in RATE_LIMIT_SKIP):
+            return await call_next(request)
+
+        client_ip = request.client.host if request.client else "unknown"
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+
+        if not rate_limiter.is_allowed(client_ip, path):
+            logger.warning(f"Rate limited: {client_ip} on {path}")
+            return JSONResponse(
+                status_code=429,
+                content={"error": "Too many requests. Please slow down."},
+                headers={"Retry-After": "60"}
+            )
+
+        return await call_next(request)
 
 
 def delayed_bot_start():
@@ -57,6 +148,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
+app.add_middleware(RateLimitMiddleware)
 
 from stripe_routes import router as stripe_router
 from stripe_client import get_stripe_client

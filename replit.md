@@ -80,6 +80,15 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - All multi-step write operations wrapped in `async with conn.transaction()` for atomicity
 - Unique index on `custom_decks(LOWER(name), discord_user_id)` prevents duplicate deck fulfillment
 
+### Rate Limiting (server.py)
+- In-memory per-IP rate limiter with three tiers:
+  - **Strict** (5 req/min): checkout endpoints, Stripe Connect onboarding
+  - **Moderate** (30 req/min): admin API, Discord OAuth login, card generation
+  - **Relaxed** (60 req/min): all other `/api/` endpoints
+- Stripe webhooks, static files, and favicon are excluded
+- Uses `X-Forwarded-For` header for real client IP behind proxies
+- Auto-cleanup of stale tracking data every 30 seconds
+
 ### Frontend
 - **templates/index.html** — Main leaderboard, tournaments, Hall of Fame
 - **templates/premium.html** — Pricing page (Free vs Pro comparison, checkout form)
