@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Apples 4D | Tournament Earnings</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Fredoka One', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .logo-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.5); }
+        }
+        .pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex items-center gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Leaderboard</a>
+                <a href="/tournaments" class="text-white transition font-semibold">Tournaments</a>
+                <a href="/howtoplay" class="text-evil-300 hover:text-white transition font-semibold">How to Play</a>
+                <a href="/store" class="text-evil-300 hover:text-white transition font-semibold">Store</a>
+                <a href="/decks" class="text-evil-300 hover:text-white transition font-semibold">Decks</a>
+                <a href="/premium" class="text-yellow-400 hover:text-yellow-300 transition font-semibold">Pro &#9733;</a>
+                <div id="auth-btn"></div>
+            </div>
+        </div>
+    </nav>
+
+    <header class="text-center py-16 px-6">
+        <img src="/static/logo.png" alt="" class="w-16 h-16 mx-auto mb-4 logo-float drop-shadow-2xl">
+        <h2 class="font-brand text-4xl md:text-5xl mb-4 purple-glow text-evil-300">Host & Earn</h2>
+        <p class="text-evil-200/60 text-lg max-w-2xl mx-auto">
+            Run paid tournaments on your Discord server. Players compete for real prizes, and you keep a share of every entry fee.
+        </p>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 pb-20 space-y-16">
+
+        <section>
+            <h3 class="font-brand text-2xl text-evil-300 mb-6 text-center">How It Works</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 text-center">
+                    <div class="text-4xl mb-3">1</div>
+                    <h4 class="font-bold text-lg text-white mb-2">Set Up Your Tournament</h4>
+                    <p class="text-evil-300 text-sm">Create a tournament, set the entry fee, configure teams, and define the prize pool split for winners.</p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 text-center">
+                    <div class="text-4xl mb-3">2</div>
+                    <h4 class="font-bold text-lg text-white mb-2">Players Pay & Compete</h4>
+                    <p class="text-evil-300 text-sm">Players pay the entry fee via Stripe to join. Teams battle across rounds with Dr. Evil judging the action.</p>
+                </div>
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 text-center">
+                    <div class="text-4xl mb-3">3</div>
+                    <h4 class="font-bold text-lg text-white mb-2">Everyone Gets Paid</h4>
+                    <p class="text-evil-300 text-sm">Winners take home prizes, you keep your host share, and payouts go directly to connected Stripe accounts.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-2xl text-evil-300 mb-3 text-center">The Money Flow</h3>
+            <p class="text-evil-400 text-sm text-center mb-6 max-w-xl mx-auto">
+                Every entry fee is split three ways: prizes for the winners, the platform fee, and your host earnings.
+            </p>
+            <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 max-w-2xl mx-auto">
+                <div class="flex flex-col gap-3">
+                    <div class="flex items-center gap-4">
+                        <div class="w-full bg-evil-card rounded-full h-8 overflow-hidden flex">
+                            <div class="bg-yellow-500 h-full flex items-center justify-center text-xs font-bold text-black" style="width: 55%">Prizes (55%)</div>
+                            <div class="bg-evil-500 h-full flex items-center justify-center text-xs font-bold text-white" style="width: 10%">Fee</div>
+                            <div class="bg-green-500 h-full flex items-center justify-center text-xs font-bold text-black" style="width: 35%">Host (35%)</div>
+                        </div>
+                    </div>
+                    <p class="text-evil-400 text-xs text-center">Example split &mdash; you decide the prize amounts, which determines your take-home share.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-2xl text-evil-300 mb-3 text-center">Platform Fee Tiers</h3>
+            <p class="text-evil-400 text-sm text-center mb-6 max-w-xl mx-auto">
+                The platform fee is based on how many tournaments your server runs each month. Low-volume servers pay the lowest rate.
+            </p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+                <div class="bg-evil-surface border border-green-500/30 rounded-2xl p-5 text-center">
+                    <div class="font-brand text-3xl text-green-400 mb-1">10%</div>
+                    <div class="text-evil-300 text-sm font-semibold">1&ndash;2 / month</div>
+                    <div class="text-evil-400 text-xs mt-1">Best for casual hosts</div>
+                </div>
+                <div class="bg-evil-surface border border-evil-500/30 rounded-2xl p-5 text-center">
+                    <div class="font-brand text-3xl text-evil-300 mb-1">15%</div>
+                    <div class="text-evil-300 text-sm font-semibold">3&ndash;5 / month</div>
+                    <div class="text-evil-400 text-xs mt-1">Regular hosts</div>
+                </div>
+                <div class="bg-evil-surface border border-yellow-500/30 rounded-2xl p-5 text-center">
+                    <div class="font-brand text-3xl text-yellow-400 mb-1">20%</div>
+                    <div class="text-evil-300 text-sm font-semibold">6&ndash;10 / month</div>
+                    <div class="text-evil-400 text-xs mt-1">Active communities</div>
+                </div>
+                <div class="bg-evil-surface border border-red-500/30 rounded-2xl p-5 text-center">
+                    <div class="font-brand text-3xl text-red-400 mb-1">25%</div>
+                    <div class="text-evil-300 text-sm font-semibold">11+ / month</div>
+                    <div class="text-evil-400 text-xs mt-1">High-volume servers</div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-2xl text-evil-300 mb-6 text-center">Earnings Scenarios</h3>
+            <p class="text-evil-400 text-sm text-center mb-8 max-w-xl mx-auto">
+                Here's what hosts and players can expect to earn at different tournament sizes. All examples use the 10% starter tier.
+            </p>
+
+            <div class="space-y-8">
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl overflow-hidden">
+                    <div class="bg-evil-card/60 px-6 py-4 border-b border-evil-800/30">
+                        <h4 class="font-bold text-lg text-white">Small Tournament</h4>
+                        <p class="text-evil-400 text-sm">10 players &bull; $5 entry &bull; 2 teams of 5</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Total Collected</span><span class="text-white font-bold">$50.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (10%)</span><span class="text-evil-300">-$5.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Available for Prizes + Host</span><span class="text-white font-bold">$45.00</span></div>
+                            </div>
+                            <div class="space-y-3">
+                                <h5 class="text-yellow-400 font-semibold text-sm">Prize Payouts</h5>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$20.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$10.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-green-400 font-semibold">Host Keeps</span><span class="text-green-400 font-bold">$15.00</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl overflow-hidden">
+                    <div class="bg-evil-card/60 px-6 py-4 border-b border-evil-800/30">
+                        <h4 class="font-bold text-lg text-white">Medium Tournament</h4>
+                        <p class="text-evil-400 text-sm">30 players &bull; $10 entry &bull; 6 teams of 5</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Total Collected</span><span class="text-white font-bold">$300.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (10%)</span><span class="text-evil-300">-$30.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Available for Prizes + Host</span><span class="text-white font-bold">$270.00</span></div>
+                            </div>
+                            <div class="space-y-3">
+                                <h5 class="text-yellow-400 font-semibold text-sm">Prize Payouts</h5>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$100.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$50.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">3rd Place</span><span class="text-yellow-400">$25.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-green-400 font-semibold">Host Keeps</span><span class="text-green-400 font-bold">$95.00</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-evil-surface border border-evil-500/30 rounded-2xl overflow-hidden pulse-glow">
+                    <div class="bg-evil-card/60 px-6 py-4 border-b border-evil-800/30">
+                        <h4 class="font-bold text-lg text-white">Large Tournament</h4>
+                        <p class="text-evil-400 text-sm">100 players &bull; $20 entry &bull; 10 teams of 10</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Total Collected</span><span class="text-white font-bold">$2,000.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (10%)</span><span class="text-evil-300">-$200.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Available for Prizes + Host</span><span class="text-white font-bold">$1,800.00</span></div>
+                            </div>
+                            <div class="space-y-3">
+                                <h5 class="text-yellow-400 font-semibold text-sm">Prize Payouts</h5>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$500.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$250.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">3rd Place</span><span class="text-yellow-400">$100.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">4th Place</span><span class="text-yellow-400">$50.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-green-400 font-semibold">Host Keeps</span><span class="text-green-400 font-bold">$900.00</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-evil-card/40 border border-evil-800/30 rounded-2xl p-6 max-w-2xl mx-auto">
+                <h4 class="font-bold text-white mb-3 text-center">Monthly Hosting Potential</h4>
+                <p class="text-evil-400 text-sm text-center mb-4">Run tournaments regularly and the earnings add up fast.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div class="bg-evil-surface rounded-xl p-4">
+                        <div class="text-evil-400 text-xs mb-1">1 Small / week</div>
+                        <div class="font-brand text-xl text-green-400">$60/mo</div>
+                        <div class="text-evil-400 text-xs mt-1">Host earnings</div>
+                    </div>
+                    <div class="bg-evil-surface rounded-xl p-4">
+                        <div class="text-evil-400 text-xs mb-1">2 Medium / week</div>
+                        <div class="font-brand text-xl text-green-400">$760/mo</div>
+                        <div class="text-evil-400 text-xs mt-1">Host earnings</div>
+                    </div>
+                    <div class="bg-evil-surface rounded-xl p-4">
+                        <div class="text-evil-400 text-xs mb-1">1 Large / week</div>
+                        <div class="font-brand text-xl text-green-400">$3,600/mo</div>
+                        <div class="text-evil-400 text-xs mt-1">Host earnings</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-2xl text-evil-300 mb-3 text-center">What Players Can Win</h3>
+            <p class="text-evil-400 text-sm text-center mb-6 max-w-xl mx-auto">
+                Tournaments aren't just for hosts. Players compete for real cash prizes paid directly to their accounts.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+                <div class="bg-evil-surface border border-yellow-500/20 rounded-2xl p-6 text-center">
+                    <div class="text-3xl mb-2">&#127942;</div>
+                    <div class="font-brand text-2xl text-yellow-400 mb-1">$20 &ndash; $500+</div>
+                    <div class="text-evil-300 text-sm font-semibold">1st Place</div>
+                    <div class="text-evil-400 text-xs mt-2">Top prize scales with tournament size and entry fee</div>
+                </div>
+                <div class="bg-evil-surface border border-evil-500/20 rounded-2xl p-6 text-center">
+                    <div class="text-3xl mb-2">&#129352;</div>
+                    <div class="font-brand text-2xl text-evil-300 mb-1">$10 &ndash; $250+</div>
+                    <div class="text-evil-300 text-sm font-semibold">2nd Place</div>
+                    <div class="text-evil-400 text-xs mt-2">Runner-up still takes home a solid payout</div>
+                </div>
+                <div class="bg-evil-surface border border-evil-500/20 rounded-2xl p-6 text-center">
+                    <div class="text-3xl mb-2">&#129353;</div>
+                    <div class="font-brand text-2xl text-evil-300 mb-1">$5 &ndash; $100+</div>
+                    <div class="text-evil-300 text-sm font-semibold">3rd Place</div>
+                    <div class="text-evil-400 text-xs mt-2">Even third place earns more than their entry fee</div>
+                </div>
+            </div>
+            <p class="text-evil-400 text-xs text-center mt-4 max-w-lg mx-auto">
+                Prize amounts are set by the host when creating the tournament. Bigger tournaments with higher entry fees mean bigger prizes for everyone.
+            </p>
+        </section>
+
+        <section>
+            <h3 class="font-brand text-2xl text-evil-300 mb-6 text-center">Get Started in 3 Steps</h3>
+            <div class="max-w-2xl mx-auto space-y-4">
+                <div class="flex items-start gap-4 bg-evil-surface border border-evil-800/50 rounded-xl p-5">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-evil-500/20 flex items-center justify-center text-evil-300 font-bold text-lg">1</div>
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Connect Your Stripe Account</h4>
+                        <p class="text-evil-400 text-sm">Link your Stripe account to receive payouts. You'll be guided through Stripe's secure onboarding when you create your first paid tournament.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4 bg-evil-surface border border-evil-800/50 rounded-xl p-5">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-evil-500/20 flex items-center justify-center text-evil-300 font-bold text-lg">2</div>
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Create Your Tournament</h4>
+                        <p class="text-evil-400 text-sm">Set the entry fee, team sizes, number of rounds, and how prizes are distributed. The revenue preview shows exactly what everyone earns before you publish.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4 bg-evil-surface border border-evil-800/50 rounded-xl p-5">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-evil-500/20 flex items-center justify-center text-evil-300 font-bold text-lg">3</div>
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Share & Collect</h4>
+                        <p class="text-evil-400 text-sm">Link the tournament to your Discord server, share it with your community, and watch the registrations come in. Payouts are handled automatically.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="text-center py-8">
+            <a href="/tournaments/create"
+               class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-evil-500 to-evil-600 hover:from-evil-400 hover:to-evil-500 text-white text-lg font-bold rounded-xl transition shadow-lg hover:shadow-xl pulse-glow">
+                Create Your First Tournament
+            </a>
+            <p class="text-evil-400 text-sm mt-4">
+                <a href="/tournaments" class="text-evil-300 hover:text-white transition underline">&larr; Back to Tournaments</a>
+            </p>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+    </footer>
+
+    <script src="/static/auth.js"></script>
+    <script>initAuth();</script>
+</body>
+</html>

@@ -24,6 +24,7 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 - **Paid Tournaments**: Hosts can set entry fees using Stripe Connect, with tiered platform fees (10/15/20/25% based on monthly tournament count per server) and instant payouts.
 - **Web Integration**: Tournaments created on the web can be linked to Discord channels.
 - **Sponsorships**: Paid sponsor slots are available on tournament pages.
+- **Revenue Page**: `/tournaments/revenue` explains the earnings model for hosts and players, with example scenarios and fee tier breakdown.
 
 ### User Interface (UI/UX)
 - The web frontend utilizes **Tailwind CSS** with a custom Evil Apples purple theme, Fredoka One font for branding, and Inter for body text.

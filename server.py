@@ -224,6 +224,11 @@ async def tournaments_page(request: Request):
     return templates.TemplateResponse("tournaments.html", {"request": request})
 
 
+@app.get("/tournaments/revenue", response_class=HTMLResponse)
+async def tournament_revenue_page(request: Request):
+    return templates.TemplateResponse("tournament_revenue.html", {"request": request})
+
+
 @app.get("/tournaments/create", response_class=HTMLResponse)
 async def tournament_create_page(request: Request):
     return templates.TemplateResponse("tournament_create.html", {"request": request})
