@@ -358,6 +358,9 @@ async def handle_round_winner(game, winner_id, winner_name, channel):
         embed.set_footer(text=f"Mode: {mode_label} | Start a new game with !startgame")
         await channel.send(embed=embed)
 
+        judge_task = game.pop("_judge_timeout_task", None)
+        if judge_task and not judge_task.done():
+            judge_task.cancel()
         if channel.id in active_games:
             del active_games[channel.id]
         if channel.id in timer_tasks:
@@ -369,6 +372,21 @@ async def handle_round_winner(game, winner_id, winner_name, channel):
         await channel.send(f"\U0001F525 **{winner_name}** has **{player_score} points** — getting close to winning!")
 
     return False
+
+
+async def handle_judge_timeout(channel_id, expected_round_id):
+    game = active_games.get(channel_id)
+    if not game or game["state"] != "judging":
+        return
+    if game.get("round_id", 0) != expected_round_id:
+        return
+
+    channel = bot.get_channel(channel_id)
+    if not channel:
+        return
+
+    await channel.send("\u23F0 **Judge took too long!** Dr. Evil is stepping in to pick the winner...")
+    await ai_judge_pick(game, channel)
 
 
 async def ai_judge_pick(game, channel):
@@ -398,18 +416,28 @@ async def ai_judge_pick(game, channel):
     await channel.send(embed=deliberation_embed)
     await asyncio.sleep(10)
 
-    chosen_index = await ai_judge(prompt, card_texts)
+    try:
+        chosen_index = await ai_judge(prompt, card_texts)
+    except Exception as e:
+        logger.error(f"AI judge failed, falling back to random pick: {e}")
+        chosen_index = random.randint(0, len(submissions) - 1)
 
     roast = ""
-    if random.random() < 0.4:
-        roast = await dr_evil_roast(prompt, card_texts)
+    try:
+        if random.random() < 0.4:
+            roast = await dr_evil_roast(prompt, card_texts)
+    except Exception as e:
+        logger.error(f"Dr. Evil roast failed: {e}")
 
     winner_id, winning_card = submissions[chosen_index]
     winner_member = channel.guild.get_member(int(winner_id)) if channel.guild else None
     winner_name = winner_member.display_name if winner_member else game["players"].get(winner_id, "Unknown")
 
     slug = slugify(f"{prompt[:40]}-{random.randint(100, 999)}")
-    await save_round(prompt, winning_card, winner_id, winner_name, slug)
+    try:
+        await save_round(prompt, winning_card, winner_id, winner_name, slug)
+    except Exception as e:
+        logger.error(f"Failed to save round: {e}")
 
     game["state"] = "finished"
 
@@ -487,9 +515,19 @@ async def check_all_submitted(game, interaction):
             description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
             color=discord.Color.from_rgb(106, 27, 154)
         )
+        embed.set_footer(text="Judge has 2 minutes to decide or Dr. Evil takes over!")
 
         view = JudgingView(game, channel)
         await channel.send(embed=embed, view=view)
+
+        round_id = game.get("round_id", 0)
+        async def judge_timeout(ch_id, rid):
+            try:
+                await asyncio.sleep(120)
+                await handle_judge_timeout(ch_id, rid)
+            except asyncio.CancelledError:
+                pass
+        game["_judge_timeout_task"] = asyncio.create_task(judge_timeout(channel_id, round_id))
 
 
 @bot.command(name="endgame")
@@ -504,6 +542,9 @@ async def end_game(ctx):
     if ctx.channel.id in timer_tasks:
         timer_tasks[ctx.channel.id].cancel()
         del timer_tasks[ctx.channel.id]
+    judge_task = game.pop("_judge_timeout_task", None)
+    if judge_task and not judge_task.done():
+        judge_task.cancel()
     del active_games[ctx.channel.id]
     await ctx.send("Game ended. Start a new one with `!startgame`.")
 
@@ -609,9 +650,19 @@ async def handle_timer_expiry(channel_id, expected_round_id):
         description=f"## {format_prompt(game['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
         color=discord.Color.from_rgb(106, 27, 154)
     )
+    embed.set_footer(text="Judge has 2 minutes to decide or Dr. Evil takes over!")
 
     view = JudgingView(game, channel)
     await channel.send(embed=embed, view=view)
+
+    round_id = game.get("round_id", 0)
+    async def judge_timeout_timer(ch_id, rid):
+        try:
+            await asyncio.sleep(120)
+            await handle_judge_timeout(ch_id, rid)
+        except asyncio.CancelledError:
+            pass
+    game["_judge_timeout_task"] = asyncio.create_task(judge_timeout_timer(channel_id, round_id))
 
 
 @bot.group(name="solo", invoke_without_command=True)

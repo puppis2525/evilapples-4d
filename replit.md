@@ -25,7 +25,7 @@ A full-stack Discord game ecosystem branded as "Evil Apples 4D" — runs a Cards
 - Free tier: 3 games/day per server; Pro: unlimited
 - Solo mode: `!solo [1-5]` — Play against AI opponents with Venice.ai judging
 - **Round-robin judge rotation**: Judge rotates each round among all players (like the mobile game)
-- **Dr. Evil fallback**: When fewer than 3 players, Dr. Evil (Venice.ai) judges automatically instead of a human
+- **Dr. Evil fallback**: When fewer than 3 players, Dr. Evil (Venice.ai) judges automatically instead of a human; if AI API fails, falls back to random pick; if human judge doesn't pick within 2 minutes, Dr. Evil takes over
 - The game starter is a player, not a permanent judge; anyone can `!deal`
 - Configurable countdown timer: `!timer <10-60>` — any player can set per-channel, skips non-submitters on expiry
 - **Deck selection at game start**: If the host owns purchased decks, a dropdown menu appears letting them pick 1-3 decks to play with (or skip to use default cards)

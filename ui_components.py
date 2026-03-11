@@ -324,6 +324,10 @@ class JudgingView(discord.ui.View):
 
         self.game_session["state"] = "finished"
 
+        judge_task = self.game_session.pop("_judge_timeout_task", None)
+        if judge_task and not judge_task.done():
+            judge_task.cancel()
+
         winner_id, winning_card = self.submissions[index]
         winner = interaction.guild.get_member(int(winner_id))
         winner_name = winner.display_name if winner else "Unknown"
@@ -785,6 +789,9 @@ class PostRoundView(discord.ui.View):
         if interaction.channel_id in timer_tasks:
             timer_tasks[interaction.channel_id].cancel()
             del timer_tasks[interaction.channel_id]
+        judge_task = game.pop("_judge_timeout_task", None)
+        if judge_task and not judge_task.done():
+            judge_task.cancel()
         del active_games[interaction.channel_id]
         for item in self.children:
             item.disabled = True
