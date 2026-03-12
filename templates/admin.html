@@ -6,6 +6,7 @@
     <title>Evil Apples 4D | Admin Panel</title>
     <link rel="icon" type="image/png" href="/static/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -32,11 +33,20 @@
             background-size: 40px 40px;
         }
         .deck-image-preview { aspect-ratio: 5/7; object-fit: cover; }
+        .tab-btn { transition: all 0.2s; }
+        .tab-btn.active { border-bottom: 3px solid #9055ff; color: #fff; }
+        .tab-btn:not(.active) { color: #b08dff; border-bottom: 3px solid transparent; }
+        .tab-btn:hover:not(.active) { color: #cdbbff; }
+        .stat-card {
+            background: linear-gradient(135deg, #1e1245 0%, #170e30 100%);
+            border: 1px solid rgba(76, 29, 149, 0.3);
+        }
+        .stat-card:hover { border-color: rgba(144, 85, 255, 0.5); }
     </style>
 </head>
 <body class="bg-evil-bg text-white min-h-screen bg-grid">
     <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
             <a href="/" class="flex items-center gap-3">
                 <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
                 <h1 class="font-brand text-2xl tracking-tight">
@@ -53,7 +63,7 @@
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto px-6 py-8">
+    <main class="max-w-7xl mx-auto px-6 py-8">
         <div id="auth-gate" class="max-w-md mx-auto mt-20">
             <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 text-center">
                 <h2 class="font-brand text-2xl text-evil-300 mb-4">Admin Access</h2>
@@ -67,90 +77,255 @@
         </div>
 
         <div id="admin-panel" class="hidden">
-            <div class="flex items-center justify-between mb-8">
-                <h2 class="font-brand text-3xl text-evil-300">Store Listings</h2>
-                <button onclick="showCreateForm()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold hover:from-green-400 hover:to-emerald-500 transition">
-                    + New Listing
-                </button>
+            <div class="flex gap-1 mb-8 border-b border-evil-800/50">
+                <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn active px-6 py-3 font-bold text-sm">Analytics</button>
+                <button onclick="switchTab('store')" id="tab-store" class="tab-btn px-6 py-3 font-bold text-sm">Store Manager</button>
+                <button onclick="switchTab('decks')" id="tab-decks" class="tab-btn px-6 py-3 font-bold text-sm">Template Decks</button>
             </div>
 
-            <div id="create-form" class="hidden mb-8">
-                <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
-                    <h3 class="font-brand text-xl text-evil-300 mb-4" id="form-title">New Listing</h3>
-                    <input type="hidden" id="edit-id" value="">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-1">Name</label>
-                            <input type="text" id="f-name" placeholder="Surreal Dali Deck"
-                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+            <!-- ANALYTICS TAB -->
+            <div id="panel-analytics">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="font-brand text-3xl text-evil-300">Platform Analytics</h2>
+                    <div class="flex gap-2">
+                        <button onclick="loadAnalytics(7)" class="range-btn px-3 py-1.5 rounded-lg text-xs font-bold border border-evil-800/50 hover:border-evil-500 transition" data-days="7">7 Days</button>
+                        <button onclick="loadAnalytics(30)" class="range-btn px-3 py-1.5 rounded-lg text-xs font-bold border border-evil-800/50 hover:border-evil-500 transition" data-days="30">30 Days</button>
+                        <button onclick="loadAnalytics(90)" class="range-btn px-3 py-1.5 rounded-lg text-xs font-bold border border-evil-800/50 hover:border-evil-500 transition" data-days="90">90 Days</button>
+                        <button onclick="loadAnalytics(null)" class="range-btn px-3 py-1.5 rounded-lg text-xs font-bold border border-evil-800/50 hover:border-evil-500 transition active-range" data-days="all">All Time</button>
+                    </div>
+                </div>
+
+                <div id="analytics-loading" class="text-center text-evil-400 py-12">Loading analytics...</div>
+
+                <div id="analytics-content" class="hidden">
+                    <!-- Summary Cards Row 1 -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Server Installs</div>
+                            <div class="text-2xl font-black" id="stat-guilds">0</div>
+                            <div class="text-evil-500 text-xs mt-1" id="stat-guilds-updated"></div>
                         </div>
-                        <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-1">Price (cents)</label>
-                            <input type="number" id="f-price" value="99" min="0"
-                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Users</div>
+                            <div class="text-2xl font-black" id="stat-users">0</div>
+                            <div class="text-green-400 text-xs mt-1" id="stat-users-period"></div>
+                        </div>
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Games Played</div>
+                            <div class="text-2xl font-black" id="stat-games">0</div>
+                            <div class="text-green-400 text-xs mt-1" id="stat-games-period"></div>
+                        </div>
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Tournaments</div>
+                            <div class="text-2xl font-black" id="stat-tournaments">0</div>
+                            <div class="text-green-400 text-xs mt-1" id="stat-tournaments-period"></div>
                         </div>
                     </div>
-                    <div class="mb-4">
-                        <label class="block text-evil-400 text-sm font-semibold mb-1">Description</label>
-                        <textarea id="f-desc" rows="2" placeholder="A wild collection of surrealist humor..."
-                            class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm"></textarea>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-1">Image URL</label>
-                            <input type="text" id="f-image" placeholder="/static/surreal-dali-deck.png"
-                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+
+                    <!-- Summary Cards Row 2 - Revenue -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Store Revenue</div>
+                            <div class="text-2xl font-black text-green-400" id="stat-store-revenue">$0</div>
+                            <div class="text-evil-500 text-xs mt-1" id="stat-store-purchases">0 purchases</div>
                         </div>
-                        <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-1">Bundle Size</label>
-                            <input type="number" id="f-bundle" value="1" min="1"
-                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Platform Fees</div>
+                            <div class="text-2xl font-black text-green-400" id="stat-platform-fees">$0</div>
+                            <div class="text-evil-500 text-xs mt-1">From tournament entries</div>
                         </div>
-                        <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-1">Sort Order</label>
-                            <input type="number" id="f-sort" value="0" min="0"
-                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Sponsor Revenue</div>
+                            <div class="text-2xl font-black text-yellow-400" id="stat-sponsor-revenue">$0</div>
+                            <div class="text-evil-500 text-xs mt-1" id="stat-sponsor-count">0 sponsors</div>
                         </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-evil-400 text-sm font-semibold mb-1">Deck IDs (comma-separated)</label>
-                            <input type="text" id="f-deckids" placeholder="1,2,3"
-                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
-                        </div>
-                        <div class="flex items-end gap-6">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="f-featured" class="w-4 h-4 rounded accent-evil-500">
-                                <span class="text-evil-300 text-sm font-semibold">Featured</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="f-active" checked class="w-4 h-4 rounded accent-evil-500">
-                                <span class="text-evil-300 text-sm font-semibold">Active</span>
-                            </label>
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Prize Payouts</div>
+                            <div class="text-2xl font-black text-red-400" id="stat-payouts">$0</div>
+                            <div class="text-evil-500 text-xs mt-1">Paid to winners</div>
                         </div>
                     </div>
-                    <div class="mb-4">
-                        <label class="block text-evil-400 text-sm font-semibold mb-1">Or Upload Image</label>
-                        <div class="flex gap-3">
-                            <input type="file" id="f-image-file" accept="image/*"
-                                class="flex-1 px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-evil-500 file:text-white file:text-xs file:font-semibold file:cursor-pointer">
-                            <button onclick="uploadImage()" class="px-4 py-2 rounded-lg bg-evil-600 text-white text-sm font-semibold hover:bg-evil-500 transition">Upload</button>
+
+                    <!-- Summary Cards Row 3 -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Premium Servers</div>
+                            <div class="text-2xl font-black" id="stat-premium">0 <span class="text-evil-500 text-sm font-normal">/ <span id="stat-premium-total">0</span></span></div>
+                            <div class="text-evil-500 text-xs mt-1">Active subscriptions</div>
                         </div>
-                        <p id="upload-status" class="text-evil-500 text-xs mt-1 hidden"></p>
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Connected Hosts</div>
+                            <div class="text-2xl font-black" id="stat-connected">0</div>
+                            <div class="text-evil-500 text-xs mt-1" id="stat-connected-onboarded">0 onboarded</div>
+                        </div>
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Decks</div>
+                            <div class="text-2xl font-black" id="stat-decks">0</div>
+                            <div class="text-evil-500 text-xs mt-1" id="stat-cards">0 total cards</div>
+                        </div>
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="text-evil-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Wins</div>
+                            <div class="text-2xl font-black" id="stat-total-wins">0</div>
+                            <div class="text-evil-500 text-xs mt-1">Across all games</div>
+                        </div>
                     </div>
-                    <div class="flex gap-3">
-                        <button onclick="hideCreateForm()" class="flex-1 px-4 py-2.5 rounded-xl border border-evil-800/50 text-evil-300 hover:bg-evil-card transition">Cancel</button>
-                        <button onclick="saveListing()" id="save-btn" class="flex-1 px-4 py-2.5 rounded-xl bg-evil-500 text-white font-bold hover:bg-evil-400 transition">Save Listing</button>
+
+                    <!-- Charts Row 1 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Games Played Over Time</h3>
+                            <canvas id="chart-games"></canvas>
+                        </div>
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">New Users Over Time</h3>
+                            <canvas id="chart-users"></canvas>
+                        </div>
                     </div>
-                    <p id="form-error" class="text-red-400 text-sm mt-3 hidden"></p>
+
+                    <!-- Charts Row 2 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Revenue Breakdown</h3>
+                            <div class="flex justify-center" style="max-height: 300px;">
+                                <canvas id="chart-revenue-pie"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Tournament Status</h3>
+                            <div class="flex justify-center" style="max-height: 300px;">
+                                <canvas id="chart-tournament-status"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row 3 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Top Selling Decks</h3>
+                            <canvas id="chart-top-decks"></canvas>
+                        </div>
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Store Sales Over Time</h3>
+                            <canvas id="chart-store-sales"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row 4 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Server Installs Over Time</h3>
+                            <canvas id="chart-guilds"></canvas>
+                        </div>
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Tournaments Over Time</h3>
+                            <canvas id="chart-tournaments"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Top Players & Premium -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Top 10 Players</h3>
+                            <div id="top-players-list" class="space-y-2"></div>
+                        </div>
+                        <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                            <h3 class="font-brand text-lg text-evil-300 mb-4">Premium Plan Breakdown</h3>
+                            <div class="flex justify-center" style="max-height: 300px;">
+                                <canvas id="chart-premium-plans"></canvas>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div id="listings-table" class="space-y-4">
-                <div class="text-center text-evil-400 py-12">Loading listings...</div>
+            <!-- STORE TAB -->
+            <div id="panel-store" class="hidden">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="font-brand text-3xl text-evil-300">Store Listings</h2>
+                    <button onclick="showCreateForm()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold hover:from-green-400 hover:to-emerald-500 transition">
+                        + New Listing
+                    </button>
+                </div>
+
+                <div id="create-form" class="hidden mb-8">
+                    <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                        <h3 class="font-brand text-xl text-evil-300 mb-4" id="form-title">New Listing</h3>
+                        <input type="hidden" id="edit-id" value="">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Name</label>
+                                <input type="text" id="f-name" placeholder="Surreal Dali Deck"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Price (cents)</label>
+                                <input type="number" id="f-price" value="99" min="0"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-evil-400 text-sm font-semibold mb-1">Description</label>
+                            <textarea id="f-desc" rows="2" placeholder="A wild collection of surrealist humor..."
+                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm"></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Image URL</label>
+                                <input type="text" id="f-image" placeholder="/static/surreal-dali-deck.png"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Bundle Size</label>
+                                <input type="number" id="f-bundle" value="1" min="1"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Sort Order</label>
+                                <input type="number" id="f-sort" value="0" min="0"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Deck IDs (comma-separated)</label>
+                                <input type="text" id="f-deckids" placeholder="1,2,3"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                            <div class="flex items-end gap-6">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="f-featured" class="w-4 h-4 rounded accent-evil-500">
+                                    <span class="text-evil-300 text-sm font-semibold">Featured</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="f-active" checked class="w-4 h-4 rounded accent-evil-500">
+                                    <span class="text-evil-300 text-sm font-semibold">Active</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-evil-400 text-sm font-semibold mb-1">Or Upload Image</label>
+                            <div class="flex gap-3">
+                                <input type="file" id="f-image-file" accept="image/*"
+                                    class="flex-1 px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-evil-500 file:text-white file:text-xs file:font-semibold file:cursor-pointer">
+                                <button onclick="uploadImage()" class="px-4 py-2 rounded-lg bg-evil-600 text-white text-sm font-semibold hover:bg-evil-500 transition">Upload</button>
+                            </div>
+                            <p id="upload-status" class="text-evil-500 text-xs mt-1 hidden"></p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="hideCreateForm()" class="flex-1 px-4 py-2.5 rounded-xl border border-evil-800/50 text-evil-300 hover:bg-evil-card transition">Cancel</button>
+                            <button onclick="saveListing()" id="save-btn" class="flex-1 px-4 py-2.5 rounded-xl bg-evil-500 text-white font-bold hover:bg-evil-400 transition">Save Listing</button>
+                        </div>
+                        <p id="form-error" class="text-red-400 text-sm mt-3 hidden"></p>
+                    </div>
+                </div>
+
+                <div id="listings-table" class="space-y-4">
+                    <div class="text-center text-evil-400 py-12">Loading listings...</div>
+                </div>
             </div>
 
-            <div class="mt-12 border-t border-evil-800/50 pt-8">
+            <!-- DECKS TAB -->
+            <div id="panel-decks" class="hidden">
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="font-brand text-3xl text-evil-300">Template Decks</h2>
                     <button onclick="toggleDeckUpload()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold hover:from-blue-400 hover:to-indigo-500 transition">
@@ -197,6 +372,35 @@
 
     <script>
         let adminToken = '';
+        let currentDays = null;
+        const chartInstances = {};
+
+        const CHART_COLORS = {
+            purple: '#9055ff',
+            blue: '#60a5fa',
+            green: '#34d399',
+            yellow: '#fbbf24',
+            red: '#f87171',
+            pink: '#f472b6',
+            orange: '#fb923c',
+            cyan: '#22d3ee',
+            lime: '#a3e635',
+            violet: '#a78bfa',
+        };
+        const COLOR_LIST = Object.values(CHART_COLORS);
+
+        Chart.defaults.color = '#b08dff';
+        Chart.defaults.borderColor = 'rgba(76, 29, 149, 0.2)';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        function switchTab(tab) {
+            ['analytics', 'store', 'decks'].forEach(t => {
+                document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+                document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+            });
+            if (tab === 'store') loadListings();
+            if (tab === 'decks') loadTemplateDecks();
+        }
 
         async function authenticate() {
             adminToken = document.getElementById('admin-token-input').value.trim();
@@ -217,8 +421,7 @@
                 }
                 document.getElementById('auth-gate').classList.add('hidden');
                 document.getElementById('admin-panel').classList.remove('hidden');
-                loadListings();
-                loadTemplateDecks();
+                loadAnalytics(null);
             } catch (e) {
                 document.getElementById('auth-error').textContent = 'Connection error.';
                 document.getElementById('auth-error').classList.remove('hidden');
@@ -228,6 +431,267 @@
         document.getElementById('admin-token-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') authenticate();
         });
+
+        function fmt$(cents) {
+            return '$' + (cents / 100).toFixed(2);
+        }
+
+        function fmtNum(n) {
+            return n.toLocaleString();
+        }
+
+        function destroyChart(id) {
+            if (chartInstances[id]) {
+                chartInstances[id].destroy();
+                delete chartInstances[id];
+            }
+        }
+
+        function createLineChart(canvasId, labels, datasets) {
+            destroyChart(canvasId);
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: datasets.length > 1, labels: { usePointStyle: true, padding: 15 } } },
+                    scales: {
+                        x: { grid: { color: 'rgba(76, 29, 149, 0.1)' } },
+                        y: { beginAtZero: true, grid: { color: 'rgba(76, 29, 149, 0.15)' } }
+                    },
+                    elements: {
+                        line: { tension: 0.3, borderWidth: 2 },
+                        point: { radius: 3, hoverRadius: 6 }
+                    }
+                }
+            });
+        }
+
+        function createBarChart(canvasId, labels, data, colors) {
+            destroyChart(canvasId);
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: colors || COLOR_LIST.slice(0, data.length),
+                        borderRadius: 6,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { beginAtZero: true, grid: { color: 'rgba(76, 29, 149, 0.15)' } }
+                    }
+                }
+            });
+        }
+
+        function createDoughnutChart(canvasId, labels, data, colors) {
+            destroyChart(canvasId);
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: colors || COLOR_LIST.slice(0, data.length),
+                        borderWidth: 0,
+                        hoverOffset: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { usePointStyle: true, padding: 15, font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadAnalytics(days) {
+            currentDays = days;
+            document.querySelectorAll('.range-btn').forEach(btn => {
+                const d = btn.dataset.days;
+                const isActive = (days === null && d === 'all') || (String(days) === d);
+                btn.classList.toggle('bg-evil-500', isActive);
+                btn.classList.toggle('text-white', isActive);
+            });
+
+            document.getElementById('analytics-loading').classList.remove('hidden');
+            document.getElementById('analytics-content').classList.add('hidden');
+
+            try {
+                const url = days ? `/api/admin/analytics?days=${days}` : '/api/admin/analytics';
+                const resp = await fetch(url, { headers: { 'x-admin-token': adminToken } });
+                const d = await resp.json();
+
+                const periodLabel = days ? `${days}d` : 'all time';
+
+                document.getElementById('stat-guilds').textContent = fmtNum(d.guilds.current);
+                document.getElementById('stat-guilds-updated').textContent = d.guilds.last_updated ? `Last: ${new Date(d.guilds.last_updated).toLocaleDateString()}` : 'No data yet';
+                document.getElementById('stat-users').textContent = fmtNum(d.users.total);
+                document.getElementById('stat-users-period').textContent = days ? `${fmtNum(d.users.filtered)} in ${periodLabel}` : '';
+                document.getElementById('stat-games').textContent = fmtNum(d.games.total);
+                document.getElementById('stat-games-period').textContent = days ? `${fmtNum(d.games.filtered)} in ${periodLabel}` : '';
+                document.getElementById('stat-tournaments').textContent = fmtNum(d.tournaments.total);
+                document.getElementById('stat-tournaments-period').textContent = days ? `${fmtNum(d.tournaments.filtered)} in ${periodLabel}` : '';
+
+                document.getElementById('stat-store-revenue').textContent = fmt$(d.revenue.store_revenue_cents);
+                document.getElementById('stat-store-purchases').textContent = `${fmtNum(d.store.total_purchases)} purchases`;
+                document.getElementById('stat-platform-fees').textContent = fmt$(d.revenue.tournament_platform_fees_cents);
+                document.getElementById('stat-sponsor-revenue').textContent = fmt$(d.revenue.sponsor_revenue_cents);
+                document.getElementById('stat-sponsor-count').textContent = `${d.revenue.sponsor_count} sponsors`;
+                document.getElementById('stat-payouts').textContent = fmt$(d.revenue.tournament_prize_payouts_cents);
+
+                document.getElementById('stat-premium').innerHTML = `${fmtNum(d.premium.active)} <span class="text-evil-500 text-sm font-normal">/ <span>${fmtNum(d.premium.total)}</span></span>`;
+                document.getElementById('stat-connected').textContent = fmtNum(d.connected_accounts.total);
+                document.getElementById('stat-connected-onboarded').textContent = `${fmtNum(d.connected_accounts.onboarded)} onboarded`;
+                document.getElementById('stat-decks').textContent = fmtNum(d.content.total_decks);
+                document.getElementById('stat-cards').textContent = `${fmtNum(d.content.total_cards)} total cards`;
+                document.getElementById('stat-total-wins').textContent = fmtNum(d.games.total_wins);
+
+                // Games over time line chart
+                if (d.games.over_time.length > 0) {
+                    createLineChart('chart-games',
+                        d.games.over_time.map(p => p.day),
+                        [{ label: 'Games', data: d.games.over_time.map(p => p.count), borderColor: CHART_COLORS.purple, backgroundColor: 'rgba(144, 85, 255, 0.1)', fill: true }]
+                    );
+                } else {
+                    createLineChart('chart-games', ['No data'], [{ label: 'Games', data: [0], borderColor: CHART_COLORS.purple }]);
+                }
+
+                // Users over time line chart
+                if (d.users.over_time.length > 0) {
+                    createLineChart('chart-users',
+                        d.users.over_time.map(p => p.day),
+                        [{ label: 'Users', data: d.users.over_time.map(p => p.count), borderColor: CHART_COLORS.blue, backgroundColor: 'rgba(96, 165, 250, 0.1)', fill: true }]
+                    );
+                } else {
+                    createLineChart('chart-users', ['No data'], [{ label: 'Users', data: [0], borderColor: CHART_COLORS.blue }]);
+                }
+
+                // Revenue pie chart
+                const revLabels = [];
+                const revData = [];
+                const revColors = [];
+                if (d.revenue.store_revenue_cents > 0) { revLabels.push('Store Sales'); revData.push(d.revenue.store_revenue_cents / 100); revColors.push(CHART_COLORS.green); }
+                if (d.revenue.tournament_platform_fees_cents > 0) { revLabels.push('Platform Fees'); revData.push(d.revenue.tournament_platform_fees_cents / 100); revColors.push(CHART_COLORS.purple); }
+                if (d.revenue.sponsor_revenue_cents > 0) { revLabels.push('Sponsors'); revData.push(d.revenue.sponsor_revenue_cents / 100); revColors.push(CHART_COLORS.yellow); }
+                if (revData.length === 0) { revLabels.push('No Revenue Yet'); revData.push(1); revColors.push('rgba(76, 29, 149, 0.3)'); }
+                createDoughnutChart('chart-revenue-pie', revLabels, revData, revColors);
+
+                // Tournament status doughnut
+                const statusLabels = [];
+                const statusData = [];
+                const statusColors = { registration: CHART_COLORS.blue, active: CHART_COLORS.green, completed: CHART_COLORS.purple };
+                for (const [status, count] of Object.entries(d.tournaments.by_status)) {
+                    statusLabels.push(status.charAt(0).toUpperCase() + status.slice(1));
+                    statusData.push(count);
+                }
+                if (statusData.length === 0) { statusLabels.push('No Tournaments'); statusData.push(1); }
+                createDoughnutChart('chart-tournament-status', statusLabels, statusData,
+                    statusLabels.map((_, i) => Object.values(statusColors)[i] || COLOR_LIST[i]));
+
+                // Top selling decks bar chart
+                if (d.store.top_decks.length > 0) {
+                    createBarChart('chart-top-decks',
+                        d.store.top_decks.map(dk => dk.name.length > 15 ? dk.name.substring(0, 15) + '...' : dk.name),
+                        d.store.top_decks.map(dk => dk.sales)
+                    );
+                } else {
+                    createBarChart('chart-top-decks', ['No sales yet'], [0]);
+                }
+
+                // Store sales over time
+                if (d.store.over_time.length > 0) {
+                    createLineChart('chart-store-sales',
+                        d.store.over_time.map(p => p.day),
+                        [
+                            { label: 'Sales', data: d.store.over_time.map(p => p.count), borderColor: CHART_COLORS.green, backgroundColor: 'rgba(52, 211, 153, 0.1)', fill: true, yAxisID: 'y' },
+                            { label: 'Revenue ($)', data: d.store.over_time.map(p => (p.revenue_cents / 100).toFixed(2)), borderColor: CHART_COLORS.yellow, backgroundColor: 'rgba(251, 191, 36, 0.1)', fill: false, yAxisID: 'y1' }
+                        ]
+                    );
+                    if (chartInstances['chart-store-sales']) {
+                        chartInstances['chart-store-sales'].options.scales.y1 = {
+                            type: 'linear', display: true, position: 'right',
+                            beginAtZero: true, grid: { drawOnChartArea: false },
+                            ticks: { callback: v => '$' + v }
+                        };
+                        chartInstances['chart-store-sales'].update();
+                    }
+                } else {
+                    createLineChart('chart-store-sales', ['No data'], [{ label: 'Sales', data: [0], borderColor: CHART_COLORS.green }]);
+                }
+
+                // Guild history line chart
+                if (d.guilds.history.length > 0) {
+                    createLineChart('chart-guilds',
+                        d.guilds.history.map(p => p.day),
+                        [{ label: 'Servers', data: d.guilds.history.map(p => p.count), borderColor: CHART_COLORS.cyan, backgroundColor: 'rgba(34, 211, 238, 0.1)', fill: true }]
+                    );
+                } else {
+                    createLineChart('chart-guilds', ['No data'], [{ label: 'Servers', data: [d.guilds.current || 0], borderColor: CHART_COLORS.cyan }]);
+                }
+
+                // Tournaments over time
+                if (d.tournaments.over_time.length > 0) {
+                    createLineChart('chart-tournaments',
+                        d.tournaments.over_time.map(p => p.day),
+                        [{ label: 'Tournaments', data: d.tournaments.over_time.map(p => p.count), borderColor: CHART_COLORS.orange, backgroundColor: 'rgba(251, 146, 60, 0.1)', fill: true }]
+                    );
+                } else {
+                    createLineChart('chart-tournaments', ['No data'], [{ label: 'Tournaments', data: [0], borderColor: CHART_COLORS.orange }]);
+                }
+
+                // Top players list
+                const playersHtml = d.top_players.length > 0
+                    ? d.top_players.map((p, i) => `
+                        <div class="flex items-center gap-3 p-2.5 rounded-lg ${i === 0 ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-evil-card/50'}">
+                            <span class="w-7 h-7 flex items-center justify-center rounded-full text-xs font-black ${i === 0 ? 'bg-yellow-500 text-black' : i === 1 ? 'bg-gray-300 text-black' : i === 2 ? 'bg-orange-600 text-white' : 'bg-evil-800 text-evil-300'}">${i + 1}</span>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold text-sm truncate">${p.name}</div>
+                                <div class="text-evil-500 text-xs">${p.games_played} games</div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-yellow-400 font-bold text-sm">${p.wins} wins</span>
+                            </div>
+                        </div>
+                    `).join('')
+                    : '<p class="text-evil-500 text-sm text-center py-4">No players yet</p>';
+                document.getElementById('top-players-list').innerHTML = playersHtml;
+
+                // Premium plans doughnut
+                const planLabels = Object.keys(d.premium.by_plan);
+                const planData = Object.values(d.premium.by_plan);
+                if (planLabels.length > 0) {
+                    createDoughnutChart('chart-premium-plans', planLabels.map(l => l.toUpperCase()), planData,
+                        [CHART_COLORS.purple, CHART_COLORS.blue, CHART_COLORS.green]);
+                } else {
+                    createDoughnutChart('chart-premium-plans', ['No Subscriptions'], [1], ['rgba(76, 29, 149, 0.3)']);
+                }
+
+                document.getElementById('analytics-loading').classList.add('hidden');
+                document.getElementById('analytics-content').classList.remove('hidden');
+            } catch (e) {
+                console.error('Analytics load error:', e);
+                document.getElementById('analytics-loading').innerHTML = '<div class="text-red-400">Failed to load analytics. Try refreshing.</div>';
+            }
+        }
+
+        // ===== STORE MANAGEMENT =====
 
         function showCreateForm(listing = null) {
             document.getElementById('create-form').classList.remove('hidden');
@@ -417,55 +881,60 @@
                                 </div>
                             </div>
                             <div class="flex gap-2 shrink-0">
-                                <button onclick='showCreateForm(${JSON.stringify(item).replace(/'/g, "&apos;")})'
-                                    class="px-3 py-1.5 rounded-lg bg-evil-card text-evil-300 text-sm hover:bg-evil-700 transition">Edit</button>
+                                <button onclick='showCreateForm(${JSON.stringify(item).replace(/'/g, "\\'")})'
+                                    class="px-3 py-1.5 rounded-lg bg-evil-card text-evil-300 text-xs font-semibold hover:bg-evil-700 transition">Edit</button>
                                 <button onclick="toggleActive(${item.id}, ${item.active})"
-                                    class="px-3 py-1.5 rounded-lg bg-evil-card text-sm hover:bg-evil-700 transition ${item.active ? 'text-red-400' : 'text-green-400'}">
+                                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${item.active ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}">
                                     ${item.active ? 'Deactivate' : 'Activate'}
                                 </button>
                                 <button onclick="deleteListing(${item.id}, '${item.name.replace(/'/g, "\\'")}')"
-                                    class="px-3 py-1.5 rounded-lg bg-evil-card text-red-400 text-sm hover:bg-red-400/10 transition">Delete</button>
+                                    class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-semibold hover:bg-red-500/30 transition">Del</button>
                             </div>
-                        </div>`;
+                        </div>
+                    `;
                 }).join('');
             } catch (e) {
-                console.error('Failed to load listings:', e);
+                console.error('Load listings error:', e);
             }
         }
 
+        // ===== TEMPLATE DECKS =====
+
         function toggleDeckUpload() {
-            const el = document.getElementById('deck-upload-form');
-            el.classList.toggle('hidden');
-            if (!el.classList.contains('hidden')) {
-                document.getElementById('td-name').value = '';
-                document.getElementById('td-desc').value = '';
-                document.getElementById('td-file').value = '';
-                document.getElementById('deck-upload-status').classList.add('hidden');
-            }
+            document.getElementById('deck-upload-form').classList.toggle('hidden');
         }
 
         async function uploadTemplateDeck() {
             const name = document.getElementById('td-name').value.trim();
             const desc = document.getElementById('td-desc').value.trim();
-            const fileInput = document.getElementById('td-file');
+            const file = document.getElementById('td-file').files[0];
             const status = document.getElementById('deck-upload-status');
 
-            if (!name) { status.textContent = 'Deck name is required.'; status.className = 'text-red-400 text-sm mt-3'; return; }
-            if (!fileInput.files.length) { status.textContent = 'Please select a CSV file.'; status.className = 'text-red-400 text-sm mt-3'; return; }
+            if (!name || !file) {
+                status.textContent = 'Name and CSV file are required.';
+                status.className = 'text-red-400 text-sm mt-3';
+                status.classList.remove('hidden');
+                return;
+            }
 
-            status.textContent = 'Uploading...'; status.className = 'text-evil-400 text-sm mt-3';
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('name', name);
+            formData.append('description', desc);
+            formData.append('token', adminToken);
 
-            const form = new FormData();
-            form.append('token', adminToken);
-            form.append('name', name);
-            form.append('description', desc);
-            form.append('file', fileInput.files[0]);
+            status.textContent = 'Uploading...';
+            status.className = 'text-evil-400 text-sm mt-3';
+            status.classList.remove('hidden');
 
             try {
-                const resp = await fetch('/api/admin/upload-deck', { method: 'POST', body: form });
+                const resp = await fetch('/api/admin/upload-deck', {
+                    method: 'POST',
+                    body: formData,
+                });
                 const data = await resp.json();
                 if (data.success) {
-                    status.textContent = `Deck created! ID: ${data.deck_id} — ${data.prompt_count} prompts, ${data.answer_count} answers (${data.total} total cards)`;
+                    status.textContent = `Created deck "${data.name}" (ID: ${data.deck_id}) — ${data.prompts} prompts, ${data.answers} answers`;
                     status.className = 'text-green-400 text-sm mt-3';
                     loadTemplateDecks();
                 } else {
@@ -473,7 +942,7 @@
                     status.className = 'text-red-400 text-sm mt-3';
                 }
             } catch (e) {
-                status.textContent = 'Connection error.';
+                status.textContent = 'Upload failed.';
                 status.className = 'text-red-400 text-sm mt-3';
             }
         }
@@ -486,31 +955,26 @@
                 const data = await resp.json();
                 const container = document.getElementById('template-decks-table');
 
-                if (!data.length) {
-                    container.innerHTML = '<div class="text-center text-evil-400 py-8">No template decks yet. Upload a CSV to create one.</div>';
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-evil-400 py-8">No template decks yet.</div>';
                     return;
                 }
 
-                container.innerHTML = data.map(d => `
-                    <div class="bg-evil-surface border border-evil-800/40 rounded-xl p-4 flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
-                            <span class="text-blue-400 font-bold text-lg">${d.id}</span>
-                        </div>
+                container.innerHTML = data.map(deck => `
+                    <div class="bg-evil-surface border border-evil-800/40 rounded-xl p-3 flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-lg bg-evil-card flex items-center justify-center text-lg shrink-0">&#127183;</div>
                         <div class="flex-1 min-w-0">
-                            <h4 class="font-brand text-base text-white truncate">${d.name}</h4>
-                            <div class="flex items-center gap-3 text-sm text-evil-400">
-                                <span>${d.prompt_count || 0} prompts</span>
-                                <span>${d.answer_count || 0} answers</span>
-                                ${d.description ? `<span class="truncate max-w-xs">${d.description}</span>` : ''}
-                            </div>
+                            <h4 class="font-semibold text-sm truncate">${deck.name}</h4>
+                            <div class="text-evil-500 text-xs">${deck.description || 'No description'}</div>
                         </div>
-                        <div class="shrink-0">
-                            <span class="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-bold">ID: ${d.id}</span>
+                        <div class="text-right shrink-0">
+                            <span class="text-evil-300 font-mono text-sm font-bold">ID: ${deck.id}</span>
+                            <div class="text-evil-500 text-xs">${deck.prompt_count || 0}P / ${deck.answer_count || 0}A</div>
                         </div>
                     </div>
                 `).join('');
             } catch (e) {
-                console.error('Failed to load template decks:', e);
+                console.error('Load template decks error:', e);
             }
         }
     </script>

@@ -29,12 +29,13 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 ### User Interface (UI/UX)
 - The web frontend utilizes **Tailwind CSS** with a custom Evil Apples purple theme, Fredoka One font for branding, and Inter for body text.
 - Design elements include a floating devil logo, purple glow effects, and a dot grid background.
-- Pages include: Leaderboard, Tournaments (listing, creation, detail), Premium pricing, Deck Store, and Admin panel.
+- Pages include: Leaderboard, Tournaments (listing, creation, detail), Premium pricing, Deck Store, and Admin panel with full analytics dashboard.
 
 ### Authentication & Authorization
 - **Discord OAuth2** for user login on the website, parsing user ID, username, and avatar.
 - Session management via signed cookies (HMAC-SHA256, 30-day expiry).
-- Admin panel access is token-gated.
+- Admin panel access is token-gated (`SESSION_SECRET`).
+- Admin analytics dashboard at `/admin` with tabbed interface (Analytics, Store Manager, Template Decks), Chart.js visualizations, and date range filtering.
 
 ### Rate Limiting
 - In-memory, per-IP rate limiting across three tiers (Strict, Moderate, Relaxed) for API endpoints, excluding webhooks and static files.

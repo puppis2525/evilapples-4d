@@ -125,11 +125,12 @@ async def lifespan(app: FastAPI):
     logger.info("Application starting up...")
 
     try:
-        from db import init_db, init_deck_tables, init_store_tables, seed_store_decks, init_paid_tournament_tables
+        from db import init_db, init_deck_tables, init_store_tables, seed_store_decks, init_paid_tournament_tables, init_bot_stats_table
         await init_db()
         await init_deck_tables()
         await init_store_tables()
         await init_paid_tournament_tables()
+        await init_bot_stats_table()
         logger.info("Database initialized successfully")
         await seed_store_decks()
     except Exception as e:
@@ -735,6 +736,36 @@ async def store_success_page(request: Request):
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
     return templates.TemplateResponse("admin.html", {"request": request})
+
+
+@app.get("/api/admin/analytics")
+async def api_admin_analytics(request: Request, days: int = None):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Forbidden"}, status_code=403)
+    from db import get_admin_analytics
+    try:
+        data = await get_admin_analytics(days=days)
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Analytics error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.post("/api/admin/bot-stats")
+async def api_admin_bot_stats(request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Forbidden"}, status_code=403)
+    from db import record_bot_guild_count
+    try:
+        body = await request.json()
+        guild_count = body.get("guild_count", 0)
+        await record_bot_guild_count(guild_count)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        logger.error(f"Bot stats error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 @app.get("/api/store/listings")

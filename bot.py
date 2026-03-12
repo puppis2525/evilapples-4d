@@ -93,6 +93,22 @@ class GameSession:
 @bot.event
 async def on_ready():
     print(f"Bot is online as {bot.user}")
+    from db import init_bot_stats_table, record_bot_guild_count
+    await init_bot_stats_table()
+    await record_bot_guild_count(len(bot.guilds))
+    print(f"Recorded guild count: {len(bot.guilds)}")
+    bot.loop.create_task(periodic_guild_count())
+
+
+async def periodic_guild_count():
+    await bot.wait_until_ready()
+    from db import record_bot_guild_count
+    while not bot.is_closed():
+        await asyncio.sleep(3600)
+        try:
+            await record_bot_guild_count(len(bot.guilds))
+        except Exception as e:
+            print(f"Failed to record guild count: {e}")
 
 
 @bot.command(name="startgame")

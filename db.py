@@ -1259,6 +1259,210 @@ async def get_premium_stats():
         return dict(row) if row else {"total": 0, "active": 0}
 
 
+async def init_bot_stats_table():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS bot_stats (
+                id SERIAL PRIMARY KEY,
+                guild_count INTEGER NOT NULL DEFAULT 0,
+                recorded_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+
+
+async def record_bot_guild_count(count: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO bot_stats (guild_count) VALUES ($1)", count
+        )
+
+
+async def get_latest_bot_guild_count():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT guild_count, recorded_at FROM bot_stats ORDER BY recorded_at DESC LIMIT 1"
+        )
+        return dict(row) if row else {"guild_count": 0, "recorded_at": None}
+
+
+async def get_admin_analytics(days: int = None):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        date_filter = ""
+        if days and isinstance(days, int) and days > 0:
+            days = min(days, 3650)
+            date_filter = f"AND created_at >= NOW() - INTERVAL '{days} days'"
+            date_filter_updated = f"AND updated_at >= NOW() - INTERVAL '{days} days'"
+        else:
+            date_filter_updated = ""
+
+        total_users = await conn.fetchval("SELECT COUNT(*) FROM leaderboard")
+        total_games = await conn.fetchval("SELECT COUNT(*) FROM game_rounds")
+        total_wins = await conn.fetchval("SELECT COALESCE(SUM(wins), 0) FROM leaderboard")
+
+        filtered_users = await conn.fetchval(f"SELECT COUNT(*) FROM leaderboard WHERE 1=1 {date_filter_updated}")
+        filtered_games = await conn.fetchval(f"SELECT COUNT(*) FROM game_rounds WHERE 1=1 {date_filter}")
+
+        games_over_time = await conn.fetch(f"""
+            SELECT DATE(created_at) as day, COUNT(*) as count
+            FROM game_rounds WHERE 1=1 {date_filter}
+            GROUP BY DATE(created_at) ORDER BY day
+        """)
+
+        users_over_time = await conn.fetch(f"""
+            SELECT DATE(updated_at) as day, COUNT(*) as count
+            FROM leaderboard WHERE 1=1 {date_filter_updated}
+            GROUP BY DATE(updated_at) ORDER BY day
+        """)
+
+        total_tournaments = await conn.fetchval("SELECT COUNT(*) FROM tournaments")
+        tournament_by_status = await conn.fetch(
+            "SELECT status, COUNT(*) as count FROM tournaments GROUP BY status"
+        )
+        filtered_tournaments = await conn.fetchval(f"SELECT COUNT(*) FROM tournaments WHERE 1=1 {date_filter}")
+        tournaments_over_time = await conn.fetch(f"""
+            SELECT DATE(created_at) as day, COUNT(*) as count
+            FROM tournaments WHERE 1=1 {date_filter}
+            GROUP BY DATE(created_at) ORDER BY day
+        """)
+
+        premium_stats = await conn.fetchrow(
+            "SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active = TRUE) as active FROM premium_servers"
+        )
+        premium_plan_breakdown = await conn.fetch(
+            "SELECT plan, COUNT(*) as count FROM premium_servers WHERE active = TRUE GROUP BY plan"
+        )
+        premium_over_time = await conn.fetch(f"""
+            SELECT DATE(created_at) as day, COUNT(*) as count
+            FROM premium_servers WHERE 1=1 {date_filter}
+            GROUP BY DATE(created_at) ORDER BY day
+        """)
+
+        store_total_purchases = await conn.fetchval("SELECT COUNT(*) FROM store_purchases WHERE status = 'completed'")
+        filtered_purchases = await conn.fetchval(f"SELECT COUNT(*) FROM store_purchases WHERE status = 'completed' {date_filter}")
+        top_decks = await conn.fetch("""
+            SELECT sl.name, COUNT(sp.id) as sales
+            FROM store_purchases sp
+            JOIN store_listings sl ON sp.listing_id = sl.id
+            WHERE sp.status = 'completed'
+            GROUP BY sl.name ORDER BY sales DESC LIMIT 10
+        """)
+        store_revenue_cents = await conn.fetchval("""
+            SELECT COALESCE(SUM(sl.price_cents), 0)
+            FROM store_purchases sp
+            JOIN store_listings sl ON sp.listing_id = sl.id
+            WHERE sp.status = 'completed'
+        """)
+        store_sales_over_time = await conn.fetch(f"""
+            SELECT DATE(sp.created_at) as day, COUNT(*) as count, COALESCE(SUM(sl.price_cents), 0) as revenue_cents
+            FROM store_purchases sp
+            JOIN store_listings sl ON sp.listing_id = sl.id
+            WHERE sp.status = 'completed' {date_filter.replace('created_at', 'sp.created_at') if date_filter else ''}
+            GROUP BY DATE(sp.created_at) ORDER BY day
+        """)
+
+        tournament_entry_revenue = await conn.fetchval(
+            "SELECT COALESCE(SUM(amount_cents), 0) FROM tournament_entries WHERE status = 'completed'"
+        )
+        tournament_platform_fees = await conn.fetchval("""
+            SELECT COALESCE(SUM(
+                te.amount_cents * t.platform_fee_percent / 100
+            ), 0)
+            FROM tournament_entries te
+            JOIN tournaments t ON te.tournament_id = t.id
+            WHERE te.status = 'completed'
+        """)
+        tournament_prize_payouts = await conn.fetchval("""
+            SELECT COALESCE(SUM(prize_pool_cents), 0) FROM tournaments WHERE payout_status = 'paid'
+        """)
+
+        sponsor_revenue = await conn.fetchval(
+            "SELECT COALESCE(SUM(amount_cents), 0) FROM tournament_sponsors WHERE status = 'paid'"
+        )
+        sponsor_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM tournament_sponsors WHERE status = 'paid'"
+        )
+
+        connected_accounts_total = await conn.fetchval("SELECT COUNT(*) FROM connected_accounts")
+        connected_accounts_onboarded = await conn.fetchval(
+            "SELECT COUNT(*) FROM connected_accounts WHERE onboarding_complete = TRUE"
+        )
+
+        top_players = await conn.fetch(
+            "SELECT discord_name, wins, games_played FROM leaderboard ORDER BY wins DESC LIMIT 10"
+        )
+
+        guild_stats = await conn.fetchrow(
+            "SELECT guild_count, recorded_at FROM bot_stats ORDER BY recorded_at DESC LIMIT 1"
+        )
+        guild_history = await conn.fetch(f"""
+            SELECT DATE(recorded_at) as day, MAX(guild_count) as count
+            FROM bot_stats WHERE 1=1 {date_filter.replace('created_at', 'recorded_at') if date_filter else ''}
+            GROUP BY DATE(recorded_at) ORDER BY day
+        """)
+
+        total_decks = await conn.fetchval("SELECT COUNT(*) FROM custom_decks")
+        total_cards = await conn.fetchval("SELECT COUNT(*) FROM custom_cards")
+
+        return {
+            "users": {
+                "total": total_users,
+                "filtered": filtered_users,
+                "over_time": [{"day": str(r["day"]), "count": r["count"]} for r in users_over_time],
+            },
+            "games": {
+                "total": total_games,
+                "total_wins": total_wins,
+                "filtered": filtered_games,
+                "over_time": [{"day": str(r["day"]), "count": r["count"]} for r in games_over_time],
+            },
+            "tournaments": {
+                "total": total_tournaments,
+                "filtered": filtered_tournaments,
+                "by_status": {r["status"]: r["count"] for r in tournament_by_status},
+                "over_time": [{"day": str(r["day"]), "count": r["count"]} for r in tournaments_over_time],
+            },
+            "premium": {
+                "total": premium_stats["total"] if premium_stats else 0,
+                "active": premium_stats["active"] if premium_stats else 0,
+                "by_plan": {r["plan"]: r["count"] for r in premium_plan_breakdown},
+                "over_time": [{"day": str(r["day"]), "count": r["count"]} for r in premium_over_time],
+            },
+            "store": {
+                "total_purchases": store_total_purchases,
+                "filtered_purchases": filtered_purchases,
+                "revenue_cents": store_revenue_cents,
+                "top_decks": [{"name": r["name"], "sales": r["sales"]} for r in top_decks],
+                "over_time": [{"day": str(r["day"]), "count": r["count"], "revenue_cents": r["revenue_cents"]} for r in store_sales_over_time],
+            },
+            "revenue": {
+                "tournament_entry_total_cents": tournament_entry_revenue,
+                "tournament_platform_fees_cents": tournament_platform_fees,
+                "tournament_prize_payouts_cents": tournament_prize_payouts,
+                "store_revenue_cents": store_revenue_cents,
+                "sponsor_revenue_cents": sponsor_revenue,
+                "sponsor_count": sponsor_count,
+            },
+            "connected_accounts": {
+                "total": connected_accounts_total,
+                "onboarded": connected_accounts_onboarded,
+            },
+            "top_players": [{"name": r["discord_name"], "wins": r["wins"], "games_played": r["games_played"]} for r in top_players],
+            "guilds": {
+                "current": guild_stats["guild_count"] if guild_stats else 0,
+                "last_updated": str(guild_stats["recorded_at"]) if guild_stats and guild_stats["recorded_at"] else None,
+                "history": [{"day": str(r["day"]), "count": r["count"]} for r in guild_history],
+            },
+            "content": {
+                "total_decks": total_decks,
+                "total_cards": total_cards,
+            },
+        }
+
+
 STORE_DECK_META = {
     "420": ("420 Blaze It", "Light up the party with 20 weed-themed answer cards"),
     "addictions": ("Addictions", "20 cards about all the things you just can't quit"),
