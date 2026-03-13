@@ -137,11 +137,12 @@ async def stripe_webhook(request: Request):
                 if payment_status == "paid":
                     t_id = metadata.get("tournament_id", "")
                     sponsor_name = metadata.get("sponsor_name", "Sponsor")
+                    logo_url = metadata.get("logo_url", "")
                     amount = int(metadata.get("amount_cents", "0"))
                     session_id = session.get("id", "")
                     if t_id:
                         from db import create_tournament_sponsor
-                        await create_tournament_sponsor(int(t_id), sponsor_name, amount, stripe_session_id=session_id)
+                        await create_tournament_sponsor(int(t_id), sponsor_name, amount, stripe_session_id=session_id, logo_url=logo_url)
                         logger.info(f"Sponsor payment: {sponsor_name} for tournament {t_id} ${amount/100:.2f}")
 
             elif metadata.get("type") == "deck_purchase":

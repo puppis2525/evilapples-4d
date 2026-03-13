@@ -1392,7 +1392,8 @@ async def tournament_link(ctx, tournament_id: int = None):
             f"{team_info}"
             f"**Entry:** {fee_display}\n"
             f"**Created by:** {tournament.get('creator_name', 'Unknown')}\n\n"
-            f"Players can join on the website or use `!tournament join`.\n"
+            f"Players can join on the website: **https://EvilApples4d.com/tournaments/{tournament_id}**\n"
+            f"Or use `!tournament join` here in Discord.\n"
             f"The creator starts it with `!tournament start` when ready."
         ),
         color=discord.Color.green()

@@ -605,6 +605,7 @@ async def api_sponsor_tournament(tournament_id: int, request: Request):
 
         body = await request.json()
         sponsor_name = body.get("sponsor_name", "").strip()
+        logo_url = body.get("logo_url", "").strip()
         if not sponsor_name:
             return JSONResponse(content={"error": "Sponsor name is required"}, status_code=400)
 
@@ -639,6 +640,7 @@ async def api_sponsor_tournament(tournament_id: int, request: Request):
                     "type": "tournament_sponsor",
                     "tournament_id": str(tournament_id),
                     "sponsor_name": sponsor_name,
+                    "logo_url": logo_url,
                     "sponsor_discord_id": user["discord_id"],
                     "amount_cents": str(sponsor_price),
                 },
@@ -653,7 +655,7 @@ async def api_sponsor_tournament(tournament_id: int, request: Request):
             session = stripe_mod.checkout.Session.create(**checkout_params)
             return JSONResponse(content={"payment_required": True, "url": session.url})
 
-        sponsor_id = await create_tournament_sponsor(tournament_id, sponsor_name, 0)
+        sponsor_id = await create_tournament_sponsor(tournament_id, sponsor_name, 0, logo_url=logo_url)
         return JSONResponse(content={"success": True, "sponsor_id": sponsor_id})
     except Exception as e:
         logger.error(f"Sponsor tournament error: {e}")

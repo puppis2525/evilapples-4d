@@ -146,6 +146,12 @@
                 <input type="text" id="sponsor-name-input" placeholder="e.g. Acme Corp"
                     class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
             </div>
+            <div>
+                <label class="block text-evil-400 text-sm font-semibold mb-2">Logo URL <span class="text-evil-600 font-normal">(optional)</span></label>
+                <input type="url" id="sponsor-logo-input" placeholder="https://yoursite.com/logo.png"
+                    class="w-full px-4 py-3 rounded-xl bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition">
+                <p class="text-evil-600 text-xs mt-1">Square image shown on the tournament page</p>
+            </div>
             <p id="sponsor-price-display" class="text-evil-300 text-sm"></p>
             <p id="sponsor-error" class="text-red-400 text-sm hidden"></p>
             <div class="flex gap-3">
@@ -213,9 +219,10 @@
 
                 if (data.sponsors.length > 0) {
                     document.getElementById('sponsors-list').innerHTML = data.sponsors.map(s => `
-                        <div class="flex items-center justify-between py-2 px-3 bg-evil-card/30 rounded-lg">
-                            <span class="text-yellow-400 font-semibold">${s.sponsor_name}</span>
-                            <span class="text-evil-400 text-xs">$${(s.amount_cents / 100).toFixed(2)}</span>
+                        <div class="flex items-center gap-3 py-2 px-3 bg-evil-card/30 rounded-lg">
+                            ${s.logo_url ? `<img src="${s.logo_url}" alt="${s.sponsor_name}" class="w-8 h-8 rounded object-contain bg-white/10">` : '<div class="w-8 h-8 rounded bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs font-bold">' + s.sponsor_name[0].toUpperCase() + '</div>'}
+                            <span class="text-yellow-400 font-semibold flex-1">${s.sponsor_name}</span>
+                            ${s.amount_cents > 0 ? `<span class="text-evil-400 text-xs">$${(s.amount_cents / 100).toFixed(2)}</span>` : '<span class="text-green-400 text-xs">Partner</span>'}
                         </div>`).join('');
                 } else {
                     document.getElementById('sponsors-empty').classList.remove('hidden');
@@ -410,6 +417,7 @@
 
         async function submitSponsor() {
             const name = document.getElementById('sponsor-name-input').value.trim();
+            const logoUrl = document.getElementById('sponsor-logo-input').value.trim();
             const errorEl = document.getElementById('sponsor-error');
             errorEl.classList.add('hidden');
 
@@ -423,7 +431,7 @@
                 const resp = await fetch(`/api/tournaments/${TOURNAMENT_ID}/sponsor`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sponsor_name: name }),
+                    body: JSON.stringify({ sponsor_name: name, logo_url: logoUrl }),
                 });
                 const data = await resp.json();
                 if (data.payment_required && data.url) {
