@@ -35,7 +35,14 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 - **Discord OAuth2** for user login on the website, parsing user ID, username, and avatar.
 - Session management via signed cookies (HMAC-SHA256, 30-day expiry).
 - Admin panel access is token-gated (`SESSION_SECRET`).
-- Admin analytics dashboard at `/admin` with tabbed interface (Analytics, Store Manager, Template Decks), Chart.js visualizations, and date range filtering.
+- Admin analytics dashboard at `/admin` with tabbed interface (Analytics, Store Manager, Template Decks, Ads), Chart.js visualizations, and date range filtering.
+
+### Ad Revenue System
+- **Text Ads**: `text_ads` table stores managed ads with title, body, URL, display_name, active flag, impressions, and clicks.
+- **In-Bot Ads**: After each round's winner announcement, free-tier servers see a text ad. Premium servers are ad-free.
+- **Web Ad Slots**: All public pages (index, store, tournaments, howtoplay) show a sponsored text ad slot above the footer, loaded from `/api/ads/random`.
+- **Click Tracking**: `/ad/click/{ad_id}` increments clicks and redirects to destination URL.
+- **Admin Management**: Full CRUD at `/api/admin/ads` (GET/POST/PUT/DELETE), with an Ads tab in the admin dashboard showing impressions, clicks, CTR, and pause/delete controls.
 
 ### Rate Limiting
 - In-memory, per-IP rate limiting across three tiers (Strict, Moderate, Relaxed) for API endpoints, excluding webhooks and static files.

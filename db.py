@@ -121,6 +121,76 @@ async def init_db():
         """)
 
 
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS text_ads (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(128) NOT NULL,
+                body VARCHAR(256) NOT NULL,
+                url TEXT NOT NULL,
+                display_name VARCHAR(128) NOT NULL DEFAULT '',
+                active BOOLEAN DEFAULT TRUE,
+                impressions INTEGER DEFAULT 0,
+                clicks INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+
+
+async def get_active_text_ad():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, title, body, url, display_name FROM text_ads WHERE active = TRUE ORDER BY RANDOM() LIMIT 1"
+        )
+        if row:
+            await conn.execute("UPDATE text_ads SET impressions = impressions + 1 WHERE id = $1", row["id"])
+            return dict(row)
+        return None
+
+
+async def record_ad_click(ad_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE text_ads SET clicks = clicks + 1 WHERE id = $1", ad_id)
+
+
+async def get_all_text_ads():
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM text_ads ORDER BY created_at DESC")
+        result = []
+        for row in rows:
+            d = dict(row)
+            if d.get("created_at"):
+                d["created_at"] = d["created_at"].isoformat()
+            result.append(d)
+        return result
+
+
+async def create_text_ad(title: str, body: str, url: str, display_name: str = ""):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO text_ads (title, body, url, display_name) VALUES ($1, $2, $3, $4) RETURNING id",
+            title, body, url, display_name
+        )
+        return row["id"]
+
+
+async def update_text_ad(ad_id: int, **kwargs):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        for key, value in kwargs.items():
+            if key in ("title", "body", "url", "display_name", "active"):
+                await conn.execute(f"UPDATE text_ads SET {key} = $1 WHERE id = $2", value, ad_id)
+
+
+async def delete_text_ad(ad_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM text_ads WHERE id = $1", ad_id)
+
+
 async def save_round(prompt: str, winning_card: str, winner_discord_id: str, winner_name: str, slug: str):
     pool = await get_db_pool()
     async with pool.acquire() as conn:

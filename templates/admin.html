@@ -81,6 +81,7 @@
                 <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn active px-6 py-3 font-bold text-sm">Analytics</button>
                 <button onclick="switchTab('store')" id="tab-store" class="tab-btn px-6 py-3 font-bold text-sm">Store Manager</button>
                 <button onclick="switchTab('decks')" id="tab-decks" class="tab-btn px-6 py-3 font-bold text-sm">Template Decks</button>
+                <button onclick="switchTab('ads')" id="tab-ads" class="tab-btn px-6 py-3 font-bold text-sm">Ads</button>
             </div>
 
             <!-- ANALYTICS TAB -->
@@ -367,6 +368,54 @@
                     <div class="text-center text-evil-400 py-8">Loading template decks...</div>
                 </div>
             </div>
+
+            <!-- ADS TAB -->
+            <div id="panel-ads" class="hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="font-brand text-3xl text-evil-300">Text Ads Manager</h2>
+                    <button onclick="toggleAdForm()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold hover:from-orange-400 hover:to-red-500 transition">
+                        + New Ad
+                    </button>
+                </div>
+                <p class="text-evil-500 text-sm mb-4">Text ads are shown in-bot after rounds on free-tier servers and on all web pages. Track impressions and clicks below.</p>
+
+                <div id="ad-create-form" class="hidden mb-6">
+                    <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6">
+                        <h3 class="font-brand text-xl text-evil-300 mb-4">Create Text Ad</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Title</label>
+                                <input type="text" id="ad-title" placeholder="Try Evil Merch!"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-evil-400 text-sm font-semibold mb-1">Display Name</label>
+                                <input type="text" id="ad-display-name" placeholder="EvilApples Store"
+                                    class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-evil-400 text-sm font-semibold mb-1">Body Text</label>
+                            <input type="text" id="ad-body" placeholder="Get 20% off all evil merchandise this week!"
+                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-evil-400 text-sm font-semibold mb-1">Destination URL</label>
+                            <input type="text" id="ad-url" placeholder="https://example.com/promo"
+                                class="w-full px-3 py-2 rounded-lg bg-evil-card border border-evil-800/50 text-white placeholder-evil-600 focus:outline-none focus:border-evil-500 transition text-sm">
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="toggleAdForm()" class="flex-1 px-4 py-2.5 rounded-xl border border-evil-800/50 text-evil-300 hover:bg-evil-card transition">Cancel</button>
+                            <button onclick="createAd()" class="flex-1 px-4 py-2.5 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition">Create Ad</button>
+                        </div>
+                        <p id="ad-create-status" class="text-sm mt-3 hidden"></p>
+                    </div>
+                </div>
+
+                <div id="ads-table" class="space-y-3">
+                    <div class="text-center text-evil-400 py-8">Loading ads...</div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -394,12 +443,13 @@
         Chart.defaults.font.family = "'Inter', sans-serif";
 
         function switchTab(tab) {
-            ['analytics', 'store', 'decks'].forEach(t => {
+            ['analytics', 'store', 'decks', 'ads'].forEach(t => {
                 document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
                 document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
             });
             if (tab === 'store') loadListings();
             if (tab === 'decks') loadTemplateDecks();
+            if (tab === 'ads') loadAds();
         }
 
         async function authenticate() {
@@ -975,6 +1025,140 @@
                 `).join('');
             } catch (e) {
                 console.error('Load template decks error:', e);
+            }
+        }
+
+        function toggleAdForm() {
+            document.getElementById('ad-create-form').classList.toggle('hidden');
+        }
+
+        async function createAd() {
+            const title = document.getElementById('ad-title').value.trim();
+            const body = document.getElementById('ad-body').value.trim();
+            const url = document.getElementById('ad-url').value.trim();
+            const displayName = document.getElementById('ad-display-name').value.trim();
+            const status = document.getElementById('ad-create-status');
+
+            if (!title || !body || !url) {
+                status.textContent = 'Title, body, and URL are required.';
+                status.className = 'text-red-400 text-sm mt-3';
+                status.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/admin/ads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                    body: JSON.stringify({ title, body, url, display_name: displayName })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    status.textContent = `Ad created (ID: ${data.id})`;
+                    status.className = 'text-green-400 text-sm mt-3';
+                    document.getElementById('ad-title').value = '';
+                    document.getElementById('ad-body').value = '';
+                    document.getElementById('ad-url').value = '';
+                    document.getElementById('ad-display-name').value = '';
+                    loadAds();
+                } else {
+                    status.textContent = data.error || 'Failed to create ad.';
+                    status.className = 'text-red-400 text-sm mt-3';
+                }
+                status.classList.remove('hidden');
+            } catch (e) {
+                status.textContent = 'Failed to create ad.';
+                status.className = 'text-red-400 text-sm mt-3';
+                status.classList.remove('hidden');
+            }
+        }
+
+        async function toggleAdActive(adId, active) {
+            try {
+                await fetch(`/api/admin/ads/${adId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+                    body: JSON.stringify({ active })
+                });
+                loadAds();
+            } catch (e) {
+                console.error('Toggle ad error:', e);
+            }
+        }
+
+        async function deleteAd(adId) {
+            if (!confirm('Delete this ad permanently?')) return;
+            try {
+                await fetch(`/api/admin/ads/${adId}`, {
+                    method: 'DELETE',
+                    headers: { 'x-admin-token': adminToken }
+                });
+                loadAds();
+            } catch (e) {
+                console.error('Delete ad error:', e);
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        async function loadAds() {
+            try {
+                const resp = await fetch('/api/admin/ads', {
+                    headers: { 'x-admin-token': adminToken }
+                });
+                const data = await resp.json();
+                const container = document.getElementById('ads-table');
+
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-evil-400 py-8">No ads yet. Create one above.</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(ad => {
+                    const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : '0.00';
+                    const statusColor = ad.active ? 'text-green-400' : 'text-red-400';
+                    const statusLabel = ad.active ? 'Active' : 'Paused';
+                    const safeTitle = escapeHtml(ad.title);
+                    const safeBody = escapeHtml(ad.body);
+                    const safeUrl = escapeHtml(ad.url);
+                    const safeName = escapeHtml(ad.display_name || '');
+
+                    return `
+                    <div class="bg-evil-surface border border-evil-800/40 rounded-xl p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1 min-w-0 mr-4">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h4 class="font-bold text-sm text-white truncate">${safeTitle}</h4>
+                                    <span class="text-xs font-semibold ${statusColor}">${statusLabel}</span>
+                                </div>
+                                <p class="text-evil-400 text-xs truncate">${safeBody}</p>
+                                <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="text-evil-500 text-xs hover:text-evil-300 truncate block">${safeUrl}</a>
+                                ${safeName ? `<span class="text-evil-500 text-xs">By: ${safeName}</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <div class="text-right mr-4">
+                                    <div class="text-evil-300 text-xs font-mono">${ad.impressions.toLocaleString()} imp</div>
+                                    <div class="text-evil-300 text-xs font-mono">${ad.clicks.toLocaleString()} clicks</div>
+                                    <div class="text-evil-500 text-xs">${ctr}% CTR</div>
+                                </div>
+                                <button onclick="toggleAdActive(${ad.id}, ${!ad.active})"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-bold border ${ad.active ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' : 'border-green-500/30 text-green-400 hover:bg-green-500/10'} transition">
+                                    ${ad.active ? 'Pause' : 'Activate'}
+                                </button>
+                                <button onclick="deleteAd(${ad.id})"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('Load ads error:', e);
             }
         }
     </script>

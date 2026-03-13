@@ -98,6 +98,17 @@
         </div>
     </main>
 
+    <div id="ad-slot" class="max-w-6xl mx-auto px-6 pb-6">
+        <div id="text-ad-container" class="hidden bg-evil-surface/60 border border-evil-800/30 rounded-xl p-4 text-center">
+            <div class="text-evil-500 text-[10px] uppercase tracking-widest mb-1">Sponsored</div>
+            <a id="text-ad-link" href="#" target="_blank" class="block hover:opacity-80 transition">
+                <span id="text-ad-title" class="text-evil-300 font-bold text-sm"></span>
+                <span class="text-evil-400 mx-1">&mdash;</span>
+                <span id="text-ad-body" class="text-evil-400 text-sm"></span>
+            </a>
+        </div>
+    </div>
+
     <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
         <div class="flex items-center justify-center gap-2 mb-2">
             <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
@@ -195,6 +206,20 @@
 
         initAuth();
         loadTournaments('all');
+
+        async function loadTextAd() {
+            try {
+                const resp = await fetch('/api/ads/random');
+                const ad = await resp.json();
+                if (ad && ad.id) {
+                    document.getElementById('text-ad-title').textContent = ad.title;
+                    document.getElementById('text-ad-body').textContent = ad.body;
+                    document.getElementById('text-ad-link').href = ad.click_url;
+                    document.getElementById('text-ad-container').classList.remove('hidden');
+                }
+            } catch (e) {}
+        }
+        loadTextAd();
     </script>
 </body>
 </html>

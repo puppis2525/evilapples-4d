@@ -500,6 +500,25 @@ async def ai_judge_pick(game, channel):
     else:
         await channel.send(embed=embed)
 
+    try:
+        guild_id = str(channel.guild.id) if channel.guild else None
+        if guild_id:
+            premium = await is_premium_server(guild_id)
+            if not premium:
+                from db import get_active_text_ad
+                ad = await get_active_text_ad()
+                if ad:
+                    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+                    click_url = f"https://{host}/ad/click/{ad['id']}"
+                    ad_text = f"📢 **{ad['title']}** — {ad['body']}"
+                    if ad.get("display_name"):
+                        ad_text += f" | *{ad['display_name']}*"
+                    ad_text += f"\n🔗 {click_url}"
+                    ad_text += "\n-# *Upgrade to Pro to remove ads — `!premium`*"
+                    await channel.send(ad_text)
+    except Exception as e:
+        logger.debug(f"Ad display skipped: {e}")
+
 
 async def check_all_submitted(game, interaction):
     channel_id = None

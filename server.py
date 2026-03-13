@@ -1067,6 +1067,123 @@ async def admin_upload_image(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
+@app.get("/ad/click/{ad_id}")
+async def ad_click_redirect(ad_id: int):
+    from db import record_ad_click
+    from starlette.responses import RedirectResponse
+    try:
+        await record_ad_click(ad_id)
+        from db import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT url FROM text_ads WHERE id = $1", ad_id)
+        if row and row["url"]:
+            url = row["url"]
+            if url.startswith("https://") or url.startswith("http://"):
+                return RedirectResponse(url=url)
+        return RedirectResponse(url="/")
+    except Exception as e:
+        logger.error(f"Ad click error: {e}")
+        return RedirectResponse(url="/")
+
+
+@app.get("/api/admin/ads")
+async def api_admin_ads(request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Forbidden"}, status_code=403)
+    from db import get_all_text_ads
+    try:
+        data = await get_all_text_ads()
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Admin ads error: {e}")
+        return JSONResponse(content=[], status_code=200)
+
+
+@app.post("/api/admin/ads")
+async def api_admin_create_ad(request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Forbidden"}, status_code=403)
+    from db import create_text_ad
+    try:
+        body = await request.json()
+        title = body.get("title", "").strip()[:128]
+        ad_body = body.get("body", "").strip()[:256]
+        url = body.get("url", "").strip()[:2000]
+        display_name = body.get("display_name", "").strip()[:128]
+        if not title or not ad_body or not url:
+            return JSONResponse(content={"error": "Title, body, and URL are required"}, status_code=400)
+        if not url.startswith("https://") and not url.startswith("http://"):
+            return JSONResponse(content={"error": "URL must start with http:// or https://"}, status_code=400)
+        ad_id = await create_text_ad(
+            title=title,
+            body=ad_body,
+            url=url,
+            display_name=display_name,
+        )
+        return JSONResponse(content={"success": True, "id": ad_id})
+    except Exception as e:
+        logger.error(f"Create ad error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.put("/api/admin/ads/{ad_id}")
+async def api_admin_update_ad(ad_id: int, request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Forbidden"}, status_code=403)
+    from db import update_text_ad
+    try:
+        body = await request.json()
+        kwargs = {}
+        for key in ("title", "body", "url", "display_name"):
+            if key in body:
+                kwargs[key] = body[key]
+        if "active" in body:
+            kwargs["active"] = bool(body["active"])
+        await update_text_ad(ad_id, **kwargs)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        logger.error(f"Update ad error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.delete("/api/admin/ads/{ad_id}")
+async def api_admin_delete_ad(ad_id: int, request: Request):
+    token = request.headers.get("x-admin-token", "")
+    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+        return JSONResponse(content={"error": "Forbidden"}, status_code=403)
+    from db import delete_text_ad
+    try:
+        await delete_text_ad(ad_id)
+        return JSONResponse(content={"success": True})
+    except Exception as e:
+        logger.error(f"Delete ad error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.get("/api/ads/random")
+async def api_random_ad():
+    from db import get_active_text_ad
+    try:
+        ad = await get_active_text_ad()
+        if ad:
+            host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+            return JSONResponse(content={
+                "id": ad["id"],
+                "title": ad["title"],
+                "body": ad["body"],
+                "display_name": ad.get("display_name", ""),
+                "click_url": f"https://{host}/ad/click/{ad['id']}"
+            })
+        return JSONResponse(content={})
+    except Exception as e:
+        logger.error(f"Random ad error: {e}")
+        return JSONResponse(content={})
+
+
 if __name__ == "__main__":
     logger.info("Starting Evil Apples 4D server on port 5000...")
     uvicorn.run(app, host="0.0.0.0", port=5000)
