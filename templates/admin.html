@@ -1076,7 +1076,7 @@
         async function toggleAdActive(adId, active) {
             try {
                 await fetch(`/api/admin/ads/${adId}`, {
-                    method: 'PUT',
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
                     body: JSON.stringify({ active })
                 });

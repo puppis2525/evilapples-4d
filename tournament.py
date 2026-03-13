@@ -71,6 +71,9 @@ class TournamentJudgingView(discord.ui.View):
         embed.set_footer(text=f"Tournament: {self.tournament_data['name']}")
         await self.channel.send(embed=embed)
 
+        from bot import maybe_show_ad
+        await maybe_show_ad(self.channel)
+
         players = await get_tournament_players(tournament_id)
         standings_text = "\n".join(
             f"{'> ' if p['discord_id'] == str(winner_id) else ''}"

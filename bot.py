@@ -419,6 +419,33 @@ async def handle_judge_timeout(channel_id, expected_round_id):
     await ai_judge_pick(game, channel)
 
 
+async def maybe_show_ad(channel):
+    try:
+        guild_id = str(channel.guild.id) if channel.guild else None
+        if not guild_id:
+            return
+        premium = await is_premium_server(guild_id)
+        if premium:
+            return
+        from db import get_active_text_ad
+        ad = await get_active_text_ad()
+        if ad:
+            host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+            click_url = f"https://{host}/ad/click/{ad['id']}"
+            ad_embed = discord.Embed(
+                color=discord.Color.from_rgb(50, 50, 60)
+            )
+            ad_text = f"**{ad['title']}** — {ad['body']}"
+            if ad.get("display_name"):
+                ad_text += f" | *{ad['display_name']}*"
+            ad_embed.add_field(name="\U0001F4E2 Sponsored", value=ad_text, inline=False)
+            ad_embed.add_field(name="\U0001F517 Learn More", value=click_url, inline=False)
+            ad_embed.set_footer(text="Upgrade to Pro to remove ads — !premium")
+            await channel.send(embed=ad_embed)
+    except Exception as e:
+        logger.debug(f"Ad display skipped: {e}")
+
+
 async def ai_judge_pick(game, channel):
     prompt = game["prompt"]
     submissions = list(game["submissions"].items())
@@ -500,24 +527,7 @@ async def ai_judge_pick(game, channel):
     else:
         await channel.send(embed=embed)
 
-    try:
-        guild_id = str(channel.guild.id) if channel.guild else None
-        if guild_id:
-            premium = await is_premium_server(guild_id)
-            if not premium:
-                from db import get_active_text_ad
-                ad = await get_active_text_ad()
-                if ad:
-                    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
-                    click_url = f"https://{host}/ad/click/{ad['id']}"
-                    ad_text = f"📢 **{ad['title']}** — {ad['body']}"
-                    if ad.get("display_name"):
-                        ad_text += f" | *{ad['display_name']}*"
-                    ad_text += f"\n🔗 {click_url}"
-                    ad_text += "\n-# *Upgrade to Pro to remove ads — `!premium`*"
-                    await channel.send(ad_text)
-    except Exception as e:
-        logger.debug(f"Ad display skipped: {e}")
+    await maybe_show_ad(channel)
 
 
 async def check_all_submitted(game, interaction):

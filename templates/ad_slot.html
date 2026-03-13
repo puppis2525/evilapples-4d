@@ -1,0 +1,41 @@
+{% macro render_ad_slot(is_premium=False, adsense_publisher_id='', max_width='max-w-6xl') %}
+{% if not is_premium %}
+<div id="ad-slot" class="{{ max_width }} mx-auto px-6 pb-6">
+    {% if adsense_publisher_id %}
+    <div class="text-center">
+        <div class="text-evil-500 text-[10px] uppercase tracking-widest mb-1">Advertisement</div>
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-{{ adsense_publisher_id }}"
+             data-ad-slot="auto"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+    {% else %}
+    <div id="text-ad-container" class="hidden bg-evil-surface/60 border border-evil-800/30 rounded-xl p-4 text-center">
+        <div class="text-evil-500 text-[10px] uppercase tracking-widest mb-1">Sponsored</div>
+        <a id="text-ad-link" href="#" target="_blank" class="block hover:opacity-80 transition">
+            <span id="text-ad-title" class="text-evil-300 font-bold text-sm"></span>
+            <span class="text-evil-400 mx-1">&mdash;</span>
+            <span id="text-ad-body" class="text-evil-400 text-sm"></span>
+        </a>
+    </div>
+    <script>
+    (async function() {
+        try {
+            const resp = await fetch('/api/ads/random');
+            const ad = await resp.json();
+            if (ad && ad.id) {
+                document.getElementById('text-ad-title').textContent = ad.title;
+                document.getElementById('text-ad-body').textContent = ad.body;
+                document.getElementById('text-ad-link').href = ad.click_url;
+                document.getElementById('text-ad-container').classList.remove('hidden');
+            }
+        } catch (e) {}
+    })();
+    </script>
+    {% endif %}
+</div>
+{% endif %}
+{% endmacro %}

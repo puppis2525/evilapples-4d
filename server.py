@@ -166,14 +166,21 @@ async def favicon():
     return FileResponse("static/logo.png", media_type="image/png")
 
 
+ADSENSE_PUBLISHER_ID = os.environ.get("ADSENSE_PUBLISHER_ID", "")
+
+
+def ad_context():
+    return {"adsense_publisher_id": ADSENSE_PUBLISHER_ID}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request, **ad_context()})
 
 
 @app.get("/howtoplay", response_class=HTMLResponse)
 async def howtoplay_page(request: Request):
-    return templates.TemplateResponse("howtoplay.html", {"request": request})
+    return templates.TemplateResponse("howtoplay.html", {"request": request, **ad_context()})
 
 
 @app.get("/premium", response_class=HTMLResponse)
@@ -222,7 +229,7 @@ async def api_generate(card_type: str = "white"):
 
 @app.get("/tournaments", response_class=HTMLResponse)
 async def tournaments_page(request: Request):
-    return templates.TemplateResponse("tournaments.html", {"request": request})
+    return templates.TemplateResponse("tournaments.html", {"request": request, **ad_context()})
 
 
 @app.get("/tournaments/revenue", response_class=HTMLResponse)
@@ -725,7 +732,7 @@ ADMIN_TOKEN = os.environ.get("SESSION_SECRET", "")
 
 @app.get("/store", response_class=HTMLResponse)
 async def store_page(request: Request):
-    return templates.TemplateResponse("store.html", {"request": request})
+    return templates.TemplateResponse("store.html", {"request": request, **ad_context()})
 
 
 @app.get("/store/success", response_class=HTMLResponse)
@@ -1129,7 +1136,7 @@ async def api_admin_create_ad(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@app.put("/api/admin/ads/{ad_id}")
+@app.patch("/api/admin/ads/{ad_id}")
 async def api_admin_update_ad(ad_id: int, request: Request):
     token = request.headers.get("x-admin-token", "")
     if not ADMIN_TOKEN or token != ADMIN_TOKEN:
