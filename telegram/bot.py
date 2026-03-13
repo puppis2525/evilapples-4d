@@ -14,11 +14,17 @@ from telegram.error import Forbidden, BadRequest
 
 from api_client import (
     generate_prompt, ai_judge, dr_evil_roast,
-    deal_default_hands, deal_default_solo, HAND_SIZE
+    deal_default_hands, deal_default_solo, generate_hand, HAND_SIZE
 )
 from db import (
     init_db, save_round, batch_update_games_played,
-    update_leaderboard, get_leaderboard, record_bot_group_count
+    update_leaderboard, get_leaderboard, record_bot_group_count,
+    create_tg_tournament, get_active_tg_tournament, join_tg_tournament,
+    get_tg_tournament_players, get_tg_tournament_player_count,
+    start_tg_tournament, advance_tg_tournament_round, end_tg_tournament,
+    is_premium_group, get_tg_user_decks, create_tg_deck, add_cards_to_tg_deck,
+    get_tg_deck_cards, get_random_cards_from_decks, delete_tg_deck,
+    get_tg_store_listings, get_tg_store_listing,
 )
 
 logger = logging.getLogger("tg_bot")
@@ -44,6 +50,10 @@ AI_OPPONENT_NAMES = [
 active_games: dict[int, dict] = {}
 solo_games: dict[int, dict] = {}
 timer_tasks: dict = {}
+active_tournaments: dict[int, dict] = {}
+pending_deck_uploads: dict[int, dict] = {}
+
+WEB_BASE = os.environ.get("WEB_BASE_URL", "https://evilapples4d.com")
 
 
 def format_prompt(text: str) -> str:
@@ -100,6 +110,69 @@ def next_round_keyboard() -> InlineKeyboardMarkup:
     ]])
 
 
+def tournament_join_keyboard(tournament_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🏆 Join Tournament", callback_data=f"tjoin_{tournament_id}")
+    ]])
+
+
+def tournament_card_keyboard(hand: list[str], tournament_id: int) -> InlineKeyboardMarkup:
+    buttons = []
+    for i, card in enumerate(hand):
+        label = card[:60] + "…" if len(card) > 60 else card
+        buttons.append([InlineKeyboardButton(label, callback_data=f"tsub_{tournament_id}_{i}")])
+    return InlineKeyboardMarkup(buttons)
+
+
+def tournament_judge_keyboard(submissions: list[tuple], tournament_id: int) -> InlineKeyboardMarkup:
+    buttons = []
+    for i, (_, card) in enumerate(submissions):
+        label = f"Card {i+1}: " + (card[:50] + "…" if len(card) > 50 else card)
+        buttons.append([InlineKeyboardButton(label, callback_data=f"tjudge_{tournament_id}_{i}")])
+    return InlineKeyboardMarkup(buttons)
+
+
+def tournament_hand_keyboard(tournament_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🃏 View My Hand", callback_data=f"tviewhand_{tournament_id}")
+    ]])
+
+
+def deck_picker_keyboard(decks: list[dict], chat_id: int, selected: list[int]) -> InlineKeyboardMarkup:
+    buttons = []
+    for deck in decks:
+        check = "✅ " if deck["id"] in selected else ""
+        label = f"{check}{deck['name']} ({deck['answer_count']} cards)"[:60]
+        buttons.append([InlineKeyboardButton(label, callback_data=f"dpick_{chat_id}_{deck['id']}")])
+    buttons.append([
+        InlineKeyboardButton("▶️ Start with selected decks", callback_data=f"dstart_{chat_id}"),
+        InlineKeyboardButton("⏭ Skip — use default cards", callback_data=f"dskip_{chat_id}"),
+    ])
+    return InlineKeyboardMarkup(buttons)
+
+
+def store_listing_keyboard(listings: list[dict], page: int = 0) -> InlineKeyboardMarkup:
+    PAGE_SIZE = 5
+    start = page * PAGE_SIZE
+    chunk = listings[start:start + PAGE_SIZE]
+    buttons = []
+    for item in chunk:
+        price = f"${item['price_cents'] / 100:.2f}"
+        star = "⭐ " if item.get("featured") else ""
+        buttons.append([InlineKeyboardButton(
+            f"{star}{item['name']} — {price}",
+            callback_data=f"sdetail_{item['id']}"
+        )])
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀️ Prev", callback_data=f"spage_{page - 1}"))
+    if start + PAGE_SIZE < len(listings):
+        nav.append(InlineKeyboardButton("Next ▶️", callback_data=f"spage_{page + 1}"))
+    if nav:
+        buttons.append(nav)
+    return InlineKeyboardMarkup(buttons)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "😈 *Evil Apples for Telegram*\n\n"
@@ -119,18 +192,30 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "😈 *Evil Apples — Commands*\n\n"
-        "*Group Commands:*\n"
-        "`/startgame` — Start a game \\(default: friend mode\\)\n"
+        "*Group Game:*\n"
+        "`/startgame` — Start a game \\(friend mode\\)\n"
         "`/startgame swap` — Start swap mode \\(5\\+ players\\)\n"
         "`/join` — Join the game\n"
         "`/deal` — Deal a new round\n"
         "`/scores` — Show current scores\n"
         "`/endgame` — End the game \\(host only\\)\n\n"
-        "*Private Commands:*\n"
+        "*Tournaments:*\n"
+        "`/tournament create <name> [rounds]` — Create a tournament\n"
+        "`/tournament join` — Join the open tournament\n"
+        "`/tournament start` — Start \\(min 3 players\\)\n"
+        "`/tournament status` — View standings\n"
+        "`/tournament end` — End early \\(creator only\\)\n\n"
+        "*Custom Decks:*\n"
+        "`/decks` — View your custom decks\n"
+        "`/deck upload <name>` — Upload a CSV deck\n"
+        "`/deck delete <name>` — Delete a deck\n"
+        "`/store` — Browse purchasable card packs\n\n"
+        "*Solo & Premium:*\n"
         "`/solo` — Play vs 3 AI opponents\n"
-        "`/solo 5` — Play vs 5 AI opponents\n\n"
+        "`/premium` — View Evil Apples Pro features\n"
+        "`/leaderboard` — Top players\n\n"
         "*How to play:*\n"
-        "Judge reads the prompt card\\. Players submit their funniest answer\\. "
+        "Judge reads the prompt card\\. Everyone submits their funniest answer\\. "
         "Judge picks the winner\\. First to 7 points wins\\!",
         parse_mode="MarkdownV2"
     )
@@ -193,6 +278,21 @@ async def cmd_startgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="MarkdownV2",
         reply_markup=join_keyboard(chat_id)
     )
+
+    try:
+        decks = await get_tg_user_decks(player_id)
+    except Exception:
+        decks = []
+
+    if decks:
+        active_games[chat_id]["_available_decks"] = decks
+        active_games[chat_id]["selected_deck_ids"] = []
+        await update.message.reply_text(
+            f"🃏 *Custom Decks Available!*\n\n"
+            f"You have {len(decks)} custom deck(s). Pick up to 3 to use in this game, or skip to use default AI-generated cards:",
+            parse_mode="Markdown",
+            reply_markup=deck_picker_keyboard(decks, chat_id, [])
+        )
 
 
 async def cmd_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -321,8 +421,17 @@ async def _do_deal(chat_id: int, bot, game: dict):
         prompt = await generate_prompt()
         game["prompt"] = prompt
 
-        hands = deal_default_hands(len(playing_ids), HAND_SIZE)
-        game["hands"] = {pid: hand for pid, hand in zip(playing_ids, hands)}
+        deck_ids = game.get("active_deck_ids", [])
+        if deck_ids:
+            try:
+                deck_hands = await _deal_deck_aware_hands(playing_ids, deck_ids)
+                game["hands"] = deck_hands
+            except Exception:
+                hands = deal_default_hands(len(playing_ids), HAND_SIZE)
+                game["hands"] = {pid: hand for pid, hand in zip(playing_ids, hands)}
+        else:
+            hands = deal_default_hands(len(playing_ids), HAND_SIZE)
+            game["hands"] = {pid: hand for pid, hand in zip(playing_ids, hands)}
 
         if mode == "swap" and len(playing_ids) > 1:
             ordered_hands = [game["hands"][pid] for pid in playing_ids]
@@ -891,6 +1000,945 @@ async def cmd_solo_end(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No solo game running.")
 
 
+# ─── Tournament commands (Task #8) ───────────────────────────────────────────
+
+async def cmd_tournament(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+
+    if update.effective_chat.type == "private":
+        await update.message.reply_text("Tournaments are group features! Add me to a group first.")
+        return
+
+    args = context.args
+    sub = args[0].lower() if args else "help"
+
+    if sub == "create":
+        await _tournament_create(update, context)
+    elif sub == "join":
+        await _tournament_join_cmd(update, context)
+    elif sub == "start":
+        await _tournament_start(update, context)
+    elif sub == "status":
+        await _tournament_status(update, context)
+    elif sub == "end":
+        await _tournament_end(update, context)
+    else:
+        await update.message.reply_text(
+            "🏆 *Tournament Commands:*\n\n"
+            "`/tournament create <name> [rounds]` — Create a tournament\n"
+            "`/tournament join` — Join the open tournament\n"
+            "`/tournament start` — Start the tournament (creator only, min 3 players)\n"
+            "`/tournament status` — View current standings\n"
+            "`/tournament end` — End the tournament early (creator only)",
+            parse_mode="Markdown"
+        )
+
+
+async def _tournament_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    args = context.args[1:] if len(context.args) > 1 else []
+
+    existing = await get_active_tg_tournament(chat_id)
+    if existing:
+        await update.message.reply_text(
+            f"There's already an active tournament: *{existing['name']}*\n"
+            f"Use `/tournament end` to cancel it first.",
+            parse_mode="Markdown"
+        )
+        return
+
+    if not args:
+        await update.message.reply_text(
+            "Usage: `/tournament create <name> [rounds]`\nExample: `/tournament create Evil Cup 7`",
+            parse_mode="Markdown"
+        )
+        return
+
+    rounds_total = 5
+    name_parts = args
+    if args[-1].isdigit():
+        rounds_total = max(1, min(20, int(args[-1])))
+        name_parts = args[:-1]
+
+    name = " ".join(name_parts)[:80]
+    if not name:
+        await update.message.reply_text("Please give your tournament a name!")
+        return
+
+    try:
+        tournament_id = await create_tg_tournament(
+            name, chat_id, str(user.id), user.full_name, rounds_total
+        )
+        active_tournaments[chat_id] = {
+            "id": tournament_id,
+            "name": name,
+            "rounds_total": rounds_total,
+            "current_round": 0,
+            "creator_id": str(user.id),
+            "state": "registration",
+            "players": {},
+            "round_hands": {},
+            "round_submissions": {},
+            "round_prompt": "",
+            "judge_index": 0,
+            "judge_id": None,
+            "_shuffled_submissions": [],
+        }
+        t = active_tournaments[chat_id]
+        t["players"][str(user.id)] = user.full_name
+
+        await join_tg_tournament(tournament_id, str(user.id), user.full_name)
+
+        await update.message.reply_text(
+            f"🏆 *{name}* — Tournament Created!\n\n"
+            f"Rounds: *{rounds_total}*\n"
+            f"Host: *{user.full_name}*\n\n"
+            f"Players can join below or type `/tournament join`\n"
+            f"When ready, use `/tournament start` (min 3 players)",
+            parse_mode="Markdown",
+            reply_markup=tournament_join_keyboard(tournament_id)
+        )
+    except Exception as e:
+        logger.error(f"Tournament create error: {e}")
+        await update.message.reply_text(f"Error creating tournament: {e}")
+
+
+async def _tournament_join_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    t = active_tournaments.get(chat_id)
+
+    if not t or t["state"] != "registration":
+        db_t = await get_active_tg_tournament(chat_id)
+        if not db_t or db_t["status"] != "registration":
+            await update.message.reply_text("No open tournament to join. Create one with `/tournament create <name>`", parse_mode="Markdown")
+            return
+        if chat_id not in active_tournaments:
+            active_tournaments[chat_id] = {
+                "id": db_t["id"], "name": db_t["name"],
+                "rounds_total": db_t["rounds_total"], "current_round": db_t["current_round"],
+                "creator_id": db_t["creator_id"], "state": "registration",
+                "players": {}, "round_hands": {}, "round_submissions": {},
+                "round_prompt": "", "judge_index": 0, "judge_id": None,
+                "_shuffled_submissions": [],
+            }
+        t = active_tournaments[chat_id]
+
+    player_id = str(user.id)
+    if player_id in t["players"]:
+        await update.message.reply_text(f"You're already registered, {user.first_name}!")
+        return
+
+    joined = await join_tg_tournament(t["id"], player_id, user.full_name)
+    if joined:
+        t["players"][player_id] = user.full_name
+        count = len(t["players"])
+        await update.message.reply_text(
+            f"✅ *{user.full_name}* joined the tournament! ({count} players registered)",
+            parse_mode="Markdown"
+        )
+    else:
+        await update.message.reply_text("You're already registered!")
+
+
+async def cb_tournament_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    tournament_id = int(query.data.split("_", 1)[1])
+    user = query.from_user
+    chat_id = query.message.chat_id
+    t = active_tournaments.get(chat_id)
+
+    if not t or t["id"] != tournament_id or t["state"] != "registration":
+        await query.answer("Registration is closed!", show_alert=True)
+        return
+
+    player_id = str(user.id)
+    if player_id in t["players"]:
+        await query.answer("You're already registered!", show_alert=True)
+        return
+
+    joined = await join_tg_tournament(tournament_id, player_id, user.full_name)
+    if joined:
+        t["players"][player_id] = user.full_name
+        count = len(t["players"])
+        await context.bot.send_message(
+            chat_id,
+            f"✅ *{user.full_name}* joined the tournament! ({count} players registered)",
+            parse_mode="Markdown"
+        )
+
+
+async def _tournament_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    t = active_tournaments.get(chat_id)
+
+    if not t:
+        await update.message.reply_text("No active tournament. Create one with `/tournament create <name>`", parse_mode="Markdown")
+        return
+
+    if t["state"] != "registration":
+        await update.message.reply_text("The tournament has already started!")
+        return
+
+    if str(user.id) != t["creator_id"]:
+        await update.message.reply_text("Only the tournament creator can start it!")
+        return
+
+    if len(t["players"]) < 3:
+        await update.message.reply_text(
+            f"Need at least 3 players to start! Currently: {len(t['players'])}.\n"
+            f"More players can `/tournament join`.",
+            parse_mode="Markdown"
+        )
+        return
+
+    t["state"] = "active"
+    t["current_round"] = 1
+    await start_tg_tournament(t["id"])
+
+    players_list = "\n".join(f"• {name}" for name in t["players"].values())
+    await update.message.reply_text(
+        f"🏆 *{t['name']}* — Starting Now!\n\n"
+        f"*Players ({len(t['players'])}):\n{players_list}*\n\n"
+        f"Round 1 of {t['rounds_total']} begins...",
+        parse_mode="Markdown"
+    )
+
+    await _run_tournament_round(chat_id, context.bot, t)
+
+
+async def _tournament_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    t = active_tournaments.get(chat_id)
+
+    if not t:
+        db_t = await get_active_tg_tournament(chat_id)
+        if not db_t:
+            await update.message.reply_text("No active tournament in this group.")
+            return
+        players = await get_tg_tournament_players(db_t["id"])
+        standings = "\n".join(
+            f"{i+1}. {p['discord_name']} — {p['points']} pts" for i, p in enumerate(players)
+        )
+        await update.message.reply_text(
+            f"🏆 *{db_t['name']}*\n"
+            f"Status: {db_t['status']} | Round {db_t['current_round']}/{db_t['rounds_total']}\n\n"
+            f"*Standings:*\n{standings or 'No players yet'}",
+            parse_mode="Markdown"
+        )
+        return
+
+    players = await get_tg_tournament_players(t["id"])
+    standings = "\n".join(
+        f"{i+1}. {p['discord_name']} — {p['points']} pts ({p['rounds_won']} wins)"
+        for i, p in enumerate(players)
+    )
+    await update.message.reply_text(
+        f"🏆 *{t['name']}* — Round {t.get('current_round', 0)}/{t['rounds_total']}\n\n"
+        f"*Standings:*\n{standings or 'No data yet'}",
+        parse_mode="Markdown"
+    )
+
+
+async def _tournament_end(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    t = active_tournaments.get(chat_id)
+
+    if not t:
+        await update.message.reply_text("No active tournament to end.")
+        return
+
+    if str(user.id) != t["creator_id"]:
+        await update.message.reply_text("Only the tournament creator can end it!")
+        return
+
+    await end_tg_tournament(t["id"])
+    active_tournaments.pop(chat_id, None)
+    timer_tasks.pop(f"tjudge_{chat_id}", None)
+
+    await update.message.reply_text(
+        f"Tournament *{t['name']}* has been ended.",
+        parse_mode="Markdown"
+    )
+
+
+async def _run_tournament_round(chat_id: int, bot, t: dict):
+    round_number = t["current_round"]
+    player_ids = list(t["players"].keys())
+
+    judge_idx = t.get("judge_index", 0) % len(player_ids)
+    judge_id = player_ids[judge_idx]
+    t["judge_index"] = (judge_idx + 1) % len(player_ids)
+    t["judge_id"] = judge_id
+    judge_name = t["players"][judge_id]
+
+    playing_ids = [pid for pid in player_ids if pid != judge_id]
+    t["round_submissions"] = {}
+    t["round_prompt"] = ""
+    t["_shuffled_submissions"] = []
+    t["_playing_ids"] = playing_ids
+
+    try:
+        prompt = await generate_prompt()
+        t["round_prompt"] = prompt
+
+        hands = await asyncio.gather(*(generate_hand(HAND_SIZE) for _ in playing_ids))
+        t["round_hands"] = {pid: list(hand) for pid, hand in zip(playing_ids, hands)}
+
+        prompt_display = format_prompt(prompt)
+        await bot.send_message(
+            chat_id,
+            f"🏆 *Tournament Round {round_number}/{t['rounds_total']}*\n\n"
+            f"Prompt: *{prompt_display}*\n\n"
+            f"⚖️ Judge: *{judge_name}*\n\n"
+            f"Tap below to view your hand and submit a card!",
+            parse_mode="Markdown",
+            reply_markup=tournament_hand_keyboard(t["id"])
+        )
+
+    except Exception as e:
+        logger.error(f"Tournament round error: {e}")
+        active_tournaments.pop(chat_id, None)
+        await bot.send_message(chat_id, f"Error starting round: {e}")
+
+
+async def cb_tournament_view_hand(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    tournament_id = int(query.data.split("_", 1)[1])
+    user = query.from_user
+    player_id = str(user.id)
+
+    chat_id = query.message.chat_id
+    t = active_tournaments.get(chat_id)
+
+    if not t or t["id"] != tournament_id:
+        await query.answer("No active tournament round.", show_alert=True)
+        return
+
+    if player_id == t.get("judge_id"):
+        await query.answer("You're the judge this round — wait for submissions!", show_alert=True)
+        return
+
+    if player_id not in t.get("_playing_ids", []):
+        await query.answer("You're not playing this round.", show_alert=True)
+        return
+
+    if player_id in t.get("round_submissions", {}):
+        await query.answer("You already submitted a card!", show_alert=True)
+        return
+
+    hand = t["round_hands"].get(player_id, [])
+    if not hand:
+        await query.answer("No cards in your hand!", show_alert=True)
+        return
+
+    try:
+        await context.bot.send_message(
+            user.id,
+            f"🃏 *Your Tournament Hand*\n\n"
+            f"Prompt: _{format_prompt(t['round_prompt'])}_\n\n"
+            f"Pick a card:",
+            parse_mode="Markdown",
+            reply_markup=tournament_card_keyboard(hand, tournament_id)
+        )
+    except (Forbidden, BadRequest):
+        await query.answer(
+            "⚠️ I can't DM you! Please start a private chat with me first.",
+            show_alert=True
+        )
+
+
+async def cb_tournament_submit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Card submitted! ✅")
+
+    parts = query.data.split("_")
+    tournament_id = int(parts[1])
+    card_idx = int(parts[2])
+    user = query.from_user
+    player_id = str(user.id)
+
+    chat_id = query.message.chat_id
+    t = active_tournaments.get(chat_id)
+
+    if not t or t["id"] != tournament_id:
+        return
+
+    if player_id not in t.get("_playing_ids", []):
+        return
+
+    if player_id in t.get("round_submissions", {}):
+        await query.answer("You already submitted!", show_alert=True)
+        return
+
+    hand = t["round_hands"].get(player_id, [])
+    if card_idx >= len(hand):
+        return
+
+    card = hand[card_idx]
+    t["round_submissions"][player_id] = card
+
+    await query.edit_message_text(
+        f"✅ *Card submitted!*\n\nYou played: _{card}_\n\nWaiting for others...",
+        parse_mode="Markdown"
+    )
+
+    submitted = len(t["round_submissions"])
+    total = len(t.get("_playing_ids", []))
+    try:
+        await context.bot.send_message(
+            chat_id, f"✅ {user.full_name} submitted their card. ({submitted}/{total})"
+        )
+    except Exception:
+        pass
+
+    await _check_all_tournament_submitted(chat_id, context.bot, t)
+
+
+async def _check_all_tournament_submitted(chat_id: int, bot, t: dict):
+    playing_ids = t.get("_playing_ids", [])
+    if len(t["round_submissions"]) < len(playing_ids):
+        return
+
+    task_key = f"tjudge_{chat_id}"
+    if task_key in timer_tasks:
+        timer_tasks[task_key].cancel()
+        timer_tasks.pop(task_key, None)
+
+    submissions = list(t["round_submissions"].items())
+    random.shuffle(submissions)
+    t["_shuffled_submissions"] = submissions
+
+    judge_id = t.get("judge_id")
+    judge_name = t["players"].get(judge_id, "Judge")
+
+    sub_text = "\n".join(
+        f"🃏 Card {i+1}: {card}" for i, (_, card) in enumerate(submissions)
+    )
+
+    await bot.send_message(
+        chat_id,
+        f"⚖️ *All cards submitted!*\n\n"
+        f"Prompt: *{format_prompt(t['round_prompt'])}*\n\n"
+        f"{sub_text}\n\n"
+        f"*{judge_name}*, pick the winner!\n"
+        f"_(2 minutes or Dr. Evil steps in)_",
+        parse_mode="Markdown",
+        reply_markup=tournament_judge_keyboard(submissions, t["id"])
+    )
+
+    round_id = t.get("current_round", 0)
+
+    async def judge_timeout():
+        try:
+            await asyncio.sleep(120)
+            current_t = active_tournaments.get(chat_id)
+            if current_t and current_t.get("current_round") == round_id and current_t.get("_shuffled_submissions"):
+                await bot.send_message(chat_id, "⏰ Judge took too long! Dr. Evil steps in...")
+                await _tournament_ai_judge(chat_id, bot, current_t)
+        except asyncio.CancelledError:
+            pass
+
+    timer_tasks[task_key] = asyncio.create_task(judge_timeout())
+
+
+async def cb_tournament_judge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    parts = query.data.split("_")
+    tournament_id = int(parts[1])
+    card_idx = int(parts[2])
+    user = query.from_user
+    player_id = str(user.id)
+
+    chat_id = query.message.chat_id
+    t = active_tournaments.get(chat_id)
+
+    if not t or t["id"] != tournament_id:
+        return
+
+    if player_id != t.get("judge_id"):
+        await query.answer("Only the judge can pick the winner!", show_alert=True)
+        return
+
+    task_key = f"tjudge_{chat_id}"
+    if task_key in timer_tasks:
+        timer_tasks[task_key].cancel()
+        timer_tasks.pop(task_key, None)
+
+    submissions = t.get("_shuffled_submissions", [])
+    if card_idx >= len(submissions):
+        return
+
+    winner_id, winning_card = submissions[card_idx]
+    winner_name = t["players"].get(winner_id, "Unknown")
+
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    await _announce_tournament_round_winner(chat_id, context.bot, t, winner_id, winner_name, winning_card)
+
+
+async def _tournament_ai_judge(chat_id: int, bot, t: dict):
+    submissions = t.get("_shuffled_submissions", [])
+    if not submissions:
+        return
+    card_texts = [card for _, card in submissions]
+    try:
+        chosen_idx = await ai_judge(t["round_prompt"], card_texts)
+    except Exception:
+        chosen_idx = random.randint(0, len(submissions) - 1)
+
+    winner_id, winning_card = submissions[chosen_idx]
+    winner_name = t["players"].get(winner_id, "Unknown")
+    await _announce_tournament_round_winner(chat_id, bot, t, winner_id, winner_name, winning_card)
+
+
+async def _announce_tournament_round_winner(chat_id: int, bot, t: dict,
+                                             winner_id: str, winner_name: str, winning_card: str):
+    round_number = t["current_round"]
+    prompt = t["round_prompt"]
+
+    slug = slugify(f"t-{t['id']}-r{round_number}-{random.randint(100, 999)}")
+    try:
+        await save_round(prompt, winning_card, winner_id, winner_name, slug)
+    except Exception as e:
+        logger.error(f"Tournament save_round error: {e}")
+
+    try:
+        is_final = await advance_tg_tournament_round(
+            t["id"], round_number, prompt, winning_card, winner_id, winner_name
+        )
+    except Exception as e:
+        logger.error(f"advance_tg_tournament_round error: {e}")
+        is_final = round_number >= t["rounds_total"]
+
+    players = await get_tg_tournament_players(t["id"])
+    standings = "\n".join(
+        f"{'👑 ' if p['discord_id'] == f'tg_{winner_id}' else ''}"
+        f"{i+1}. {p['discord_name']} — {p['points']} pts"
+        for i, p in enumerate(players)
+    )
+
+    await bot.send_message(
+        chat_id,
+        f"🏆 *Round {round_number} Winner: {winner_name}!*\n\n"
+        f"Prompt: _{format_prompt(prompt)}_\n"
+        f"Winning card: *{winning_card}*\n\n"
+        f"*Standings:*\n{standings}",
+        parse_mode="Markdown"
+    )
+
+    if is_final:
+        top = players[0] if players else None
+        champ = top["discord_name"] if top else winner_name
+        await bot.send_message(
+            chat_id,
+            f"🎉 *Tournament Over!*\n\n"
+            f"🥇 Champion: *{champ}*\n\n"
+            f"Thanks for playing *{t['name']}*!\n"
+            f"Start a new one with `/tournament create <name>`",
+            parse_mode="Markdown"
+        )
+        active_tournaments.pop(chat_id, None)
+    else:
+        t["current_round"] += 1
+        await asyncio.sleep(3)
+        await _run_tournament_round(chat_id, bot, t)
+
+
+# ─── Store, Decks & Premium commands (Task #9) ───────────────────────────────
+
+async def cmd_store(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        listings = await get_tg_store_listings()
+    except Exception as e:
+        await update.message.reply_text(f"Error loading store: {e}")
+        return
+
+    if not listings:
+        await update.message.reply_text(
+            "🛒 *Evil Apples Store*\n\nNo decks available yet. Check back soon!",
+            parse_mode="Markdown"
+        )
+        return
+
+    context.user_data["store_listings"] = listings
+    await update.message.reply_text(
+        f"🛒 *Evil Apples Store*\n\n"
+        f"{len(listings)} deck{'s' if len(listings) != 1 else ''} available.\n"
+        f"Tap a deck to see details and buy:",
+        parse_mode="Markdown",
+        reply_markup=store_listing_keyboard(listings, page=0)
+    )
+
+
+async def cb_store_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    page = int(query.data.split("_")[1])
+    listings = context.user_data.get("store_listings")
+    if not listings:
+        listings = await get_tg_store_listings()
+        context.user_data["store_listings"] = listings
+    await query.edit_message_reply_markup(
+        reply_markup=store_listing_keyboard(listings, page=page)
+    )
+
+
+async def cb_store_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    listing_id = int(query.data.split("_")[1])
+    user = query.from_user
+
+    try:
+        item = await get_tg_store_listing(listing_id)
+    except Exception:
+        item = None
+
+    if not item:
+        await query.answer("Item not found!", show_alert=True)
+        return
+
+    price = f"${item['price_cents'] / 100:.2f}"
+    buy_url = f"{WEB_BASE}/store?platform=telegram&user_id=tg_{user.id}"
+
+    await query.edit_message_text(
+        f"🃏 *{item['name']}*\n\n"
+        f"{item.get('description', '')}\n\n"
+        f"Price: *{price}*\n\n"
+        f"To purchase, visit the store on the web:",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🛒 Buy on Web Store", url=buy_url)
+        ], [
+            InlineKeyboardButton("◀️ Back to Store", callback_data="sback")
+        ]])
+    )
+
+
+async def cb_store_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    listings = context.user_data.get("store_listings")
+    if not listings:
+        listings = await get_tg_store_listings()
+        context.user_data["store_listings"] = listings
+    await query.edit_message_text(
+        f"🛒 *Evil Apples Store*\n\n{len(listings)} decks available:",
+        parse_mode="Markdown",
+        reply_markup=store_listing_keyboard(listings, page=0)
+    )
+
+
+async def cmd_decks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    try:
+        decks = await get_tg_user_decks(str(user.id))
+    except Exception as e:
+        await update.message.reply_text(f"Error loading decks: {e}")
+        return
+
+    if not decks:
+        await update.message.reply_text(
+            "🃏 *Your Decks*\n\nYou don't have any custom decks yet.\n\n"
+            "• Use `/deck upload <name>` and attach a CSV file to create one\n"
+            "• Visit the store with `/store` to browse purchasable decks",
+            parse_mode="Markdown"
+        )
+        return
+
+    deck_lines = []
+    for d in decks:
+        deck_lines.append(
+            f"• *{d['name']}* — {d['answer_count']} answers, {d['prompt_count']} prompts"
+        )
+
+    await update.message.reply_text(
+        f"🃏 *Your Decks ({len(decks)}):*\n\n" + "\n".join(deck_lines) + "\n\n"
+        f"Use `/deck delete <name>` to remove a deck.",
+        parse_mode="Markdown"
+    )
+
+
+async def cmd_deck(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    args = context.args
+
+    if not args:
+        await update.message.reply_text(
+            "🃏 *Deck Commands:*\n\n"
+            "`/deck upload <name>` — Upload a CSV deck (attach file to message)\n"
+            "`/deck delete <name>` — Delete one of your decks\n"
+            "`/decks` — View all your decks\n\n"
+            "*CSV Format:*\n"
+            "Column 1: `prompt` or `answer`\n"
+            "Column 2: card text\n"
+            "Example:\n`prompt,Complete this sentence: ________`\n`answer,A winning personality`",
+            parse_mode="Markdown"
+        )
+        return
+
+    sub = args[0].lower()
+
+    if sub == "upload":
+        name_parts = args[1:]
+        if not name_parts:
+            await update.message.reply_text(
+                "Usage: `/deck upload <name>` — attach a CSV file to the same message",
+                parse_mode="Markdown"
+            )
+            return
+        name = " ".join(name_parts)[:80]
+        pending_deck_uploads[user.id] = {"name": name, "creator_name": user.full_name}
+        await update.message.reply_text(
+            f"✅ Ready to create deck *{name}*!\n\n"
+            f"Now send a CSV file attachment. Format:\n"
+            f"`prompt,Your prompt text here ________`\n"
+            f"`answer,Your answer card text here`",
+            parse_mode="Markdown"
+        )
+
+    elif sub == "delete":
+        name_parts = args[1:]
+        if not name_parts:
+            await update.message.reply_text("Usage: `/deck delete <name>`", parse_mode="Markdown")
+            return
+        name = " ".join(name_parts)
+        decks = await get_tg_user_decks(str(user.id))
+        target = next((d for d in decks if d["name"].lower() == name.lower()), None)
+        if not target:
+            await update.message.reply_text(f"No deck named *{name}* found.", parse_mode="Markdown")
+            return
+        deleted = await delete_tg_deck(target["id"], str(user.id))
+        if deleted:
+            await update.message.reply_text(f"✅ Deck *{name}* deleted.", parse_mode="Markdown")
+        else:
+            await update.message.reply_text("Could not delete that deck.")
+    else:
+        await update.message.reply_text(
+            "Unknown subcommand. Use `/deck upload <name>` or `/deck delete <name>`.",
+            parse_mode="Markdown"
+        )
+
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    pending = pending_deck_uploads.pop(user.id, None)
+    if not pending:
+        return
+
+    doc = update.message.document
+    if not doc or not doc.file_name.endswith(".csv"):
+        pending_deck_uploads[user.id] = pending
+        await update.message.reply_text("Please send a .csv file.")
+        return
+
+    name = pending["name"]
+    creator_name = pending["creator_name"]
+
+    try:
+        file = await context.bot.get_file(doc.file_id)
+        content = await file.download_as_bytearray()
+        text = content.decode("utf-8", errors="replace")
+    except Exception as e:
+        await update.message.reply_text(f"Error downloading file: {e}")
+        return
+
+    cards = []
+    errors = 0
+    for line_num, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(",", 1)
+        if len(parts) != 2:
+            errors += 1
+            continue
+        card_type = parts[0].strip().lower()
+        card_text = parts[1].strip().strip('"')
+        if card_type in ("prompt", "answer") and card_text:
+            cards.append((card_type, card_text))
+        else:
+            errors += 1
+
+    if not cards:
+        await update.message.reply_text(
+            "No valid cards found in the CSV. Check the format:\n"
+            "`prompt,Your prompt text ________`\n`answer,Your answer text`",
+            parse_mode="Markdown"
+        )
+        return
+
+    try:
+        deck_id = await create_tg_deck(name, "", str(user.id), creator_name)
+        if deck_id is None:
+            await update.message.reply_text(
+                f"You already have a deck named *{name}*. Delete it first with `/deck delete {name}`.",
+                parse_mode="Markdown"
+            )
+            return
+        counts = await add_cards_to_tg_deck(deck_id, cards)
+        await update.message.reply_text(
+            f"✅ *Deck '{name}' created!*\n\n"
+            f"📋 {counts['prompt_count']} prompts\n"
+            f"🃏 {counts['answer_count']} answers\n"
+            + (f"⚠️ {errors} lines skipped (bad format)\n" if errors else "") +
+            f"\nUse `/startgame` to start a game and pick this deck!",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Error saving deck: {e}")
+
+
+async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+
+    try:
+        is_group_premium = await is_premium_group(chat_id) if update.effective_chat.type != "private" else False
+    except Exception:
+        is_group_premium = False
+
+    upgrade_url = f"{WEB_BASE}/premium?platform=telegram&chat_id={chat_id}"
+
+    if is_group_premium:
+        await update.message.reply_text(
+            "⭐ *This group has Evil Apples Pro!*\n\n"
+            "You're enjoying all premium features:\n"
+            "✅ Custom card decks in games\n"
+            "✅ Ad-free experience\n"
+            "✅ Priority AI judging",
+            parse_mode="Markdown"
+        )
+        return
+
+    await update.message.reply_text(
+        "⭐ *Evil Apples Pro*\n\n"
+        "*Free tier:*\n"
+        "• Core game — unlimited rounds\n"
+        "• AI judging & leaderboards\n"
+        "• Tournaments\n\n"
+        "*Pro — $19/month per group:*\n"
+        "✅ Custom card decks in games\n"
+        "✅ Ad-free announcements\n"
+        "✅ Priority AI responses\n\n"
+        "Upgrade at the link below:",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("⭐ Upgrade to Pro", url=upgrade_url)
+        ]])
+    )
+
+
+# ─── Deck-aware startgame (Task #9) ──────────────────────────────────────────
+
+async def _deal_deck_aware_hands(playing_ids: list[str], deck_ids: list[int]) -> dict[str, list[str]]:
+    hands = {}
+    for pid in playing_ids:
+        if deck_ids:
+            try:
+                cards = await get_random_cards_from_decks(deck_ids, "answer", HAND_SIZE)
+                if len(cards) >= 3:
+                    hands[pid] = cards[:HAND_SIZE]
+                    continue
+            except Exception:
+                pass
+        hands[pid] = deal_default_hands(1, HAND_SIZE)[0]
+    return hands
+
+
+async def cb_deck_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    parts = query.data.split("_")
+    chat_id = int(parts[1])
+    deck_id = int(parts[2])
+    user = query.from_user
+
+    game = active_games.get(chat_id)
+    if not game or game.get("host_id") != str(user.id):
+        await query.answer("Only the host can pick decks!", show_alert=True)
+        return
+
+    selected = game.setdefault("selected_deck_ids", [])
+    if deck_id in selected:
+        selected.remove(deck_id)
+    else:
+        if len(selected) >= 3:
+            await query.answer("Max 3 decks! Deselect one first.", show_alert=True)
+            return
+        selected.append(deck_id)
+
+    decks = game.get("_available_decks", [])
+    await query.edit_message_reply_markup(
+        reply_markup=deck_picker_keyboard(decks, chat_id, selected)
+    )
+
+
+async def cb_deck_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = int(query.data.split("_")[1])
+    user = query.from_user
+    game = active_games.get(chat_id)
+
+    if not game or game.get("host_id") != str(user.id):
+        await query.answer("Only the host can start!", show_alert=True)
+        return
+
+    deck_ids = game.get("selected_deck_ids", [])
+    game["active_deck_ids"] = deck_ids
+    game.pop("_available_decks", None)
+
+    if deck_ids:
+        deck_names = [d["name"] for d in game.get("selected_deck_ids_meta", []) if d["id"] in deck_ids]
+        await context.bot.send_message(
+            chat_id,
+            f"✅ Custom decks selected! Cards will be dealt from your chosen decks.\n\n"
+            f"Use /deal to start the first round!"
+        )
+    else:
+        await context.bot.send_message(chat_id, "Using default AI-generated cards. Use /deal to start!")
+
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+
+async def cb_deck_skip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = int(query.data.split("_")[1])
+    user = query.from_user
+    game = active_games.get(chat_id)
+
+    if not game or game.get("host_id") != str(user.id):
+        await query.answer("Only the host can do that!", show_alert=True)
+        return
+
+    game["active_deck_ids"] = []
+    game.pop("_available_decks", None)
+
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await context.bot.send_message(chat_id, "Using default AI-generated cards. Use /deal to start!")
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Telegram bot error: {context.error}", exc_info=context.error)
 
@@ -910,12 +1958,33 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("solodeal", cmd_solo_deal))
     app.add_handler(CommandHandler("soloend", cmd_solo_end))
 
+    app.add_handler(CommandHandler("tournament", cmd_tournament))
+    app.add_handler(CommandHandler("store", cmd_store))
+    app.add_handler(CommandHandler("decks", cmd_decks))
+    app.add_handler(CommandHandler("deck", cmd_deck))
+    app.add_handler(CommandHandler("premium", cmd_premium))
+
     app.add_handler(CallbackQueryHandler(cb_join, pattern=r"^join_"))
     app.add_handler(CallbackQueryHandler(cb_view_hand, pattern=r"^viewhand_"))
     app.add_handler(CallbackQueryHandler(cb_submit_card, pattern=r"^submit_"))
     app.add_handler(CallbackQueryHandler(cb_judge_pick, pattern=r"^judge_"))
     app.add_handler(CallbackQueryHandler(cb_deal_next, pattern=r"^deal_next$"))
     app.add_handler(CallbackQueryHandler(cb_solo_submit, pattern=r"^solosub_"))
+
+    app.add_handler(CallbackQueryHandler(cb_tournament_join, pattern=r"^tjoin_"))
+    app.add_handler(CallbackQueryHandler(cb_tournament_view_hand, pattern=r"^tviewhand_"))
+    app.add_handler(CallbackQueryHandler(cb_tournament_submit, pattern=r"^tsub_"))
+    app.add_handler(CallbackQueryHandler(cb_tournament_judge, pattern=r"^tjudge_"))
+
+    app.add_handler(CallbackQueryHandler(cb_deck_pick, pattern=r"^dpick_"))
+    app.add_handler(CallbackQueryHandler(cb_deck_start, pattern=r"^dstart_"))
+    app.add_handler(CallbackQueryHandler(cb_deck_skip, pattern=r"^dskip_"))
+
+    app.add_handler(CallbackQueryHandler(cb_store_detail, pattern=r"^sdetail_"))
+    app.add_handler(CallbackQueryHandler(cb_store_page, pattern=r"^spage_"))
+    app.add_handler(CallbackQueryHandler(cb_store_back, pattern=r"^sback$"))
+
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
     app.add_error_handler(error_handler)
 
@@ -933,5 +2002,10 @@ async def set_commands(app: Application):
         BotCommand("solo", "Play solo vs AI opponents"),
         BotCommand("solodeal", "Deal a solo round"),
         BotCommand("soloend", "End your solo game"),
+        BotCommand("tournament", "Create or manage a group tournament"),
+        BotCommand("store", "Browse the card deck store"),
+        BotCommand("decks", "View your custom card decks"),
+        BotCommand("deck", "Upload or delete a custom deck"),
+        BotCommand("premium", "View or upgrade to Evil Apples Pro"),
         BotCommand("help", "Show all commands"),
     ])
