@@ -99,7 +99,7 @@
     </main>
 
     {% from "ad_slot.html" import render_ad_slot %}
-    {{ render_ad_slot(adsense_publisher_id=adsense_publisher_id) }}
+    {{ render_ad_slot(is_premium=is_premium, adsense_publisher_id=adsense_publisher_id) }}
 
     <footer class="border-t border-evil-800/30 py-8 text-center text-evil-400/50 text-sm">
         <div class="flex items-center justify-center gap-2 mb-2">

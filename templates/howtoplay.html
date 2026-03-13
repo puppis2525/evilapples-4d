@@ -566,7 +566,7 @@
     </main>
 
     {% from "ad_slot.html" import render_ad_slot %}
-    {{ render_ad_slot(adsense_publisher_id=adsense_publisher_id, max_width='max-w-5xl') }}
+    {{ render_ad_slot(is_premium=is_premium, adsense_publisher_id=adsense_publisher_id, max_width='max-w-5xl') }}
 
     <footer class="border-t border-evil-800/50 py-8 text-center text-evil-200/30 text-sm">
         <p>&copy; 2025 Evil Apples 4D. All rights reserved. Play responsibly... or don't.</p>

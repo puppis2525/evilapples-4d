@@ -169,18 +169,27 @@ async def favicon():
 ADSENSE_PUBLISHER_ID = os.environ.get("ADSENSE_PUBLISHER_ID", "")
 
 
-def ad_context():
-    return {"adsense_publisher_id": ADSENSE_PUBLISHER_ID}
+async def ad_context(request: Request):
+    ctx = {"adsense_publisher_id": ADSENSE_PUBLISHER_ID, "is_premium": False}
+    try:
+        from discord_auth import get_discord_user
+        user = get_discord_user(request)
+        if user and user.get("logged_in") and user.get("discord_id"):
+            from db import is_user_premium
+            ctx["is_premium"] = await is_user_premium(str(user["discord_id"]))
+    except Exception:
+        pass
+    return ctx
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, **ad_context()})
+    return templates.TemplateResponse("index.html", {"request": request, **(await ad_context(request))})
 
 
 @app.get("/howtoplay", response_class=HTMLResponse)
 async def howtoplay_page(request: Request):
-    return templates.TemplateResponse("howtoplay.html", {"request": request, **ad_context()})
+    return templates.TemplateResponse("howtoplay.html", {"request": request, **(await ad_context(request))})
 
 
 @app.get("/premium", response_class=HTMLResponse)
@@ -229,7 +238,7 @@ async def api_generate(card_type: str = "white"):
 
 @app.get("/tournaments", response_class=HTMLResponse)
 async def tournaments_page(request: Request):
-    return templates.TemplateResponse("tournaments.html", {"request": request, **ad_context()})
+    return templates.TemplateResponse("tournaments.html", {"request": request, **(await ad_context(request))})
 
 
 @app.get("/tournaments/revenue", response_class=HTMLResponse)
@@ -732,7 +741,7 @@ ADMIN_TOKEN = os.environ.get("SESSION_SECRET", "")
 
 @app.get("/store", response_class=HTMLResponse)
 async def store_page(request: Request):
-    return templates.TemplateResponse("store.html", {"request": request, **ad_context()})
+    return templates.TemplateResponse("store.html", {"request": request, **(await ad_context(request))})
 
 
 @app.get("/store/success", response_class=HTMLResponse)
