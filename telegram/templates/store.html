@@ -7,7 +7,7 @@
     <p>Browse available card decks. Use <code>/store</code> in Telegram to purchase decks for your games.</p>
 
     {% if listings %}
-    <div class="store-grid" style="margin-top: 2rem;">
+    <div class="store-grid mt-2">
         {% for item in listings %}
         <div class="store-card {% if item.featured %}featured{% endif %}">
             {% if item.featured %}
@@ -26,13 +26,13 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state" style="margin-top: 2rem;">
+    <div class="empty-state mt-2">
         No decks available yet — check back soon!
     </div>
     {% endif %}
 
-    <div class="step-card" style="margin-top: 3rem;">
-        <h2 style="margin-top: 0;">Create Your Own Deck</h2>
+    <div class="cta-section">
+        <h2>Create Your Own Deck</h2>
         <p>You can create custom decks by uploading a CSV file in Telegram:</p>
         <p>1. Prepare a CSV with columns: <code>type</code> (prompt or answer) and <code>text</code></p>
         <p>2. Send <code>/deck</code> in any chat with the bot</p>

@@ -7,7 +7,7 @@
     <p>The top Evil Apples players on Telegram. Play more to climb the ranks!</p>
 
     {% if leaders %}
-    <table style="margin-top: 2rem;">
+    <table class="mt-2">
         <thead>
             <tr><th>#</th><th>Player</th><th>Wins</th><th>Games</th><th>Win Rate</th></tr>
         </thead>
@@ -26,12 +26,12 @@
         </tbody>
     </table>
     {% else %}
-    <div class="empty-state" style="margin-top: 2rem;">
+    <div class="empty-state mt-2">
         No games played yet — be the first! Add the bot to your Telegram group and start a game.
     </div>
     {% endif %}
 
-    <div style="text-align: center; margin-top: 2rem;">
+    <div class="text-center mt-2">
         <a class="btn btn-primary" href="https://t.me/{{ bot_username }}?startgroup=true" target="_blank">
             Add Bot to Your Group
         </a>
