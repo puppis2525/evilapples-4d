@@ -427,9 +427,10 @@ async def maybe_append_ad(embed, channel):
         premium = await is_premium_server(guild_id)
         if premium:
             return
-        from db import get_random_active_ad
+        from db import get_random_active_ad, record_ad_impression
         ad = await get_random_active_ad()
         if ad:
+            await record_ad_impression(ad["id"])
             host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
             click_url = f"https://{host}/ad/click/{ad['id']}"
             ad_text = f"*{ad['title']} — {ad['body']}"
