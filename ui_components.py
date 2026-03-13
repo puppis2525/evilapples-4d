@@ -360,13 +360,13 @@ class JudgingView(discord.ui.View):
         embed.add_field(name="Scores", value=scores_text, inline=False)
         embed.set_footer(text=f"Round saved as: /rounds/{slug}")
 
+        from bot import maybe_append_ad
+        await maybe_append_ad(embed, self.channel)
+
         if not game_over:
             await self.channel.send(embed=embed, view=PostRoundView())
         else:
             await self.channel.send(embed=embed)
-
-        from bot import maybe_show_ad
-        await maybe_show_ad(self.channel)
 
         self.game_session["state"] = "finished"
 

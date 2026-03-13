@@ -136,16 +136,21 @@ async def init_db():
         """)
 
 
-async def get_active_text_ad():
+async def get_random_active_ad():
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             "SELECT id, title, body, url, display_name FROM text_ads WHERE active = TRUE ORDER BY RANDOM() LIMIT 1"
         )
         if row:
-            await conn.execute("UPDATE text_ads SET impressions = impressions + 1 WHERE id = $1", row["id"])
             return dict(row)
         return None
+
+
+async def record_ad_impression(ad_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE text_ads SET impressions = impressions + 1 WHERE id = $1", ad_id)
 
 
 async def record_ad_click(ad_id: int):
@@ -1289,6 +1294,16 @@ async def is_premium_server(guild_id: str) -> bool:
         row = await conn.fetchrow(
             "SELECT active FROM premium_servers WHERE guild_id = $1 AND active = TRUE",
             guild_id
+        )
+        return row is not None
+
+
+async def is_user_premium(discord_id: str) -> bool:
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id FROM premium_servers WHERE activated_by = $1 AND active = TRUE LIMIT 1",
+            discord_id
         )
         return row is not None
 

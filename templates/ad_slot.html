@@ -1,6 +1,5 @@
-{% macro render_ad_slot(is_premium=False, adsense_publisher_id='', max_width='max-w-6xl') %}
-{% if not is_premium %}
-<div id="ad-slot" class="{{ max_width }} mx-auto px-6 pb-6">
+{% macro render_ad_slot(adsense_publisher_id='', max_width='max-w-6xl') %}
+<div id="ad-slot" class="{{ max_width }} mx-auto px-6 pb-6 hidden">
     {% if adsense_publisher_id %}
     <div class="text-center">
         <div class="text-evil-500 text-[10px] uppercase tracking-widest mb-1">Advertisement</div>
@@ -10,8 +9,21 @@
              data-ad-slot="auto"
              data-ad-format="auto"
              data-full-width-responsive="true"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
+    <script>
+    (async function() {
+        try {
+            const r = await fetch('/api/user/premium');
+            const d = await r.json();
+            if (d.is_premium) return;
+            document.getElementById('ad-slot').classList.remove('hidden');
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (e) {
+            document.getElementById('ad-slot').classList.remove('hidden');
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        }
+    })();
+    </script>
     {% else %}
     <div id="text-ad-container" class="hidden bg-evil-surface/60 border border-evil-800/30 rounded-xl p-4 text-center">
         <div class="text-evil-500 text-[10px] uppercase tracking-widest mb-1">Sponsored</div>
@@ -24,6 +36,10 @@
     <script>
     (async function() {
         try {
+            const pr = await fetch('/api/user/premium');
+            const pd = await pr.json();
+            if (pd.is_premium) return;
+            document.getElementById('ad-slot').classList.remove('hidden');
             const resp = await fetch('/api/ads/random');
             const ad = await resp.json();
             if (ad && ad.id) {
@@ -37,5 +53,4 @@
     </script>
     {% endif %}
 </div>
-{% endif %}
 {% endmacro %}

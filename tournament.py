@@ -69,10 +69,9 @@ class TournamentJudgingView(discord.ui.View):
         embed.add_field(name="Winning Card", value=winning_card, inline=False)
         embed.add_field(name="Winner", value=f"**{winner_name}** (+1 point)", inline=False)
         embed.set_footer(text=f"Tournament: {self.tournament_data['name']}")
+        from bot import maybe_append_ad
+        await maybe_append_ad(embed, self.channel)
         await self.channel.send(embed=embed)
-
-        from bot import maybe_show_ad
-        await maybe_show_ad(self.channel)
 
         players = await get_tournament_players(tournament_id)
         standings_text = "\n".join(

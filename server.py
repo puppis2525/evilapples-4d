@@ -1087,11 +1087,11 @@ async def ad_click_redirect(ad_id: int):
         if row and row["url"]:
             url = row["url"]
             if url.startswith("https://") or url.startswith("http://"):
-                return RedirectResponse(url=url)
-        return RedirectResponse(url="/")
+                return RedirectResponse(url=url, status_code=302)
+        return RedirectResponse(url="/", status_code=302)
     except Exception as e:
         logger.error(f"Ad click error: {e}")
-        return RedirectResponse(url="/")
+        return RedirectResponse(url="/", status_code=302)
 
 
 @app.get("/api/admin/ads")
@@ -1173,10 +1173,11 @@ async def api_admin_delete_ad(ad_id: int, request: Request):
 
 @app.get("/api/ads/random")
 async def api_random_ad():
-    from db import get_active_text_ad
+    from db import get_random_active_ad, record_ad_impression
     try:
-        ad = await get_active_text_ad()
+        ad = await get_random_active_ad()
         if ad:
+            await record_ad_impression(ad["id"])
             host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
             return JSONResponse(content={
                 "id": ad["id"],
@@ -1189,6 +1190,20 @@ async def api_random_ad():
     except Exception as e:
         logger.error(f"Random ad error: {e}")
         return JSONResponse(content={})
+
+
+@app.get("/api/user/premium")
+async def api_user_premium(request: Request):
+    from discord_auth import get_discord_user
+    user = get_discord_user(request)
+    if not user or not user.get("logged_in"):
+        return JSONResponse(content={"is_premium": False})
+    from db import is_user_premium
+    try:
+        premium = await is_user_premium(str(user["discord_id"]))
+        return JSONResponse(content={"is_premium": premium})
+    except Exception:
+        return JSONResponse(content={"is_premium": False})
 
 
 if __name__ == "__main__":
