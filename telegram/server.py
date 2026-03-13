@@ -73,7 +73,8 @@ async def home(request: Request):
     try:
         leaders = await get_leaderboard(10)
         rounds = await get_recent_rounds(5)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Home page data error: {e}")
         leaders = []
         rounds = []
 
@@ -92,7 +93,8 @@ async def howtoplay(request: Request):
 async def store(request: Request):
     try:
         listings = await get_tg_store_listings()
-    except Exception:
+    except Exception as e:
+        logger.error(f"Store page data error: {e}")
         listings = []
 
     return templates.TemplateResponse(
@@ -110,7 +112,8 @@ async def premium(request: Request):
 async def leaderboard_page(request: Request):
     try:
         leaders = await get_leaderboard(50)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Leaderboard page data error: {e}")
         leaders = []
 
     return templates.TemplateResponse(
@@ -125,7 +128,8 @@ async def api_stats():
         stats = await get_tg_stats()
         return JSONResponse(content=stats)
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        logger.error(f"Stats API error: {e}")
+        return JSONResponse(content={"error": "Failed to load stats"}, status_code=500)
 
 
 @app.get("/api/leaderboard")
@@ -134,7 +138,8 @@ async def api_leaderboard():
         rows = await get_leaderboard(20)
         return JSONResponse(content=rows)
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        logger.error(f"Leaderboard API error: {e}")
+        return JSONResponse(content={"error": "Failed to load leaderboard"}, status_code=500)
 
 
 @app.get("/api/rounds")
@@ -146,7 +151,8 @@ async def api_rounds():
             for r in rows
         ])
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        logger.error(f"Rounds API error: {e}")
+        return JSONResponse(content={"error": "Failed to load rounds"}, status_code=500)
 
 
 @app.get("/health")
