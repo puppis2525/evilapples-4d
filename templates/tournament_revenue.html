@@ -97,18 +97,18 @@
         <section>
             <h3 class="font-brand text-2xl text-evil-300 mb-3 text-center">The Money Flow</h3>
             <p class="text-evil-400 text-sm text-center mb-6 max-w-xl mx-auto">
-                Every entry fee is split three ways: prizes for the winners, the platform fee, and your host earnings.
+                Every entry fee is split three ways. Prizes go to the winners. The platform and host then split the remaining revenue &mdash; with the platform always taking the larger share.
             </p>
             <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-6 max-w-2xl mx-auto">
                 <div class="flex flex-col gap-3">
                     <div class="flex items-center gap-4">
                         <div class="w-full bg-evil-card rounded-full h-8 overflow-hidden flex">
-                            <div class="bg-yellow-500 h-full flex items-center justify-center text-xs font-bold text-black" style="width: 55%">Prizes (55%)</div>
-                            <div class="bg-evil-500 h-full flex items-center justify-center text-xs font-bold text-white" style="width: 10%">Fee</div>
-                            <div class="bg-green-500 h-full flex items-center justify-center text-xs font-bold text-black" style="width: 35%">Host (35%)</div>
+                            <div class="bg-yellow-500 h-full flex items-center justify-center text-xs font-bold text-black" style="width: 40%">Prizes (40%)</div>
+                            <div class="bg-evil-500 h-full flex items-center justify-center text-xs font-bold text-white" style="width: 40%">Platform (40%)</div>
+                            <div class="bg-green-600 h-full flex items-center justify-center text-xs font-bold text-white" style="width: 20%">Host (20%)</div>
                         </div>
                     </div>
-                    <p class="text-evil-400 text-xs text-center">Example split &mdash; you decide the prize amounts, which determines your take-home share.</p>
+                    <p class="text-evil-400 text-xs text-center">Example split at the Starter tier &mdash; prize pool is host-configurable; platform always earns 2&times; the host share.</p>
                 </div>
             </div>
         </section>
@@ -116,36 +116,41 @@
         <section>
             <h3 class="font-brand text-2xl text-evil-300 mb-3 text-center">Platform Fee Tiers</h3>
             <p class="text-evil-400 text-sm text-center mb-6 max-w-xl mx-auto">
-                The platform fee is based on how many tournaments your server runs each month. Low-volume servers pay the lowest rate.
+                Revenue is split three ways: platform, host, and prizes. The platform always earns 2&times; the host share. High-volume servers earn a slightly larger host cut as a reward for activity.
             </p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
                 <div class="bg-evil-surface border border-green-500/30 rounded-2xl p-5 text-center">
-                    <div class="font-brand text-3xl text-green-400 mb-1">10%</div>
-                    <div class="text-evil-300 text-sm font-semibold">1&ndash;2 / month</div>
-                    <div class="text-evil-400 text-xs mt-1">Best for casual hosts</div>
+                    <div class="font-brand text-3xl text-green-400 mb-1">40%</div>
+                    <div class="text-evil-300 text-sm font-semibold">Starter</div>
+                    <div class="text-evil-400 text-xs mt-1">1&ndash;2 / month</div>
+                    <div class="text-green-500/70 text-xs mt-2 border-t border-evil-800/30 pt-2">Host keeps 20%</div>
                 </div>
                 <div class="bg-evil-surface border border-evil-500/30 rounded-2xl p-5 text-center">
-                    <div class="font-brand text-3xl text-evil-300 mb-1">15%</div>
-                    <div class="text-evil-300 text-sm font-semibold">3&ndash;5 / month</div>
-                    <div class="text-evil-400 text-xs mt-1">Regular hosts</div>
+                    <div class="font-brand text-3xl text-evil-300 mb-1">35%</div>
+                    <div class="text-evil-300 text-sm font-semibold">Regular</div>
+                    <div class="text-evil-400 text-xs mt-1">3&ndash;5 / month</div>
+                    <div class="text-green-500/70 text-xs mt-2 border-t border-evil-800/30 pt-2">Host keeps 18%</div>
                 </div>
                 <div class="bg-evil-surface border border-yellow-500/30 rounded-2xl p-5 text-center">
-                    <div class="font-brand text-3xl text-yellow-400 mb-1">20%</div>
-                    <div class="text-evil-300 text-sm font-semibold">6&ndash;10 / month</div>
-                    <div class="text-evil-400 text-xs mt-1">Active communities</div>
+                    <div class="font-brand text-3xl text-yellow-400 mb-1">30%</div>
+                    <div class="text-evil-300 text-sm font-semibold">Active</div>
+                    <div class="text-evil-400 text-xs mt-1">6&ndash;9 / month</div>
+                    <div class="text-green-500/70 text-xs mt-2 border-t border-evil-800/30 pt-2">Host keeps 15%</div>
                 </div>
                 <div class="bg-evil-surface border border-red-500/30 rounded-2xl p-5 text-center">
                     <div class="font-brand text-3xl text-red-400 mb-1">25%</div>
-                    <div class="text-evil-300 text-sm font-semibold">11+ / month</div>
-                    <div class="text-evil-400 text-xs mt-1">High-volume servers</div>
+                    <div class="text-evil-300 text-sm font-semibold">High Volume</div>
+                    <div class="text-evil-400 text-xs mt-1">10+ / month</div>
+                    <div class="text-green-500/70 text-xs mt-2 border-t border-evil-800/30 pt-2">Host keeps 13%</div>
                 </div>
             </div>
+            <p class="text-evil-400 text-xs text-center mt-4 max-w-lg mx-auto">Platform share is always 2&times; the host share &mdash; prizes make up the remainder and are set by the host.</p>
         </section>
 
         <section>
             <h3 class="font-brand text-2xl text-evil-300 mb-6 text-center">Earnings Scenarios</h3>
             <p class="text-evil-400 text-sm text-center mb-8 max-w-xl mx-auto">
-                Here's what hosts and players can expect to earn at different tournament sizes. All examples use the 10% starter tier.
+                Here's what hosts and the platform earn at different tournament sizes. All examples use the Starter tier (40% platform / 20% host / 40% prizes).
             </p>
 
             <div class="space-y-8">
@@ -158,14 +163,15 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-3">
                                 <div class="flex justify-between text-sm"><span class="text-evil-400">Total Collected</span><span class="text-white font-bold">$50.00</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (10%)</span><span class="text-evil-300">-$5.00</span></div>
-                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Available for Prizes + Host</span><span class="text-white font-bold">$45.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (40%)</span><span class="text-evil-300">-$20.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Host Share (20%)</span><span class="text-green-400">$10.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Prize Pool (40%)</span><span class="text-yellow-400 font-bold">$20.00</span></div>
                             </div>
                             <div class="space-y-3">
                                 <h5 class="text-yellow-400 font-semibold text-sm">Prize Payouts</h5>
-                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$20.00</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$10.00</span></div>
-                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-green-400 font-semibold">Host Keeps</span><span class="text-green-400 font-bold">$15.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$12.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$8.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-500 text-xs font-semibold">Platform earns 2&times; host</span><span class="text-evil-300 text-xs">$20 vs $10</span></div>
                             </div>
                         </div>
                     </div>
@@ -180,15 +186,16 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-3">
                                 <div class="flex justify-between text-sm"><span class="text-evil-400">Total Collected</span><span class="text-white font-bold">$300.00</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (10%)</span><span class="text-evil-300">-$30.00</span></div>
-                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Available for Prizes + Host</span><span class="text-white font-bold">$270.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (40%)</span><span class="text-evil-300">-$120.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Host Share (20%)</span><span class="text-green-400">$60.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Prize Pool (40%)</span><span class="text-yellow-400 font-bold">$120.00</span></div>
                             </div>
                             <div class="space-y-3">
                                 <h5 class="text-yellow-400 font-semibold text-sm">Prize Payouts</h5>
-                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$100.00</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$50.00</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-evil-300">3rd Place</span><span class="text-yellow-400">$25.00</span></div>
-                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-green-400 font-semibold">Host Keeps</span><span class="text-green-400 font-bold">$95.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$70.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$35.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">3rd Place</span><span class="text-yellow-400">$15.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-500 text-xs font-semibold">Platform earns 2&times; host</span><span class="text-evil-300 text-xs">$120 vs $60</span></div>
                             </div>
                         </div>
                     </div>
@@ -203,16 +210,17 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-3">
                                 <div class="flex justify-between text-sm"><span class="text-evil-400">Total Collected</span><span class="text-white font-bold">$2,000.00</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (10%)</span><span class="text-evil-300">-$200.00</span></div>
-                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Available for Prizes + Host</span><span class="text-white font-bold">$1,800.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (40%)</span><span class="text-evil-300">-$800.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Host Share (20%)</span><span class="text-green-400">$400.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400">Prize Pool (40%)</span><span class="text-yellow-400 font-bold">$800.00</span></div>
                             </div>
                             <div class="space-y-3">
                                 <h5 class="text-yellow-400 font-semibold text-sm">Prize Payouts</h5>
-                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$500.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-300">1st Place</span><span class="text-yellow-400 font-bold">$400.00</span></div>
                                 <div class="flex justify-between text-sm"><span class="text-evil-300">2nd Place</span><span class="text-yellow-400">$250.00</span></div>
                                 <div class="flex justify-between text-sm"><span class="text-evil-300">3rd Place</span><span class="text-yellow-400">$100.00</span></div>
                                 <div class="flex justify-between text-sm"><span class="text-evil-300">4th Place</span><span class="text-yellow-400">$50.00</span></div>
-                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-green-400 font-semibold">Host Keeps</span><span class="text-green-400 font-bold">$900.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-500 text-xs font-semibold">Platform earns 2&times; host</span><span class="text-evil-300 text-xs">$800 vs $400</span></div>
                             </div>
                         </div>
                     </div>
@@ -225,18 +233,18 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                     <div class="bg-evil-surface rounded-xl p-4">
                         <div class="text-evil-400 text-xs mb-1">1 Small / week</div>
-                        <div class="font-brand text-xl text-green-400">$60/mo</div>
-                        <div class="text-evil-400 text-xs mt-1">Host earnings</div>
+                        <div class="font-brand text-xl text-green-400">$40/mo</div>
+                        <div class="text-evil-400 text-xs mt-1">Host share (20%)</div>
                     </div>
                     <div class="bg-evil-surface rounded-xl p-4">
                         <div class="text-evil-400 text-xs mb-1">2 Medium / week</div>
-                        <div class="font-brand text-xl text-green-400">$760/mo</div>
-                        <div class="text-evil-400 text-xs mt-1">Host earnings</div>
+                        <div class="font-brand text-xl text-green-400">$480/mo</div>
+                        <div class="text-evil-400 text-xs mt-1">Host share (20%)</div>
                     </div>
                     <div class="bg-evil-surface rounded-xl p-4">
                         <div class="text-evil-400 text-xs mb-1">1 Large / week</div>
-                        <div class="font-brand text-xl text-green-400">$3,600/mo</div>
-                        <div class="text-evil-400 text-xs mt-1">Host earnings</div>
+                        <div class="font-brand text-xl text-green-400">$1,600/mo</div>
+                        <div class="text-evil-400 text-xs mt-1">Host share (20%)</div>
                     </div>
                 </div>
             </div>
@@ -245,13 +253,13 @@
         <section>
             <h3 class="font-brand text-2xl text-evil-300 mb-3 text-center">Full Scenario: Sponsored Tournament</h3>
             <p class="text-evil-400 text-sm text-center mb-6 max-w-2xl mx-auto">
-                Here's a realistic example showing how entry fees and sponsor packages combine to make hosting seriously profitable &mdash; while players compete for real cash prizes.
+                Here's a realistic example showing how entry fees and sponsor packages combine &mdash; and how revenue is split between the platform, the host, and the prize pool.
             </p>
 
             <div class="bg-evil-surface border border-green-500/30 rounded-2xl overflow-hidden pulse-glow max-w-4xl mx-auto">
                 <div class="bg-gradient-to-r from-green-500/10 to-evil-500/10 px-6 py-5 border-b border-evil-800/30">
                     <h4 class="font-brand text-xl text-white">50 Players &bull; $5 Entry &bull; 2 Sponsors &bull; 10 Rounds</h4>
-                    <p class="text-evil-400 text-sm mt-1">10% platform fee tier (1&ndash;2 tournaments/month)</p>
+                    <p class="text-evil-400 text-sm mt-1">Starter tier &mdash; 40% platform / 20% host / 40% prizes</p>
                 </div>
 
                 <div class="p-6 space-y-6">
@@ -265,22 +273,22 @@
                             </div>
                         </div>
                         <div>
-                            <h5 class="text-evil-300 font-semibold text-sm mb-3">Platform Fees (10%)</h5>
+                            <h5 class="text-evil-300 font-semibold text-sm mb-3">Revenue Split (Starter Tier)</h5>
                             <div class="space-y-2">
-                                <div class="flex justify-between text-sm"><span class="text-evil-400">Fee on entry fees</span><span class="text-evil-300">-$25.00</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-evil-400">Fee on sponsor revenue</span><span class="text-evil-300">-$20.00</span></div>
-                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400 font-semibold">Total Platform Fee</span><span class="text-evil-300 font-bold">-$45.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Platform Fee (40%)</span><span class="text-evil-300 font-bold">$180.00</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-evil-400">Host Share (20%)</span><span class="text-green-400 font-bold">$90.00</span></div>
+                                <div class="flex justify-between text-sm border-t border-evil-800/30 pt-2"><span class="text-evil-400 font-semibold">Prize Pool (40%)</span><span class="text-yellow-400 font-bold">$180.00</span></div>
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <h5 class="text-yellow-400 font-semibold text-sm mb-3">Prize Payouts ($200 allocated by host)</h5>
+                        <h5 class="text-yellow-400 font-semibold text-sm mb-3">Prize Payouts ($180 prize pool)</h5>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div class="bg-evil-card/50 rounded-xl p-3 text-center">
                                 <div class="text-yellow-400 text-xs font-semibold mb-1">1st Place</div>
-                                <div class="font-bold text-white text-lg">$100</div>
-                                <div class="text-green-400 text-xs mt-1">20x return on $5</div>
+                                <div class="font-bold text-white text-lg">$90</div>
+                                <div class="text-green-400 text-xs mt-1">18x return on $5</div>
                             </div>
                             <div class="bg-evil-card/50 rounded-xl p-3 text-center">
                                 <div class="text-evil-300 text-xs font-semibold mb-1">2nd Place</div>
@@ -289,8 +297,8 @@
                             </div>
                             <div class="bg-evil-card/50 rounded-xl p-3 text-center">
                                 <div class="text-evil-300 text-xs font-semibold mb-1">3rd Place</div>
-                                <div class="font-bold text-white text-lg">$30</div>
-                                <div class="text-green-400 text-xs mt-1">6x return on $5</div>
+                                <div class="font-bold text-white text-lg">$20</div>
+                                <div class="text-green-400 text-xs mt-1">4x return on $5</div>
                             </div>
                             <div class="bg-evil-card/50 rounded-xl p-3 text-center">
                                 <div class="text-evil-300 text-xs font-semibold mb-1">4th Place</div>
@@ -321,19 +329,26 @@
                         </div>
                     </div>
 
-                    <div class="bg-gradient-to-r from-green-500/10 to-evil-500/10 rounded-xl p-5 border border-green-500/20">
+                    <div class="bg-gradient-to-r from-evil-500/10 to-green-500/10 rounded-xl p-5 border border-evil-500/20">
                         <div class="flex items-center justify-between flex-wrap gap-4">
-                            <div>
-                                <div class="text-evil-400 text-xs font-semibold uppercase tracking-wide mb-1">Host Take-Home</div>
-                                <div class="font-brand text-3xl text-green-400">$205.00</div>
-                                <div class="text-evil-400 text-xs mt-1">$450 revenue &minus; $45 platform fee &minus; $200 prizes</div>
+                            <div class="space-y-2">
+                                <div>
+                                    <div class="text-evil-400 text-xs font-semibold uppercase tracking-wide mb-1">Platform Earns</div>
+                                    <div class="font-brand text-3xl text-evil-300">$180.00</div>
+                                </div>
+                                <div>
+                                    <div class="text-evil-400 text-xs font-semibold uppercase tracking-wide mb-1">Host Earns</div>
+                                    <div class="font-brand text-2xl text-green-400">$90.00</div>
+                                    <div class="text-evil-400 text-xs mt-1">Platform earns 2&times; the host share</div>
+                                </div>
                             </div>
                             <div class="text-right">
                                 <div class="text-evil-400 text-xs mb-2">Everyone wins:</div>
                                 <div class="space-y-1 text-xs">
-                                    <div class="text-yellow-400">&#127942; 4 players win $10&ndash;$100</div>
+                                    <div class="text-yellow-400">&#127942; 4 players share $180 in prizes</div>
                                     <div class="text-evil-300">&#128227; 2 sponsors get ~475 impressions each</div>
-                                    <div class="text-green-400">&#128176; Host pockets $205</div>
+                                    <div class="text-green-400">&#128176; Host pockets $90</div>
+                                    <div class="text-evil-300">&#128184; Platform earns $180</div>
                                 </div>
                             </div>
                         </div>

@@ -192,14 +192,25 @@ async def get_round_by_slug(slug: str):
 
 
 def get_tiered_fee_percent(monthly_count: int) -> int:
-    if monthly_count < 2:
-        return 10
-    elif monthly_count < 5:
-        return 15
+    if monthly_count < 3:
+        return 40
+    elif monthly_count < 6:
+        return 35
     elif monthly_count < 10:
-        return 20
+        return 30
     else:
         return 25
+
+
+def get_host_share_percent(monthly_count: int) -> int:
+    if monthly_count < 3:
+        return 20
+    elif monthly_count < 6:
+        return 18
+    elif monthly_count < 10:
+        return 15
+    else:
+        return 13
 
 
 async def get_server_monthly_tournament_count(guild_id: str) -> int:
@@ -216,7 +227,7 @@ async def get_server_monthly_tournament_count(guild_id: str) -> int:
         return row["cnt"] if row else 0
 
 
-async def create_tournament(name: str, guild_id: str, channel_id: str, creator_id: str, creator_name: str, rounds_total: int = 5, max_players: int = 20, platform_fee_percent: int = 10):
+async def create_tournament(name: str, guild_id: str, channel_id: str, creator_id: str, creator_name: str, rounds_total: int = 5, max_players: int = 20, platform_fee_percent: int = 40):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -497,7 +508,7 @@ async def mark_account_onboarded(stripe_account_id: str):
 
 async def create_paid_tournament(name: str, guild_id: str, channel_id: str, creator_id: str,
                                   creator_name: str, rounds_total: int, entry_fee_cents: int,
-                                  host_stripe_account_id: str, max_players: int = 20, platform_fee_percent: int = 10):
+                                  host_stripe_account_id: str, max_players: int = 20, platform_fee_percent: int = 40):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -581,7 +592,7 @@ async def create_web_tournament(name: str, creator_id: str, creator_name: str,
                                 prize_distribution: str, host_stripe_account_id: str,
                                 sponsor_enabled: bool, sponsor_slots: int,
                                 sponsor_price_cents: int, guild_id: str = '', channel_id: str = '',
-                                platform_fee_percent: int = 10):
+                                platform_fee_percent: int = 40):
     pool = await get_db_pool()
     max_players = team_count * team_size if team_count and team_size else 20
     async with pool.acquire() as conn:
