@@ -47,6 +47,15 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 ### Rate Limiting
 - In-memory, per-IP rate limiting across three tiers (Strict, Moderate, Relaxed) for API endpoints, excluding webhooks and static files.
 
+### Telegram Standalone Website (`telegram/`)
+- **Framework**: FastAPI + Jinja2 templates on port 5001
+- **Templates**: `telegram/templates/` — `base.html` (shared nav/footer), `index.html`, `howtoplay.html`, `store.html`, `premium.html`, `leaderboard.html`
+- **Static**: `telegram/static/style.css` — CSS-variable-based dark purple design system (no Tailwind)
+- **Pages**: Home (hero + stats + leaderboard + hall of fame + commands), How to Play (all commands including tournaments/decks/premium), Store (deck listings), Premium (feature grid), Leaderboard (top 50)
+- **APIs**: `/api/stats` (groups/players/rounds counts), `/api/leaderboard`, `/api/rounds`
+- **DB**: `get_tg_stats()` in `telegram/db.py` aggregates player count, round count, and latest group count
+- **Shared DB**: Same PostgreSQL as main Evil Apples 4D; `platform='telegram'` column distinguishes data
+
 ## External Dependencies
 
 - **Discord API**: For bot interaction and OAuth2 login.

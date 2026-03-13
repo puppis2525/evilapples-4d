@@ -260,6 +260,21 @@ async def record_bot_group_count(count: int) -> None:
         )
 
 
+async def get_tg_stats() -> dict:
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        players = await conn.fetchval(
+            "SELECT COUNT(*) FROM leaderboard WHERE platform = 'telegram' AND games_played > 0"
+        ) or 0
+        rounds = await conn.fetchval(
+            "SELECT COUNT(*) FROM game_rounds WHERE platform = 'telegram'"
+        ) or 0
+        groups = await conn.fetchval(
+            "SELECT group_count FROM tg_bot_stats ORDER BY recorded_at DESC LIMIT 1"
+        ) or 0
+        return {"players": players, "rounds": rounds, "groups": groups}
+
+
 async def get_leaderboard(limit: int = 10) -> list[dict]:
     pool = await get_db_pool()
     async with pool.acquire() as conn:

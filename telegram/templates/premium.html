@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Premium — Evil Apples for Telegram{% endblock %}
+
+{% block content %}
+<div class="content">
+    <h1>Premium</h1>
+    <p>Upgrade your Telegram group to unlock the full Evil Apples experience. Use <code>/premium</code> in your group to check your status.</p>
+
+    <div class="premium-features">
+        <div class="premium-feature">
+            <div class="icon">&#x1F6AB;</div>
+            <h3>No Ads</h3>
+            <p>Remove all ads between rounds for a clean, uninterrupted game experience.</p>
+        </div>
+        <div class="premium-feature">
+            <div class="icon">&#x1F0CF;</div>
+            <h3>Unlimited Decks</h3>
+            <p>Create as many custom card decks as you want — no limits on creativity.</p>
+        </div>
+        <div class="premium-feature">
+            <div class="icon">&#x1F3C6;</div>
+            <h3>Tournaments</h3>
+            <p>Run multi-round tournaments with standings, brackets, and AI fallback judging.</p>
+        </div>
+        <div class="premium-feature">
+            <div class="icon">&#x1F916;</div>
+            <h3>Priority AI</h3>
+            <p>Faster AI judging from Dr. Evil when there aren't enough human judges.</p>
+        </div>
+        <div class="premium-feature">
+            <div class="icon">&#x2B50;</div>
+            <h3>Custom Game Rules</h3>
+            <p>Set custom win scores, hand sizes, and timer durations for your group.</p>
+        </div>
+        <div class="premium-feature">
+            <div class="icon">&#x1F451;</div>
+            <h3>Premium Badge</h3>
+            <p>Show off your premium status with a special badge on the leaderboard.</p>
+        </div>
+    </div>
+
+    <div class="step-card" style="margin-top: 3rem; text-align: center;">
+        <h2 style="margin-top: 0;">Get Premium</h2>
+        <p>Type <code>/premium</code> in your Telegram group to activate Premium features.</p>
+        <a class="btn btn-primary" href="https://t.me/{{ bot_username }}" target="_blank" style="margin-top: 1rem;">
+            Open Bot in Telegram
+        </a>
+    </div>
+</div>
+{% endblock %}

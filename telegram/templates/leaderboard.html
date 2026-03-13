@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard — Evil Apples for Telegram{% endblock %}
+
+{% block content %}
+<div class="content">
+    <h1>Leaderboard</h1>
+    <p>The top Evil Apples players on Telegram. Play more to climb the ranks!</p>
+
+    {% if leaders %}
+    <table style="margin-top: 2rem;">
+        <thead>
+            <tr><th>#</th><th>Player</th><th>Wins</th><th>Games</th><th>Win Rate</th></tr>
+        </thead>
+        <tbody>
+            {% for row in leaders %}
+            <tr>
+                <td class="{% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
+                    {% if loop.index == 1 %}&#x1F947;{% elif loop.index == 2 %}&#x1F948;{% elif loop.index == 3 %}&#x1F949;{% else %}{{ loop.index }}{% endif %}
+                </td>
+                <td>{{ row.discord_name }}</td>
+                <td>{{ row.wins }}</td>
+                <td>{{ row.games_played }}</td>
+                <td>{{ "%.0f"|format(row.wins / row.games_played * 100) if row.games_played > 0 else 0 }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state" style="margin-top: 2rem;">
+        No games played yet — be the first! Add the bot to your Telegram group and start a game.
+    </div>
+    {% endif %}
+
+    <div style="text-align: center; margin-top: 2rem;">
+        <a class="btn btn-primary" href="https://t.me/{{ bot_username }}?startgroup=true" target="_blank">
+            Add Bot to Your Group
+        </a>
+    </div>
+</div>
+{% endblock %}

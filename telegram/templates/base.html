@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Evil Apples for Telegram{% endblock %}</title>
+    <meta name="description" content="{% block description %}The dark comedy card game — now in your Telegram groups. Add the bot and start playing in seconds.{% endblock %}">
+    <meta property="og:title" content="Evil Apples for Telegram">
+    <meta property="og:description" content="Cards Against Humanity-style game for Telegram groups. AI-powered judging, tournaments, custom decks.">
+    <meta property="og:type" content="website">
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <a href="/" style="text-decoration:none"><div class="logo">Evil Apples <span>for Telegram</span></div></a>
+        <nav>
+            <a href="/" class="{% if active_page == 'home' %}active{% endif %}">Home</a>
+            <a href="/howtoplay" class="{% if active_page == 'howtoplay' %}active{% endif %}">How to Play</a>
+            <a href="/store" class="{% if active_page == 'store' %}active{% endif %}">Store</a>
+            <a href="/premium" class="{% if active_page == 'premium' %}active{% endif %}">Premium</a>
+            <a href="/leaderboard" class="{% if active_page == 'leaderboard' %}active{% endif %}">Leaderboard</a>
+            <a href="https://t.me/{{ bot_username }}?startgroup=true" target="_blank" class="nav-cta">Add to Telegram</a>
+        </nav>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <footer>
+        Evil Apples for Telegram &copy; 2025 &mdash; Powered by <a href="https://venice.ai" target="_blank">Venice.ai</a>
+        &nbsp;|&nbsp; <a href="/howtoplay">How to Play</a>
+        &nbsp;|&nbsp; <a href="https://t.me/{{ bot_username }}" target="_blank">@{{ bot_username }}</a>
+    </footer>
+</body>
+</html>

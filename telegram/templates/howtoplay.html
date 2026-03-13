@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}How to Play — Evil Apples for Telegram{% endblock %}
+
+{% block content %}
+<div class="content">
+    <h1>How to Play</h1>
+
+    <h2>Setup</h2>
+    <div class="step-card">
+        <p>1. Add <strong>@{{ bot_username }}</strong> to your Telegram group.</p>
+        <p>2. Type <code>/startgame</code> in the group to begin.</p>
+        <p>3. Everyone types <code>/join</code> to enter (minimum 2 players).</p>
+        <p>4. Type <code>/deal</code> when everyone is ready.</p>
+    </div>
+
+    <h2>Each Round</h2>
+    <ol>
+        <li>The bot posts a <strong>Prompt Card</strong> (the black card with a blank).</li>
+        <li>One player is the <strong>Judge</strong> — they don't submit a card.</li>
+        <li>All other players tap <strong>"View My Hand"</strong> to see their 7 cards in a private message.</li>
+        <li>Each player picks their funniest answer card by tapping it.</li>
+        <li>When everyone has submitted, the Judge sees all answers and picks the winner.</li>
+        <li>Winner gets 1 point. <strong>First to 7 points wins the game!</strong></li>
+    </ol>
+
+    <h2>Game Modes</h2>
+    <ul>
+        <li><code>/startgame</code> — Standard mode (default)</li>
+        <li><code>/startgame friend</code> — Casual mode, no timer</li>
+        <li><code>/startgame swap</code> — Cards are shuffled between players (5+ players)</li>
+    </ul>
+
+    <h2>Dr. Evil (AI Judge)</h2>
+    <p>If there are fewer than 3 players, Dr. Evil (powered by Venice.ai) automatically judges the round — and roasts everyone's submissions.</p>
+
+    <h2>Solo Mode</h2>
+    <p>Play alone against AI opponents in any chat:</p>
+    <ol>
+        <li>Type <code>/solo</code> to start a game with 3 AI opponents.</li>
+        <li>Type <code>/solodeal</code> to deal a round.</li>
+        <li>Pick your card — Dr. Evil will judge and roast everyone.</li>
+        <li>Type <code>/soloend</code> when done.</li>
+    </ol>
+
+    <h2>Tournaments</h2>
+    <p>Organize multi-round competitive events in your group:</p>
+    <div class="step-card">
+        <p><code>/tournament create &lt;name&gt; &lt;rounds&gt;</code> — Create a tournament (e.g. <code>/tournament create "Friday Fight" 5</code>)</p>
+        <p><code>/tournament join</code> — Join the active tournament</p>
+        <p><code>/tournament start</code> — Start the tournament (creator only)</p>
+        <p><code>/tournament status</code> — View current standings</p>
+        <p><code>/tournament end</code> — End the tournament early</p>
+    </div>
+
+    <h2>Custom Decks</h2>
+    <p>Create and manage your own card decks:</p>
+    <div class="step-card">
+        <p><code>/deck</code> — Upload a CSV file with custom prompts and answers</p>
+        <p><code>/decks</code> — View your custom decks</p>
+        <p>When starting a game, you can pick which deck to play with.</p>
+    </div>
+
+    <h2>Premium</h2>
+    <p>Upgrade your group for extra features:</p>
+    <ul>
+        <li>No ads between rounds</li>
+        <li>Unlimited custom decks</li>
+        <li>Priority AI judging</li>
+        <li>Use <code>/premium</code> in your group to check status</li>
+    </ul>
+
+    <h2>All Commands</h2>
+    <div class="commands-grid" style="margin-top: 1rem;">
+        <div class="command-item"><code>/startgame</code><span class="desc">Start a group game</span></div>
+        <div class="command-item"><code>/join</code><span class="desc">Join a game</span></div>
+        <div class="command-item"><code>/deal</code><span class="desc">Deal a round</span></div>
+        <div class="command-item"><code>/scores</code><span class="desc">Show scores</span></div>
+        <div class="command-item"><code>/endgame</code><span class="desc">End a game</span></div>
+        <div class="command-item"><code>/leaderboard</code><span class="desc">Top players</span></div>
+        <div class="command-item"><code>/solo</code><span class="desc">Solo vs AI</span></div>
+        <div class="command-item"><code>/solodeal</code><span class="desc">Deal solo round</span></div>
+        <div class="command-item"><code>/soloend</code><span class="desc">End solo game</span></div>
+        <div class="command-item"><code>/tournament</code><span class="desc">Tournament system</span></div>
+        <div class="command-item"><code>/deck</code><span class="desc">Upload a deck</span></div>
+        <div class="command-item"><code>/decks</code><span class="desc">View your decks</span></div>
+        <div class="command-item"><code>/premium</code><span class="desc">Premium status</span></div>
+        <div class="command-item"><code>/store</code><span class="desc">Browse the store</span></div>
+    </div>
+</div>
+{% endblock %}

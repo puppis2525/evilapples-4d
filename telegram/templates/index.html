@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Evil Apples for Telegram — Cards Against Humanity in Telegram{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Evil Apples for Telegram</h1>
+    <p>The dark comedy card game — now in your Telegram groups. Add the bot, invite your friends, and start playing in seconds.</p>
+    <div class="hero-buttons">
+        <a class="btn btn-primary" href="https://t.me/{{ bot_username }}?startgroup=true" target="_blank">
+            Add to Telegram Group
+        </a>
+        <a class="btn btn-secondary" href="/howtoplay">
+            How to Play
+        </a>
+    </div>
+</div>
+
+<div class="stats-bar" id="stats-bar">
+    <div class="stat-item">
+        <div class="stat-number" id="stat-groups">—</div>
+        <div class="stat-label">Groups</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="stat-players">—</div>
+        <div class="stat-label">Players</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number" id="stat-rounds">—</div>
+        <div class="stat-label">Rounds Played</div>
+    </div>
+</div>
+
+<div class="section">
+    <h2 class="section-title">Leaderboard</h2>
+    {% if leaders %}
+    <table>
+        <thead>
+            <tr><th>#</th><th>Player</th><th>Wins</th><th>Games</th></tr>
+        </thead>
+        <tbody>
+            {% for row in leaders %}
+            <tr>
+                <td class="{% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
+                    {% if loop.index == 1 %}&#x1F947;{% elif loop.index == 2 %}&#x1F948;{% elif loop.index == 3 %}&#x1F949;{% else %}{{ loop.index }}{% endif %}
+                </td>
+                <td>{{ row.discord_name }}</td>
+                <td>{{ row.wins }}</td>
+                <td>{{ row.games_played }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="/leaderboard" class="view-all">View full leaderboard &rarr;</a>
+    {% else %}
+    <div class="empty-state">No games played yet — be the first!</div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2 class="section-title">Hall of Fame</h2>
+    {% if rounds %}
+    <table>
+        <thead>
+            <tr><th>Prompt</th><th>Winning Card</th><th>Winner</th></tr>
+        </thead>
+        <tbody>
+            {% for row in rounds %}
+            <tr>
+                <td>{{ row.prompt }}</td>
+                <td>{{ row.winning_card }}</td>
+                <td>{{ row.winner_name }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No rounds played yet — start a game!</div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2 class="section-title">Quick Commands</h2>
+    <div class="commands-grid">
+        <div class="command-item">
+            <code>/startgame</code>
+            <span class="desc">Start a game in your group</span>
+        </div>
+        <div class="command-item">
+            <code>/join</code>
+            <span class="desc">Join the current game</span>
+        </div>
+        <div class="command-item">
+            <code>/deal</code>
+            <span class="desc">Deal cards and start a round</span>
+        </div>
+        <div class="command-item">
+            <code>/scores</code>
+            <span class="desc">Show current scores</span>
+        </div>
+        <div class="command-item">
+            <code>/endgame</code>
+            <span class="desc">End the game (host only)</span>
+        </div>
+        <div class="command-item">
+            <code>/solo</code>
+            <span class="desc">Play alone vs AI opponents</span>
+        </div>
+        <div class="command-item">
+            <code>/tournament</code>
+            <span class="desc">Create a tournament</span>
+        </div>
+        <div class="command-item">
+            <code>/deck</code>
+            <span class="desc">Upload a custom card deck</span>
+        </div>
+    </div>
+</div>
+
+<script>
+(async () => {
+    try {
+        const resp = await fetch('/api/stats');
+        if (resp.ok) {
+            const data = await resp.json();
+            const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+            document.getElementById('stat-groups').textContent = fmt(data.groups || 0);
+            document.getElementById('stat-players').textContent = fmt(data.players || 0);
+            document.getElementById('stat-rounds').textContent = fmt(data.rounds || 0);
+        }
+    } catch (e) {}
+})();
+</script>
+{% endblock %}
