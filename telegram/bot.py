@@ -844,12 +844,22 @@ async def _ai_judge_pick(chat_id: int, bot, game: dict):
     winner_id, winning_card = submissions[chosen_index]
     winner_name = game["players"].get(winner_id, "Unknown")
 
+    ai_reasons = [
+        f"Dr. Evil chose Card {chosen_index + 1} — \"{winning_card}\" paired perfectly with the prompt.",
+        f"Dr. Evil picked \"{winning_card}\" for its dark comedic genius.",
+        f"After careful deliberation, Dr. Evil deemed \"{winning_card}\" the most delightfully twisted answer.",
+        f"Dr. Evil selected Card {chosen_index + 1} — the shock value of \"{winning_card}\" was simply irresistible.",
+    ]
+    ai_rationale = random.choice(ai_reasons)
+
     roast = ""
     try:
-        if random.random() < 0.4:
-            roast = await dr_evil_roast(prompt, card_texts)
+        roast = await dr_evil_roast(prompt, card_texts)
     except Exception:
         pass
+
+    if not roast:
+        roast = ai_rationale
 
     await _announce_winner(chat_id, bot, game, winner_id, winner_name, winning_card, roast=roast)
 
@@ -2253,6 +2263,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("startgame", cmd_startgame))
     app.add_handler(CommandHandler("join", cmd_join))
     app.add_handler(CommandHandler("deal", cmd_deal))
+    app.add_handler(CommandHandler("play", cmd_deal))
     app.add_handler(CommandHandler("endgame", cmd_endgame))
     app.add_handler(CommandHandler("scores", cmd_scores))
     app.add_handler(CommandHandler("score", cmd_score))
@@ -2302,9 +2313,11 @@ def build_application() -> Application:
 
 async def set_commands(app: Application):
     await app.bot.set_my_commands([
+        BotCommand("start", "Welcome message and quick start guide"),
         BotCommand("startgame", "Start a new game (friend, swap, or wildcard)"),
         BotCommand("join", "Join the current game"),
-        BotCommand("deal", "Deal cards for a new round"),
+        BotCommand("play", "Deal cards and start the next round"),
+        BotCommand("deal", "Deal cards and start the next round"),
         BotCommand("score", "Show current game scores"),
         BotCommand("vote", "Show voting options for the current round"),
         BotCommand("endgame", "End the current game (host only)"),
