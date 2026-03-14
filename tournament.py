@@ -200,13 +200,14 @@ class TournamentJudgingView(discord.ui.View):
                 await process_tournament_payout(self.tournament_data["id"], winner_discord_id=winner_discord_id)
                 entries = await get_paid_tournament_entries(self.tournament_data["id"])
                 total = sum(e["amount_cents"] for e in entries)
-                platform_fee = int(total * 10 / 100)
+                fee_pct = self.tournament_data.get("platform_fee_percent", 10) or 10
+                platform_fee = int(total * fee_pct / 100)
                 host_received = total - platform_fee
                 embed.add_field(
                     name="💰 Prize Pool",
                     value=(
                         f"Total Collected: ${total/100:.2f}\n"
-                        f"Platform Fee (10%): ${platform_fee/100:.2f}\n"
+                        f"Platform Fee ({fee_pct}%): ${platform_fee/100:.2f}\n"
                         f"Host Received: ${host_received/100:.2f} (via Stripe Connect)"
                     ),
                     inline=False
