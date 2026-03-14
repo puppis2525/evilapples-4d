@@ -192,6 +192,16 @@ async def howtoplay_page(request: Request):
     return templates.TemplateResponse("howtoplay.html", {"request": request, **(await ad_context(request))})
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request):
+    return templates.TemplateResponse("privacy.html", {"request": request})
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request):
+    return templates.TemplateResponse("terms.html", {"request": request})
+
+
 @app.get("/premium", response_class=HTMLResponse)
 async def premium_page(request: Request):
     return templates.TemplateResponse("premium.html", {"request": request})
