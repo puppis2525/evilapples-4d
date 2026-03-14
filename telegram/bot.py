@@ -29,7 +29,7 @@ from db import (
 
 logger = logging.getLogger("tg_bot")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_CODE", "") or os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
 GAME_MODES = {
     "friend": {

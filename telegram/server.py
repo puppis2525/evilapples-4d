@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger("tg_server")
 
 PORT = int(os.environ.get("PORT", 5001))
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_CODE", "") or os.environ.get("TELEGRAM_BOT_TOKEN", "")
 BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "EvilApplesTGBot")
 
 tg_app = None
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
         logger.info("Telegram bot started (polling)")
     else:
         logger.error(
-            "TELEGRAM_BOT_TOKEN is not set! The Telegram bot will NOT start. "
+            "TELEGRAM_BOT_CODE is not set! The Telegram bot will NOT start. "
             "Set this environment variable with your bot token from @BotFather to enable the bot."
         )
 

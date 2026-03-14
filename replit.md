@@ -58,6 +58,8 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
   - **Premium**: `/premium` — shows Pro features and upgrade link; groups need Pro for custom decks
   - **Wired via lifespan**: `telegram/server.py` starts bot polling alongside FastAPI
 - **Workflow**: "Start Telegram bot" (`cd telegram && python server.py`) runs as a separate workflow on port 5001
+- **Production**: Both Discord and Telegram servers launch via `start.sh` (deployment run command)
+- **Secret**: Telegram bot token is read from `TELEGRAM_BOT_CODE` env var (falls back to `TELEGRAM_BOT_TOKEN`)
 - **Framework**: FastAPI + Jinja2 templates on port 5001
 - **Templates**: `telegram/templates/` — `base.html` (shared nav/footer), `index.html`, `howtoplay.html`, `store.html`, `premium.html`, `leaderboard.html`
 - **Static**: `telegram/static/style.css` — CSS-variable-based dark purple design system (no Tailwind)

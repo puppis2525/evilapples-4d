@@ -10,7 +10,7 @@ When migrating this to its own Repl, copy the contents of this `/telegram` folde
 
 | Variable | Description |
 |----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | From @BotFather on Telegram |
+| `TELEGRAM_BOT_CODE` | From @BotFather on Telegram |
 | `DATABASE_URL` | PostgreSQL connection string (shared with Evil Apples 4D) |
 | `VENICE_API_KEY` | Venice.ai API key for AI card generation |
 | `TELEGRAM_BOT_USERNAME` | Your bot's @username (without @) |
