@@ -1470,14 +1470,16 @@ async def tournament_end_cmd(ctx):
             embed.add_field(name="Refunds", value=refund_text, inline=False)
         except Exception as e:
             logger.error(f"Tournament refund error: {e}")
-            await end_tournament(tournament["id"])
+            from db import cancel_tournament
+            await cancel_tournament(tournament["id"])
             embed = discord.Embed(
                 title=f"Tournament Cancelled: {tournament['name']}",
                 description="The tournament has been cancelled. Refund processing encountered an error — contact support@evilapples4d.com.",
                 color=discord.Color.red()
             )
     elif is_registration:
-        await end_tournament(tournament["id"])
+        from db import cancel_tournament
+        await cancel_tournament(tournament["id"])
         embed = discord.Embed(
             title=f"Tournament Cancelled: {tournament['name']}",
             description="The tournament has been cancelled before it started.",
@@ -1485,7 +1487,12 @@ async def tournament_end_cmd(ctx):
         )
     else:
         if tournament["status"] == "completed":
-            await ctx.send("This tournament is already completed. Contact support@evilapples4d.com for refund inquiries.")
+            embed = discord.Embed(
+                title=f"Tournament Already Completed: {tournament['name']}",
+                description="This tournament has already been completed and prizes paid out. Automatic refunds are not available for completed tournaments.\n\nFor refund inquiries, contact **support@evilapples4d.com**.",
+                color=discord.Color.orange()
+            )
+            await ctx.send(embed=embed)
             return
 
         await end_tournament(tournament["id"])

@@ -438,8 +438,8 @@ async def api_cancel_tournament(tournament_id: int, request: Request):
             from stripe_routes import refund_tournament_entries
             refund_summary = await refund_tournament_entries(tournament_id)
         else:
-            from db import end_tournament
-            await end_tournament(tournament_id)
+            from db import cancel_tournament
+            await cancel_tournament(tournament_id)
 
         result = {"success": True, "tournament_id": tournament_id, "status": "cancelled"}
         if refund_summary:

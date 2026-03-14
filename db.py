@@ -441,6 +441,15 @@ async def end_tournament(tournament_id: int):
         )
 
 
+async def cancel_tournament(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tournaments SET status = 'cancelled', completed_at = NOW() WHERE id = $1",
+            tournament_id
+        )
+
+
 async def get_recent_tournaments(limit: int = 10):
     pool = await get_db_pool()
     async with pool.acquire() as conn:

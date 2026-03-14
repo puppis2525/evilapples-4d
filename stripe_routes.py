@@ -458,9 +458,9 @@ async def refund_tournament_entries(tournament_id: int):
         amount = entry.get("amount_cents", 0)
 
         if not pi_id:
-            logger.warning(f"Refund: no payment_intent for entry user={user_id} tournament={tournament_id}, marking refunded")
-            await mark_entry_refunded(tournament_id, user_id)
-            refunded += 1
+            failed += 1
+            errors.append({"user_id": user_id, "error": "No payment intent on record — manual refund required"})
+            logger.warning(f"Refund: no payment_intent for entry user={user_id} tournament={tournament_id}, skipping")
             continue
 
         try:
