@@ -151,7 +151,7 @@ async def on_ready():
         channel_sessions = await load_all_game_sessions("channel")
         restored_ch = 0
         stale_keys = []
-        restorable_states = ("waiting_for_players", "finished", "submitting", "judging", "dealing")
+        restorable_states = ("waiting_for_players", "submitting", "judging", "dealing")
         for key, data in channel_sessions.items():
             raw_key = str(key)
             ch_id_str = raw_key.replace("ch_", "") if raw_key.startswith("ch_") else raw_key
