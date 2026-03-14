@@ -212,21 +212,14 @@ async def update_leaderboard(tg_user_id: str, username: str, won: bool) -> None:
             if won:
                 await conn.execute("""
                     UPDATE leaderboard
-                    SET wins = wins + 1, games_played = games_played + 1,
-                        discord_name = $2, updated_at = NOW()
-                    WHERE discord_id = $1 AND platform = 'telegram'
-                """, uid, username)
-            else:
-                await conn.execute("""
-                    UPDATE leaderboard
-                    SET games_played = games_played + 1,
+                    SET wins = wins + 1,
                         discord_name = $2, updated_at = NOW()
                     WHERE discord_id = $1 AND platform = 'telegram'
                 """, uid, username)
         else:
             await conn.execute("""
                 INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, platform)
-                VALUES ($1, $2, $3, 1, 'telegram')
+                VALUES ($1, $2, $3, 0, 'telegram')
             """, uid, username, 1 if won else 0)
 
 
