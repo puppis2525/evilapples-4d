@@ -40,6 +40,10 @@ GAME_MODES = {
         "min_players": 5, "win_score": 7, "warn_score": 5,
         "description": "Cards rotate between players — chaos mode"
     },
+    "wildcard": {
+        "min_players": 2, "win_score": 7, "warn_score": 5,
+        "description": "Write your own answers — no pre-made cards"
+    },
 }
 
 AI_OPPONENT_NAMES = [
@@ -101,6 +105,14 @@ def judge_keyboard(submissions: list[tuple], chat_id: int) -> InlineKeyboardMark
     for i, (_, card) in enumerate(submissions):
         label = f"Card {i+1}: " + (card[:50] + "…" if len(card) > 50 else card)
         buttons.append([InlineKeyboardButton(label, callback_data=f"judge_{chat_id}_{i}")])
+    return InlineKeyboardMarkup(buttons)
+
+
+def vote_keyboard(submissions: list[tuple], chat_id: int) -> InlineKeyboardMarkup:
+    buttons = []
+    for i, (_, card) in enumerate(submissions):
+        label = f"Card {i+1}: " + (card[:50] + "…" if len(card) > 50 else card)
+        buttons.append([InlineKeyboardButton(label, callback_data=f"vote_{chat_id}_{i}")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -178,11 +190,11 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "😈 *Evil Apples for Telegram*\n\n"
         "Add me to a group and use /startgame to play!\n\n"
         "*Commands:*\n"
-        "/startgame \\[mode\\] — Start a game \\(friend or swap\\)\n"
+        "/startgame \\[mode\\] — Start a game \\(friend, swap, or wildcard\\)\n"
         "/join — Join the current game\n"
         "/deal — Deal cards and start a round\n"
         "/endgame — End the current game\n"
-        "/scores — Show current scores\n"
+        "/score — Show current scores\n"
         "/solo — Play solo vs AI\n"
         "/help — Show this message",
         parse_mode="MarkdownV2"
@@ -195,9 +207,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*Group Game:*\n"
         "`/startgame` — Start a game \\(friend mode\\)\n"
         "`/startgame swap` — Start swap mode \\(5\\+ players\\)\n"
+        "`/startgame wildcard` — Write your own answers\n"
         "`/join` — Join the game\n"
         "`/deal` — Deal a new round\n"
-        "`/scores` — Show current scores\n"
+        "`/score` — Show current scores\n"
         "`/endgame` — End the game \\(host only\\)\n\n"
         "*Tournaments:*\n"
         "`/tournament create <name> [rounds]` — Create a tournament\n"
@@ -215,8 +228,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`/premium` — View Evil Apples Pro features\n"
         "`/leaderboard` — Top players\n\n"
         "*How to play:*\n"
-        "Judge reads the prompt card\\. Everyone submits their funniest answer\\. "
-        "Judge picks the winner\\. First to 7 points wins\\!",
+        "A prompt card is dealt\\. Everyone submits their funniest answer\\. "
+        "Then everyone votes for the best card\\. First to 7 points wins\\!",
         parse_mode="MarkdownV2"
     )
 
@@ -279,20 +292,27 @@ async def cmd_startgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=join_keyboard(chat_id)
     )
 
+    group_premium = False
     try:
-        decks = await get_tg_user_decks(player_id)
+        group_premium = await is_premium_group(chat_id)
     except Exception:
-        decks = []
+        pass
 
-    if decks:
-        active_games[chat_id]["_available_decks"] = decks
-        active_games[chat_id]["selected_deck_ids"] = []
-        await update.message.reply_text(
-            f"🃏 *Custom Decks Available!*\n\n"
-            f"You have {len(decks)} custom deck(s). Pick up to 3 to use in this game, or skip to use default AI-generated cards:",
-            parse_mode="Markdown",
-            reply_markup=deck_picker_keyboard(decks, chat_id, [])
-        )
+    if group_premium:
+        try:
+            decks = await get_tg_user_decks(player_id)
+        except Exception:
+            decks = []
+
+        if decks:
+            active_games[chat_id]["_available_decks"] = decks
+            active_games[chat_id]["selected_deck_ids"] = []
+            await update.message.reply_text(
+                f"🃏 *Custom Decks Available!*\n\n"
+                f"You have {len(decks)} custom deck(s). Pick up to 3 to use in this game, or skip to use default AI-generated cards:",
+                parse_mode="Markdown",
+                reply_markup=deck_picker_keyboard(decks, chat_id, [])
+            )
 
 
 async def cmd_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -393,67 +413,69 @@ async def _do_deal(chat_id: int, bot, game: dict):
         timer_tasks[chat_id].cancel()
         timer_tasks.pop(chat_id, None)
 
-    total_players = len(game["players"])
-    use_ai_judge = total_players < 3
-
-    if use_ai_judge:
-        game["judge_id"] = None
-        game["use_ai_judge"] = True
-        playing_ids = list(game["players"].keys())
-        judge_name = "😈 Dr\\. Evil"
-    else:
-        game["judge_index"] = (game.get("judge_index", -1) + 1) % len(game["all_player_ids"])
-        judge_id = game["all_player_ids"][game["judge_index"]]
-        while judge_id not in game["players"]:
-            game["judge_index"] = (game["judge_index"] + 1) % len(game["all_player_ids"])
-            judge_id = game["all_player_ids"][game["judge_index"]]
-        game["judge_id"] = judge_id
-        game["use_ai_judge"] = False
-        playing_ids = [pid for pid in game["players"] if pid != judge_id]
-        judge_name = f"*{game['players'][judge_id]}*"
+    playing_ids = list(game["players"].keys())
+    game["judge_id"] = None
+    game["use_ai_judge"] = False
 
     game["state"] = "dealing"
     game["submissions"] = {}
+    game["votes"] = {}
     game["round_id"] = game.get("round_id", 0) + 1
     game["playing_ids"] = playing_ids
+
+    is_wildcard = (mode == "wildcard")
 
     try:
         prompt = await generate_prompt()
         game["prompt"] = prompt
 
-        deck_ids = game.get("active_deck_ids", [])
-        if deck_ids:
-            try:
-                deck_hands = await _deal_deck_aware_hands(playing_ids, deck_ids)
-                game["hands"] = deck_hands
-            except Exception:
+        if is_wildcard:
+            game["hands"] = {}
+        else:
+            deck_ids = game.get("active_deck_ids", [])
+            if deck_ids:
+                try:
+                    deck_hands = await _deal_deck_aware_hands(playing_ids, deck_ids)
+                    game["hands"] = deck_hands
+                except Exception:
+                    hands = deal_default_hands(len(playing_ids), HAND_SIZE)
+                    game["hands"] = {pid: hand for pid, hand in zip(playing_ids, hands)}
+            else:
                 hands = deal_default_hands(len(playing_ids), HAND_SIZE)
                 game["hands"] = {pid: hand for pid, hand in zip(playing_ids, hands)}
-        else:
-            hands = deal_default_hands(len(playing_ids), HAND_SIZE)
-            game["hands"] = {pid: hand for pid, hand in zip(playing_ids, hands)}
 
-        if mode == "swap" and len(playing_ids) > 1:
-            ordered_hands = [game["hands"][pid] for pid in playing_ids]
-            shift = random.randint(1, max(1, len(ordered_hands) - 1))
-            ordered_hands = ordered_hands[shift:] + ordered_hands[:shift]
-            game["hands"] = {pid: hand for pid, hand in zip(playing_ids, ordered_hands)}
+            if mode == "swap" and len(playing_ids) > 1:
+                ordered_hands = [game["hands"][pid] for pid in playing_ids]
+                shift = random.randint(1, max(1, len(ordered_hands) - 1))
+                ordered_hands = ordered_hands[shift:] + ordered_hands[:shift]
+                game["hands"] = {pid: hand for pid, hand in zip(playing_ids, ordered_hands)}
 
         game["state"] = "submitting"
 
         current_scores = scores_text(game)
         prompt_display = format_prompt(prompt).replace(".", "\\.").replace("!", "\\!").replace("?", "\\?").replace("(", "\\(").replace(")", "\\)").replace("-", "\\-").replace("_", "\\_")
 
-        await bot.send_message(
-            chat_id,
-            f"🟣 *PROMPT CARD*\n\n"
-            f"*{prompt_display}*\n\n"
-            f"⚖️ Judge this round: {judge_name}\n\n"
-            f"Tap the button to view your hand and pick a card\\!\n\n"
-            f"*Scores:*\n{current_scores}",
-            parse_mode="MarkdownV2",
-            reply_markup=hand_keyboard(chat_id)
-        )
+        if is_wildcard:
+            await bot.send_message(
+                chat_id,
+                f"🟣 *PROMPT CARD*\n\n"
+                f"*{prompt_display}*\n\n"
+                f"✏️ *WILDCARD MODE* — Type your answer in the chat\\!\n"
+                f"Reply to this message or just type your answer\\.\n\n"
+                f"*Scores:*\n{current_scores}",
+                parse_mode="MarkdownV2",
+            )
+        else:
+            await bot.send_message(
+                chat_id,
+                f"🟣 *PROMPT CARD*\n\n"
+                f"*{prompt_display}*\n\n"
+                f"Everyone plays\\! Vote for the best card after submissions\\.\n\n"
+                f"Tap the button to view your hand and pick a card\\!\n\n"
+                f"*Scores:*\n{current_scores}",
+                parse_mode="MarkdownV2",
+                reply_markup=hand_keyboard(chat_id)
+            )
 
     except Exception as e:
         logger.error(f"Deal error: {e}")
@@ -569,18 +591,11 @@ async def _check_all_submitted(chat_id: int, bot, game: dict):
     except Exception as e:
         logger.error(f"batch_update_games_played error: {e}")
 
-    if game.get("use_ai_judge"):
-        game["state"] = "judging"
-        await _ai_judge_pick(chat_id, bot, game)
-        return
-
-    game["state"] = "judging"
+    game["state"] = "voting"
     submissions = list(game["submissions"].items())
     random.shuffle(submissions)
     game["_shuffled_submissions"] = submissions
-
-    judge_id = game.get("judge_id")
-    judge_name = game["players"].get(judge_id, "Judge")
+    game["votes"] = {}
 
     sub_text = "\n".join(
         f"🃏 Card {i+1}: {card}" for i, (_, card) in enumerate(submissions)
@@ -588,33 +603,36 @@ async def _check_all_submitted(chat_id: int, bot, game: dict):
 
     await bot.send_message(
         chat_id,
-        f"⚖️ All cards are in!\n\n"
+        f"⚖️ All cards are in! Time to vote!\n\n"
         f"Prompt: *{format_prompt(game['prompt'])}*\n\n"
         f"{sub_text}\n\n"
-        f"*{judge_name}*, pick the winning card!\n"
-        f"_(Judge has 2 minutes or Dr. Evil steps in)_",
+        f"Everyone vote for the funniest card! "
+        f"_(You can't vote for your own card. 90 seconds to vote or Dr. Evil decides!)_",
         parse_mode="Markdown",
-        reply_markup=judge_keyboard(submissions, chat_id)
+        reply_markup=vote_keyboard(submissions, chat_id)
     )
 
     round_id = game.get("round_id", 0)
 
-    async def judge_timeout_task():
+    async def vote_timeout_task():
         try:
-            await asyncio.sleep(120)
+            await asyncio.sleep(90)
             g = active_games.get(chat_id)
-            if g and g.get("state") == "judging" and g.get("round_id") == round_id:
-                await bot.send_message(
-                    chat_id, "⏰ Judge took too long! Dr. Evil is stepping in..."
-                )
-                await _ai_judge_pick(chat_id, bot, g)
+            if g and g.get("state") == "voting" and g.get("round_id") == round_id:
+                if g.get("votes"):
+                    await _tally_votes(chat_id, bot, g)
+                else:
+                    await bot.send_message(
+                        chat_id, "⏰ No votes cast! Dr. Evil is stepping in..."
+                    )
+                    await _ai_judge_pick(chat_id, bot, g)
         except asyncio.CancelledError:
             pass
 
-    task_key = f"judge_{chat_id}"
+    task_key = f"vote_{chat_id}"
     if task_key in timer_tasks:
         timer_tasks[task_key].cancel()
-    timer_tasks[task_key] = asyncio.create_task(judge_timeout_task())
+    timer_tasks[task_key] = asyncio.create_task(vote_timeout_task())
 
 
 async def cb_judge_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -649,6 +667,100 @@ async def cb_judge_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_reply_markup(reply_markup=None)
     await _announce_winner(chat_id, context.bot, game, winner_id, winner_name, winning_card)
+
+
+async def cb_vote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    parts = query.data.split("_")
+    chat_id = int(parts[1])
+    card_idx = int(parts[2])
+    user = query.from_user
+    player_id = str(user.id)
+    game = active_games.get(chat_id)
+
+    if not game or game["state"] != "voting":
+        await query.answer("Voting is not active right now.", show_alert=True)
+        return
+
+    if player_id not in game.get("players", {}):
+        await query.answer("You're not in this game!", show_alert=True)
+        return
+
+    if player_id in game.get("votes", {}):
+        await query.answer("You already voted!", show_alert=True)
+        return
+
+    submissions = game.get("_shuffled_submissions", [])
+    if card_idx >= len(submissions):
+        await query.answer("Invalid card.", show_alert=True)
+        return
+
+    voted_for_id = submissions[card_idx][0]
+    if voted_for_id == player_id:
+        await query.answer("You can't vote for your own card!", show_alert=True)
+        return
+
+    game["votes"][player_id] = card_idx
+    await query.answer(f"Vote recorded for Card {card_idx + 1}! ✅")
+
+    voted_count = len(game["votes"])
+    eligible_voters = len(game.get("players", {}))
+    try:
+        await context.bot.send_message(
+            chat_id,
+            f"🗳️ {user.full_name} voted! ({voted_count}/{eligible_voters})"
+        )
+    except Exception:
+        pass
+
+    if voted_count >= eligible_voters:
+        task_key = f"vote_{chat_id}"
+        if task_key in timer_tasks:
+            timer_tasks[task_key].cancel()
+            timer_tasks.pop(task_key, None)
+        await _tally_votes(chat_id, context.bot, game)
+
+
+async def _tally_votes(chat_id: int, bot, game: dict):
+    submissions = game.get("_shuffled_submissions", list(game["submissions"].items()))
+    votes = game.get("votes", {})
+
+    vote_counts = {}
+    for voter_id, card_idx in votes.items():
+        vote_counts[card_idx] = vote_counts.get(card_idx, 0) + 1
+
+    if not vote_counts:
+        await _ai_judge_pick(chat_id, bot, game)
+        return
+
+    max_votes = max(vote_counts.values())
+    top_indices = [idx for idx, count in vote_counts.items() if count == max_votes]
+
+    if len(top_indices) > 1:
+        winning_idx = random.choice(top_indices)
+    else:
+        winning_idx = top_indices[0]
+
+    winner_id, winning_card = submissions[winning_idx]
+    winner_name = game["players"].get(winner_id, "Unknown")
+
+    vote_summary = "\n".join(
+        f"  Card {i+1}: {vote_counts.get(i, 0)} vote(s)" for i in range(len(submissions))
+    )
+
+    roast = ""
+    try:
+        card_texts = [card for _, card in submissions]
+        if random.random() < 0.4:
+            roast = await dr_evil_roast(game["prompt"], card_texts)
+    except Exception:
+        pass
+
+    await _announce_winner(
+        chat_id, bot, game, winner_id, winner_name, winning_card,
+        roast=roast, vote_summary=vote_summary
+    )
 
 
 async def _ai_judge_pick(chat_id: int, bot, game: dict):
@@ -697,7 +809,7 @@ async def _ai_judge_pick(chat_id: int, bot, game: dict):
 async def _announce_winner(
     chat_id: int, bot, game: dict,
     winner_id: str, winner_name: str, winning_card: str,
-    roast: str = ""
+    roast: str = "", vote_summary: str = ""
 ):
     prompt = game["prompt"]
     slug = slugify(f"{prompt[:40]}-{random.randint(100, 999)}")
@@ -725,6 +837,8 @@ async def _announce_winner(
         f"Prompt: _{format_prompt(prompt)}_\n\n"
         f"Winning card: *{winning_card}*"
     )
+    if vote_summary:
+        msg += f"\n\n🗳️ *Votes:*\n{vote_summary}"
     if roast:
         msg += f"\n\n😈 Dr. Evil says: _{roast}_"
     msg += f"\n\n*Scores:*\n{current_scores}"
@@ -761,7 +875,7 @@ async def cmd_endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Only the game host can end the game!")
         return
 
-    for key in [chat_id, f"judge_{chat_id}"]:
+    for key in [chat_id, f"judge_{chat_id}", f"vote_{chat_id}"]:
         task = timer_tasks.pop(key, None)
         if task:
             task.cancel()
@@ -782,6 +896,49 @@ async def cmd_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"*Current Scores:*\n\n{scores_text(game)}",
         parse_mode="Markdown"
     )
+
+
+async def cmd_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await cmd_scores(update, context)
+
+
+async def handle_wildcard_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.text:
+        return
+    chat_id = update.effective_chat.id
+    game = active_games.get(chat_id)
+    if not game:
+        return
+    if game.get("game_mode") != "wildcard":
+        return
+    if game.get("state") != "submitting":
+        return
+
+    user = update.effective_user
+    player_id = str(user.id)
+
+    if player_id not in game.get("playing_ids", []):
+        return
+    if player_id in game.get("submissions", {}):
+        return
+
+    text = update.message.text.strip()
+    if not text or text.startswith("/"):
+        return
+
+    if len(text) > 200:
+        text = text[:200]
+
+    game["submissions"][player_id] = text
+
+    submitted = len(game["submissions"])
+    total = len(game.get("playing_ids", []))
+
+    await update.message.reply_text(
+        f"✅ Answer submitted! ({submitted}/{total})"
+    )
+
+    await _check_all_submitted(chat_id, context.bot, game)
 
 
 async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1644,6 +1801,16 @@ async def cb_store_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_decks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    is_group = update.effective_chat.type != "private"
+    group_premium = False
+    if is_group:
+        try:
+            group_premium = await is_premium_group(chat_id)
+        except Exception:
+            pass
+
     try:
         decks = await get_tg_user_decks(str(user.id))
     except Exception as e:
@@ -1651,12 +1818,14 @@ async def cmd_decks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not decks:
-        await update.message.reply_text(
-            "🃏 *Your Decks*\n\nYou don't have any custom decks yet.\n\n"
+        msg = "🃏 *Your Decks*\n\nYou don't have any custom decks yet.\n\n"
+        if is_group and not group_premium:
+            msg += "⭐ *Custom decks require Pro!* Upgrade with /premium to use custom decks in this group.\n\n"
+        msg += (
             "• Use `/deck upload <name>` and attach a CSV file to create one\n"
-            "• Visit the store with `/store` to browse purchasable decks",
-            parse_mode="Markdown"
+            "• Visit the store with `/store` to browse purchasable decks"
         )
+        await update.message.reply_text(msg, parse_mode="Markdown")
         return
 
     deck_lines = []
@@ -1665,11 +1834,11 @@ async def cmd_decks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"• *{d['name']}* — {d['answer_count']} answers, {d['prompt_count']} prompts"
         )
 
-    await update.message.reply_text(
-        f"🃏 *Your Decks ({len(decks)}):*\n\n" + "\n".join(deck_lines) + "\n\n"
-        f"Use `/deck delete <name>` to remove a deck.",
-        parse_mode="Markdown"
-    )
+    msg = f"🃏 *Your Decks ({len(decks)}):*\n\n" + "\n".join(deck_lines)
+    if is_group and not group_premium:
+        msg += "\n\n⭐ *Custom decks require Pro for this group.* Use /premium to upgrade."
+    msg += "\n\nUse `/deck delete <name>` to remove a deck."
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def cmd_deck(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1953,6 +2122,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("deal", cmd_deal))
     app.add_handler(CommandHandler("endgame", cmd_endgame))
     app.add_handler(CommandHandler("scores", cmd_scores))
+    app.add_handler(CommandHandler("score", cmd_score))
     app.add_handler(CommandHandler("leaderboard", cmd_leaderboard))
     app.add_handler(CommandHandler("solo", cmd_solo))
     app.add_handler(CommandHandler("solodeal", cmd_solo_deal))
@@ -1968,6 +2138,7 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(cb_view_hand, pattern=r"^viewhand_"))
     app.add_handler(CallbackQueryHandler(cb_submit_card, pattern=r"^submit_"))
     app.add_handler(CallbackQueryHandler(cb_judge_pick, pattern=r"^judge_"))
+    app.add_handler(CallbackQueryHandler(cb_vote, pattern=r"^vote_"))
     app.add_handler(CallbackQueryHandler(cb_deal_next, pattern=r"^deal_next$"))
     app.add_handler(CallbackQueryHandler(cb_solo_submit, pattern=r"^solosub_"))
 
@@ -1984,6 +2155,10 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(cb_store_page, pattern=r"^spage_"))
     app.add_handler(CallbackQueryHandler(cb_store_back, pattern=r"^sback$"))
 
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS,
+        handle_wildcard_text
+    ))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
     app.add_error_handler(error_handler)
@@ -1993,10 +2168,10 @@ def build_application() -> Application:
 
 async def set_commands(app: Application):
     await app.bot.set_my_commands([
-        BotCommand("startgame", "Start a new game (add: friend or swap)"),
+        BotCommand("startgame", "Start a new game (friend, swap, or wildcard)"),
         BotCommand("join", "Join the current game"),
         BotCommand("deal", "Deal cards for a new round"),
-        BotCommand("scores", "Show current game scores"),
+        BotCommand("score", "Show current game scores"),
         BotCommand("endgame", "End the current game (host only)"),
         BotCommand("leaderboard", "Show top players"),
         BotCommand("solo", "Play solo vs AI opponents"),

@@ -47,7 +47,15 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 ### Rate Limiting
 - In-memory, per-IP rate limiting across three tiers (Strict, Moderate, Relaxed) for API endpoints, excluding webhooks and static files.
 
-### Telegram Standalone Website (`telegram/`)
+### Telegram Bot & Website (`telegram/`)
+- **Bot**: `telegram/bot.py` — full gameplay bot using `python-telegram-bot` v21.6 (asyncio-native)
+  - **Game Modes**: friend (2+ players), swap (5+ players, cards rotate), wildcard (2+ players, write your own answers)
+  - **Core Flow**: `/startgame`, `/join`, `/deal` → card submission via DM inline buttons (or text in wildcard mode) → player voting via inline keyboard → highest-voted wins (AI fallback if no votes)
+  - **Solo Mode**: `/solo`, `/solodeal`, `/soloend` — play vs AI opponents with Dr. Evil judging
+  - **Tournaments**: `/tournament create/join/start/status/end` — multi-round with standings
+  - **Deck System**: `/decks`, `/deck upload/delete`, `/store` — custom deck upload via CSV, premium-gated for groups
+  - **Premium**: `/premium` — shows Pro features and upgrade link; groups need Pro for custom decks
+  - **Wired via lifespan**: `telegram/server.py` starts bot polling alongside FastAPI
 - **Framework**: FastAPI + Jinja2 templates on port 5001
 - **Templates**: `telegram/templates/` — `base.html` (shared nav/footer), `index.html`, `howtoplay.html`, `store.html`, `premium.html`, `leaderboard.html`
 - **Static**: `telegram/static/style.css` — CSS-variable-based dark purple design system (no Tailwind)
