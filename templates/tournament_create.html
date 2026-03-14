@@ -269,6 +269,9 @@
                 const tierSpans = [document.getElementById('ft-1'), document.getElementById('ft-2'), document.getElementById('ft-3'), document.getElementById('ft-4')];
                 const tierFees = [10, 15, 20, 25];
                 tierSpans.forEach((span, i) => {
+                    span.classList.remove('text-yellow-400', 'font-bold');
+                    span.classList.add('text-evil-300');
+                    span.textContent = `${tierFees[i]}%`;
                     if (tierFees[i] === currentFeePercent) {
                         span.classList.remove('text-evil-300');
                         span.classList.add('text-yellow-400', 'font-bold');
