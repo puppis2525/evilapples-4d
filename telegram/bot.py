@@ -186,18 +186,26 @@ def store_listing_keyboard(listings: list[dict], page: int = 0) -> InlineKeyboar
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    bot_username = (await context.bot.get_me()).username
     await update.message.reply_text(
         "😈 *Evil Apples for Telegram*\n\n"
-        "Add me to a group and use /startgame to play!\n\n"
-        "*Commands:*\n"
-        "/startgame \\[mode\\] — Start a game \\(friend, swap, or wildcard\\)\n"
-        "/join — Join the current game\n"
-        "/deal — Deal cards and start a round\n"
-        "/endgame — End the current game\n"
-        "/score — Show current scores\n"
+        "The dark comedy card game — right in your Telegram groups\\.\n\n"
+        "👉 *Add me to a group* to start playing with friends\\!\n"
+        "👉 Or try /solo right here to play vs AI opponents\\.\n\n"
+        "*Quick Commands:*\n"
+        "/startgame — Start a group game\n"
         "/solo — Play solo vs AI\n"
-        "/help — Show this message",
-        parse_mode="MarkdownV2"
+        "/leaderboard — Top players\n"
+        "/help — All commands\n\n"
+        f"🌐 [Visit our website](https://evilapples4d\\.com) for leaderboards, stats & more\\!",
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                "➕ Add to a Group",
+                url=f"https://t.me/{bot_username}?startgroup=true"
+            )],
+        ]),
+        disable_web_page_preview=True,
     )
 
 
@@ -325,6 +333,12 @@ async def cmd_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No active game. Use /startgame to start one!")
         return
 
+    if game["state"] not in ("waiting_for_players", "finished"):
+        await update.message.reply_text(
+            "A round is in progress — you can join after this round finishes. Hang tight!"
+        )
+        return
+
     player_id = str(user.id)
     if player_id in game["players"]:
         await update.message.reply_text(f"You're already in the game, {user.first_name}!")
@@ -353,6 +367,13 @@ async def cb_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not game:
         await query.answer("Game has ended!", show_alert=True)
+        return
+
+    if game["state"] not in ("waiting_for_players", "finished"):
+        await query.answer(
+            "A round is in progress — you can join after it finishes!",
+            show_alert=True,
+        )
         return
 
     player_id = str(user.id)
@@ -640,10 +661,17 @@ async def _check_all_submitted(chat_id: int, bot, game: dict):
             g = active_games.get(chat_id)
             if g and g.get("state") == "voting" and g.get("round_id") == round_id:
                 if g.get("votes"):
+                    voted = len(g["votes"])
+                    total = len(g.get("players", {}))
+                    await bot.send_message(
+                        chat_id,
+                        f"⏰ Time's up! Only {voted}/{total} players voted — tallying what we have..."
+                    )
                     await _tally_votes(chat_id, bot, g)
                 else:
                     await bot.send_message(
-                        chat_id, "⏰ No votes cast! Dr. Evil is stepping in..."
+                        chat_id,
+                        "⏰ Nobody voted in 90 seconds! Dr. Evil will pick the winner himself..."
                     )
                     await _ai_judge_pick(chat_id, bot, g)
         except asyncio.CancelledError:
@@ -867,7 +895,17 @@ async def _announce_winner(
 
     if player_score >= win_score:
         game["state"] = "game_over"
-        msg += f"\n\n🎉 *GAME OVER! {winner_name} wins with {player_score} points!*\n\nStart a new game with /startgame"
+        sorted_scores = sorted(scores.items(), key=lambda x: -x[1])
+        standings = "\n".join(
+            f"  {'🥇' if i == 0 else '🥈' if i == 1 else '🥉' if i == 2 else '  '} "
+            f"{game['players'].get(pid, pid)}: {pts} pts"
+            for i, (pid, pts) in enumerate(sorted_scores)
+        )
+        msg += (
+            f"\n\n🎉 *GAME OVER! {winner_name} wins with {player_score} points!*\n\n"
+            f"*Final Standings:*\n{standings}\n\n"
+            f"Start a new game with /startgame"
+        )
         await bot.send_message(chat_id, msg, parse_mode="Markdown")
         active_games.pop(chat_id, None)
         return
