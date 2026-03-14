@@ -296,11 +296,18 @@
             const teamCount = parseInt(document.getElementById('t-team-count').value) || 2;
             const teamSize = parseInt(document.getElementById('t-team-size').value) || 5;
             const totalPlayers = teamCount * teamSize;
-            const totalCollected = fee * totalPlayers;
+            const entryRevenue = fee * totalPlayers;
+
+            const sponsorEnabled = document.getElementById('t-sponsor-toggle').checked;
+            const sponsorSlots = sponsorEnabled ? (parseInt(document.getElementById('t-sponsor-slots').value) || 0) : 0;
+            const sponsorPrice = sponsorEnabled ? (parseFloat(document.getElementById('t-sponsor-price').value) || 0) : 0;
+            const sponsorRevenue = sponsorSlots * sponsorPrice;
+
+            const totalCollected = entryRevenue + sponsorRevenue;
 
             document.getElementById('capacity-display').textContent = `${totalPlayers} players`;
 
-            if (fee <= 0) {
+            if (totalCollected <= 0) {
                 document.getElementById('revenue-preview').classList.add('hidden');
                 return;
             }
@@ -366,7 +373,10 @@
 
         document.getElementById('t-sponsor-toggle').addEventListener('change', function() {
             document.getElementById('sponsor-fields').classList.toggle('hidden', !this.checked);
+            updateRevenuePreview();
         });
+        document.getElementById('t-sponsor-slots').addEventListener('input', updateRevenuePreview);
+        document.getElementById('t-sponsor-price').addEventListener('input', updateRevenuePreview);
 
         document.getElementById('tournament-form').addEventListener('submit', async (e) => {
             e.preventDefault();

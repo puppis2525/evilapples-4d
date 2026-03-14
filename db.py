@@ -271,7 +271,7 @@ def get_tiered_fee_percent(monthly_count: int) -> int:
         return 10
     elif monthly_count < 6:
         return 15
-    elif monthly_count < 10:
+    elif monthly_count < 11:
         return 20
     else:
         return 25
@@ -282,7 +282,7 @@ def get_host_share_percent(monthly_count: int) -> int:
         return 90
     elif monthly_count < 6:
         return 85
-    elif monthly_count < 10:
+    elif monthly_count < 11:
         return 80
     else:
         return 75
