@@ -1,12 +1,42 @@
 import discord
 import random
 from slugify import slugify
-from db import save_round
+from db import save_round, save_game_session
+import json
 
 
 def format_prompt(prompt_text):
     formatted = prompt_text.replace("_", "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
     return f"**{formatted}**"
+
+
+def _sanitize_for_persist(data):
+    clean = {}
+    for k, v in data.items():
+        if k.startswith("_"):
+            continue
+        if isinstance(v, set):
+            clean[k] = list(v)
+        elif isinstance(v, dict):
+            clean[k] = _sanitize_for_persist(v)
+        else:
+            clean[k] = v
+    return clean
+
+
+async def _persist_from_ui(game):
+    try:
+        from bot import active_games, solo_games
+        for ch_id, g in active_games.items():
+            if g is game:
+                await save_game_session(f"ch_{ch_id}", "channel", _sanitize_for_persist(game))
+                return
+        for pid, g in solo_games.items():
+            if g is game:
+                await save_game_session(f"solo_{pid}", "solo", _sanitize_for_persist(game))
+                return
+    except Exception:
+        pass
 
 
 class HandView(discord.ui.View):
@@ -203,6 +233,7 @@ class ExchangeConfirmView(discord.ui.View):
                 hand[idx] = new_cards[i]
 
         game.setdefault("exchanged", set()).add(player_id)
+        await _persist_from_ui(game)
 
         hand_text = "\n".join(f"**{i+1}.** {card}" for i, card in enumerate(hand))
         swap_summary = f"Swapped {len(selected_indices)} card{'s' if len(selected_indices) > 1 else ''}."
@@ -246,6 +277,7 @@ class SubmitCardButton(discord.ui.Button):
                 return
 
             game["submitted"] = True
+            await _persist_from_ui(game)
             for item in self.view_ref.children:
                 item.disabled = True
             await interaction.response.edit_message(
@@ -281,6 +313,7 @@ class SubmitCardButton(discord.ui.Button):
                 return
 
             game["submissions"][player_id] = self.card_text
+            await _persist_from_ui(game)
             for item in self.view_ref.children:
                 item.disabled = True
             await interaction.response.edit_message(
@@ -365,10 +398,9 @@ class JudgingView(discord.ui.View):
 
         if not game_over:
             await self.channel.send(embed=embed, view=PostRoundView())
+            await _persist_from_ui(self.game_session)
         else:
             await self.channel.send(embed=embed)
-
-        self.game_session["state"] = "finished"
 
 
 class CardButton(discord.ui.Button):
@@ -920,6 +952,7 @@ class WildcardModal(discord.ui.Modal, title="Write Your Answer"):
             return
 
         self.game_session["submissions"][player_id] = card_text
+        await _persist_from_ui(self.game_session)
 
         submitted = len(self.game_session["submissions"])
         playing_ids = self.game_session.get("playing_ids", [])

@@ -171,8 +171,6 @@ async def on_ready():
                 data["exchanged"] = set(data["exchanged"])
             if state == "dealing":
                 data["state"] = "waiting_for_players"
-            if state == "judging":
-                data["state"] = "submitting"
             active_games[ch_id] = data
             restored_ch += 1
 
@@ -204,22 +202,55 @@ async def on_ready():
             print(f"Cleaned up {len(stale_keys)} stale game sessions")
 
         for ch_id, game in list(active_games.items()):
-            if game.get("state") in ("submitting",) and game.get("prompt") and game.get("hands"):
-                channel = bot.get_channel(ch_id)
-                if channel:
-                    try:
-                        playing_ids = game.get("playing_ids", [pid for pid in game["players"] if pid != game.get("judge_id")])
-                        submitted = len(game.get("submissions", {}))
-                        remaining = len(playing_ids) - submitted
-                        embed = discord.Embed(
-                            title="Game Resumed After Restart",
-                            description=f"The bot restarted mid-round. The current prompt is:\n\n## {format_prompt(game['prompt'])}\n\n**{remaining} player(s)** still need to submit. Click the button below!",
-                            color=discord.Color.purple()
-                        )
+            channel = bot.get_channel(ch_id)
+            if not channel:
+                continue
+            try:
+                state = game.get("state")
+                if state == "submitting" and game.get("prompt") and game.get("hands"):
+                    playing_ids = game.get("playing_ids", [pid for pid in game["players"] if pid != game.get("judge_id")])
+                    submitted = len(game.get("submissions", {}))
+                    remaining = len(playing_ids) - submitted
+                    embed = discord.Embed(
+                        title="Game Resumed After Restart",
+                        description=f"The bot restarted mid-round. The current prompt is:\n\n## {format_prompt(game['prompt'])}\n\n**{remaining} player(s)** still need to submit. Click the button below!",
+                        color=discord.Color.purple()
+                    )
+                    game_mode = game.get("game_mode", "friend")
+                    if game_mode == "wildcard":
+                        from ui_components import WildcardView
+                        view = WildcardView(game, channel=channel)
+                    else:
                         view = HandView(game, mode="multiplayer", channel=channel)
+                    await channel.send(embed=embed, view=view)
+                elif state == "judging" and game.get("prompt") and game.get("submissions"):
+                    if game.get("use_ai_judge"):
+                        await channel.send("The bot restarted during judging. Dr. Evil is re-judging...")
+                        bot.loop.create_task(ai_judge_pick(game, channel))
+                    else:
+                        submissions = list(game["submissions"].items())
+                        random.shuffle(submissions)
+                        submission_text = "\n".join(
+                            f"\U0001F0CF **Card {i+1}:** {card}"
+                            for i, (_, card) in enumerate(submissions)
+                        )
+                        embed = discord.Embed(
+                            title="Game Resumed — Time to Judge!",
+                            description=f"The bot restarted. All cards were submitted.\n\n## {format_prompt(game['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
+                            color=discord.Color.from_rgb(106, 27, 154)
+                        )
+                        view = JudgingView(game, channel)
                         await channel.send(embed=embed, view=view)
-                    except Exception as e:
-                        logger.error(f"Failed to resume game in channel {ch_id}: {e}")
+                        round_id = game.get("round_id", 0)
+                        async def judge_timeout(c_id, rid):
+                            try:
+                                await asyncio.sleep(120)
+                                await handle_judge_timeout(c_id, rid)
+                            except asyncio.CancelledError:
+                                pass
+                        game["_judge_timeout_task"] = asyncio.create_task(judge_timeout(ch_id, round_id))
+            except Exception as e:
+                logger.error(f"Failed to resume game in channel {ch_id}: {e}")
     except Exception as e:
         logger.error(f"Failed to restore game sessions: {e}")
 
