@@ -464,7 +464,10 @@ async def refund_tournament_entries(tournament_id: int):
             continue
 
         try:
-            stripe_mod.Refund.create(payment_intent=pi_id)
+            refund_params = {"payment_intent": pi_id}
+            refund_params["reverse_transfer"] = True
+            refund_params["refund_application_fee"] = True
+            stripe_mod.Refund.create(**refund_params)
             await mark_entry_refunded(tournament_id, user_id)
             refunded += 1
             total_refunded_cents += amount
@@ -475,7 +478,16 @@ async def refund_tournament_entries(tournament_id: int):
             errors.append({"user_id": user_id, "error": err_msg})
             logger.error(f"Refund failed: tournament={tournament_id} user={user_id} pi={pi_id}: {err_msg}")
 
-    await mark_tournament_refunded(tournament_id)
+    if failed > 0 and refunded > 0:
+        from db import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE tournaments SET prize_pool_cents = 0, payout_status = 'partially_refunded', status = 'cancelled' WHERE id = $1",
+                tournament_id
+            )
+    else:
+        await mark_tournament_refunded(tournament_id)
     return {"refunded": refunded, "failed": failed, "total_cents": total_refunded_cents, "errors": errors}
 
 
