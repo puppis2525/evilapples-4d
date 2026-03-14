@@ -38,7 +38,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 active_games = {}
 channel_timers = {}
@@ -109,6 +109,156 @@ async def periodic_guild_count():
             await record_bot_guild_count(len(bot.guilds))
         except Exception as e:
             print(f"Failed to record guild count: {e}")
+
+
+COMMAND_HELP = {
+    "startgame": {
+        "usage": "!startgame [mode]",
+        "description": "Start a new multiplayer game in this channel.",
+        "details": "Modes: `friend` (default, 2+ players), `swap` (5+ players, cards shuffle each round), `wildcard` (5+ players, write your own answers).\n\n**Examples:**\n`!startgame` — Start a friend mode game\n`!startgame swap` — Start a swap mode game\n`!startgame wildcard` — Write your own answers",
+        "category": "Game",
+    },
+    "join": {
+        "usage": "!join",
+        "description": "Join the active game in this channel.",
+        "details": "Join a game that someone started with `!startgame`. You can also click the Join button on the game lobby embed.",
+        "category": "Game",
+    },
+    "deal": {
+        "usage": "!deal",
+        "description": "Deal a new round in the active game.",
+        "details": "Starts a new round: a prompt card appears and players pick their funniest answer. Anyone in the game can type `!deal` to start the next round.",
+        "category": "Game",
+    },
+    "endgame": {
+        "usage": "!endgame",
+        "description": "End the current game and show final scores.",
+        "details": "Ends the game running in this channel and displays the final scoreboard. All game data is saved to the leaderboard.",
+        "category": "Game",
+    },
+    "timer": {
+        "usage": "!timer",
+        "description": "Show the current round timer setting.",
+        "details": "Displays how many seconds players have to submit their answer each round. Default is no timer (unlimited).",
+        "category": "Game",
+    },
+    "settimer": {
+        "usage": "!settimer <seconds>",
+        "description": "Set the round timer (30-300 seconds, or 0 to disable).",
+        "details": "Set a time limit for each round. Players who don't submit in time are skipped.\n\n**Examples:**\n`!settimer 60` — 60 seconds per round\n`!settimer 0` — No timer",
+        "category": "Game",
+    },
+    "decks": {
+        "usage": "!decks",
+        "description": "Browse available card decks for this channel.",
+        "details": "Shows the decks available for use in games. You can select decks to play with custom card packs instead of the default AI-generated cards.",
+        "category": "Game",
+    },
+    "solo": {
+        "usage": "!solo [opponents]",
+        "description": "Start a solo game against AI opponents.",
+        "details": "Play against 1-5 AI opponents (default 3). Dr. Evil judges each round.\n\n**Subcommands:**\n`!solo deal` — Deal a solo round\n`!solo score` — Check your solo stats\n`!solo end` — End your solo game\n\n**Examples:**\n`!solo` — Play against 3 AI\n`!solo 5` — Play against 5 AI",
+        "category": "Solo",
+    },
+    "tournament": {
+        "usage": "!tournament <subcommand>",
+        "description": "Run multi-round tournaments with standings and prizes.",
+        "details": "**Subcommands:**\n`!tournament create <name> [rounds] [$fee]` — Create a tournament\n`!tournament link <id>` — Link a web-created tournament\n`!tournament join` — Join the open tournament\n`!tournament start` — Start the tournament (creator only)\n`!tournament status` — View standings\n`!tournament teams` — View team standings\n`!tournament end` — End the tournament early\n\n**Examples:**\n`!tournament create Friday Fight 10` — 10-round free tournament\n`!tournament create Big Money 5 $10` — 5 rounds, $10 entry fee",
+        "category": "Tournament",
+    },
+    "deck": {
+        "usage": "!deck <subcommand>",
+        "description": "Manage custom card decks (Pro feature).",
+        "details": "**Subcommands:**\n`!deck upload <name>` — Upload a CSV deck (attach file)\n`!deck list` — View your decks\n`!deck use <name>` — Activate a deck for this channel\n`!deck ai` — Switch back to AI-generated cards\n`!deck info <name>` — View deck details\n`!deck delete <name>` — Delete a deck\n\nRequires Pro subscription. Visit evilapples4d.com/premium to upgrade.",
+        "category": "Deck",
+    },
+    "premium": {
+        "usage": "!premium",
+        "description": "View Pro subscription status or upgrade.",
+        "details": "Shows whether this server has Pro status. If not, displays pricing and an upgrade link.\n\n**Pro features:** Unlimited games, unlimited tournaments, priority AI cards, custom deck uploads.",
+        "category": "Premium",
+    },
+}
+
+HELP_CATEGORIES = [
+    ("Game", "Core gameplay commands"),
+    ("Solo", "Solo mode vs AI opponents"),
+    ("Tournament", "Competitive tournaments with prizes"),
+    ("Deck", "Custom card deck management (Pro)"),
+    ("Premium", "Subscription & upgrade info"),
+]
+
+
+@bot.command(name="help")
+async def help_cmd(ctx, *, command_name: str = ""):
+    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+
+    if command_name:
+        cmd_key = command_name.lower().strip().lstrip("!")
+        cmd_info = COMMAND_HELP.get(cmd_key)
+        if not cmd_info:
+            await ctx.send(f"Unknown command `!{cmd_key}`. Type `!help` to see all commands.")
+            return
+        embed = discord.Embed(
+            title=f"Help: !{cmd_key}",
+            description=cmd_info["details"],
+            color=discord.Color.purple()
+        )
+        embed.add_field(name="Usage", value=f"`{cmd_info['usage']}`", inline=False)
+        embed.set_footer(text=f"Category: {cmd_info['category']} | evilapples4d.com")
+        await ctx.send(embed=embed)
+        return
+
+    embed = discord.Embed(
+        title="Evil Apples 4D — Commands",
+        description=f"The devilishly funny card game for Discord.\nType `!help <command>` for details on any command.\n\n[Visit evilapples4d.com](https://{host}) | [How to Play](https://{host}/howtoplay)",
+        color=discord.Color.purple()
+    )
+
+    for cat_name, cat_desc in HELP_CATEGORIES:
+        cmds = [f"`{info['usage']}` — {info['description']}" for info in COMMAND_HELP.values() if info["category"] == cat_name]
+        if cmds:
+            embed.add_field(name=f"{cat_name}", value="\n".join(cmds), inline=False)
+
+    embed.set_footer(text="Evil Apples 4D | Be evil. Be funny.")
+    await ctx.send(embed=embed)
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        cmd_name = ctx.message.content.split()[0].lstrip("!").lower()
+        available = list(COMMAND_HELP.keys())
+        close = [c for c in available if c.startswith(cmd_name[:3])] if len(cmd_name) >= 3 else []
+        if close:
+            suggestion = ", ".join(f"`!{c}`" for c in close[:3])
+            await ctx.send(f"Unknown command. Did you mean {suggestion}? Type `!help` for all commands.")
+        else:
+            await ctx.send("Unknown command. Type `!help` to see available commands.")
+        return
+
+    if isinstance(error, commands.MissingRequiredArgument):
+        cmd_info = COMMAND_HELP.get(ctx.command.qualified_name.replace(" ", ""))
+        if cmd_info:
+            await ctx.send(f"Missing argument: `{error.param.name}`\nUsage: `{cmd_info['usage']}`")
+        else:
+            await ctx.send(f"Missing argument: `{error.param.name}`. Type `!help {ctx.command.name}` for usage info.")
+        return
+
+    if isinstance(error, commands.MissingPermissions):
+        perms = ", ".join(error.missing_permissions)
+        await ctx.send(f"You need the following permissions to use this command: {perms}")
+        return
+
+    if isinstance(error, commands.BadArgument):
+        await ctx.send(f"Invalid argument. Type `!help {ctx.command.name}` for usage info.")
+        return
+
+    if isinstance(error, commands.CheckFailure):
+        return
+
+    logger.error(f"Command error in {ctx.command}: {error}", exc_info=error)
+    await ctx.send("Something went wrong. Please try again or type `!help` for available commands.")
 
 
 @bot.command(name="startgame")
