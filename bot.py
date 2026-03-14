@@ -1449,46 +1449,84 @@ async def tournament_end_cmd(ctx):
         await ctx.send("Only the tournament creator can end it!")
         return
 
-    await end_tournament(tournament["id"])
+    is_registration = tournament["status"] == "registration"
+    entry_fee = tournament.get("entry_fee_cents", 0) or 0
 
-    players = await get_tournament_players(tournament["id"])
-    if players and players[0]["points"] > 0:
-        champion = players[0]
+    if is_registration and entry_fee > 0:
+        try:
+            from stripe_routes import refund_tournament_entries
+            refund_result = await refund_tournament_entries(tournament["id"])
+            embed = discord.Embed(
+                title=f"Tournament Cancelled: {tournament['name']}",
+                description="The tournament has been cancelled before it started. All entry fees are being refunded.",
+                color=discord.Color.red()
+            )
+            refunded = refund_result["refunded"]
+            failed = refund_result["failed"]
+            total = refund_result["total_cents"]
+            refund_text = f"Refunded: {refunded} player{'s' if refunded != 1 else ''} (${total/100:.2f})"
+            if failed > 0:
+                refund_text += f"\nFailed: {failed} — contact support@evilapples4d.com"
+            embed.add_field(name="Refunds", value=refund_text, inline=False)
+        except Exception as e:
+            logger.error(f"Tournament refund error: {e}")
+            await end_tournament(tournament["id"])
+            embed = discord.Embed(
+                title=f"Tournament Cancelled: {tournament['name']}",
+                description="The tournament has been cancelled. Refund processing encountered an error — contact support@evilapples4d.com.",
+                color=discord.Color.red()
+            )
+    elif is_registration:
+        await end_tournament(tournament["id"])
         embed = discord.Embed(
-            title=f"Tournament Ended: {tournament['name']}",
-            description=f"**Champion:** {champion['discord_name']} with {champion['points']} points!",
-            color=discord.Color.gold()
-        )
-
-        entry_fee = tournament.get("entry_fee_cents", 0) or 0
-        if entry_fee > 0:
-            try:
-                from stripe_routes import process_tournament_payout
-                winner_discord_id = champion.get("discord_id") if isinstance(champion, dict) else str(champion.get("discord_id", ""))
-                await process_tournament_payout(tournament["id"], winner_discord_id=winner_discord_id)
-                entries = await get_paid_tournament_entries(tournament["id"])
-                total = sum(e["amount_cents"] for e in entries)
-                fee_pct = tournament.get("platform_fee_percent", 10) or 10
-                platform_fee = int(total * fee_pct / 100)
-                host_received = total - platform_fee
-                embed.add_field(
-                    name="💰 Prize Pool",
-                    value=(
-                        f"Total Collected: ${total/100:.2f}\n"
-                        f"Platform Fee ({fee_pct}%): ${platform_fee/100:.2f}\n"
-                        f"Host Received: ${host_received/100:.2f} (via Stripe Connect)"
-                    ),
-                    inline=False
-                )
-            except Exception as e:
-                logger.error(f"Tournament payout error: {e}")
-                embed.add_field(name="Payout", value="Payout processing — check website for status.", inline=False)
-    else:
-        embed = discord.Embed(
-            title=f"Tournament Ended: {tournament['name']}",
-            description="The tournament has been cancelled.",
+            title=f"Tournament Cancelled: {tournament['name']}",
+            description="The tournament has been cancelled before it started.",
             color=discord.Color.red()
         )
+    else:
+        if tournament["status"] == "completed":
+            await ctx.send("This tournament is already completed. Contact support@evilapples4d.com for refund inquiries.")
+            return
+
+        await end_tournament(tournament["id"])
+
+        players = await get_tournament_players(tournament["id"])
+        if players and players[0]["points"] > 0:
+            champion = players[0]
+            embed = discord.Embed(
+                title=f"Tournament Ended: {tournament['name']}",
+                description=f"**Champion:** {champion['discord_name']} with {champion['points']} points!",
+                color=discord.Color.gold()
+            )
+
+            if entry_fee > 0:
+                try:
+                    from stripe_routes import process_tournament_payout
+                    winner_discord_id = champion.get("discord_id") if isinstance(champion, dict) else str(champion.get("discord_id", ""))
+                    await process_tournament_payout(tournament["id"], winner_discord_id=winner_discord_id)
+                    entries = await get_paid_tournament_entries(tournament["id"])
+                    total = sum(e["amount_cents"] for e in entries)
+                    fee_pct = tournament.get("platform_fee_percent", 10) or 10
+                    platform_fee = int(total * fee_pct / 100)
+                    host_received = total - platform_fee
+                    embed.add_field(
+                        name="Prize Pool",
+                        value=(
+                            f"Total Collected: ${total/100:.2f}\n"
+                            f"Platform Fee ({fee_pct}%): ${platform_fee/100:.2f}\n"
+                            f"Host Received: ${host_received/100:.2f} (via Stripe Connect)"
+                        ),
+                        inline=False
+                    )
+                except Exception as e:
+                    logger.error(f"Tournament payout error: {e}")
+                    embed.add_field(name="Payout", value="Payout processing — check website for status.", inline=False)
+        else:
+            embed = discord.Embed(
+                title=f"Tournament Ended: {tournament['name']}",
+                description="The tournament has been ended.",
+                color=discord.Color.red()
+            )
 
     await ctx.send(embed=embed)
 

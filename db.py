@@ -510,6 +510,7 @@ async def init_paid_tournament_tables():
             await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payout_status VARCHAR(32) DEFAULT 'none'")
             await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS host_stripe_account_id VARCHAR(128)")
             await conn.execute("ALTER TABLE tournament_entries ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(256)")
+            await conn.execute("ALTER TABLE tournament_entries ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMP")
         except Exception:
             pass
 
@@ -647,18 +648,22 @@ async def update_tournament_payout(tournament_id: int, status: str):
         )
 
 
-async def refund_tournament_entries(tournament_id: int):
+async def mark_entry_refunded(tournament_id: int, discord_user_id: str):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        async with conn.transaction():
-            await conn.execute(
-                "UPDATE tournament_entries SET status = 'refunded' WHERE tournament_id = $1",
-                tournament_id
-            )
-            await conn.execute(
-                "UPDATE tournaments SET prize_pool_cents = 0, payout_status = 'refunded' WHERE id = $1",
-                tournament_id
-            )
+        await conn.execute(
+            "UPDATE tournament_entries SET status = 'refunded', refunded_at = NOW() WHERE tournament_id = $1 AND discord_user_id = $2",
+            tournament_id, discord_user_id
+        )
+
+
+async def mark_tournament_refunded(tournament_id: int):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tournaments SET prize_pool_cents = 0, payout_status = 'refunded', status = 'cancelled' WHERE id = $1",
+            tournament_id
+        )
 
 
 async def create_web_tournament(name: str, creator_id: str, creator_name: str,

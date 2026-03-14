@@ -405,6 +405,51 @@ async def api_create_tournament(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
+@app.post("/api/tournaments/{tournament_id}/cancel")
+async def api_cancel_tournament(tournament_id: int, request: Request):
+    from discord_auth import get_discord_user
+    from db import get_db_pool
+
+    user = get_discord_user(request)
+    if not user:
+        return JSONResponse(content={"error": "Login required"}, status_code=401)
+
+    try:
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            tournament = await conn.fetchrow("SELECT * FROM tournaments WHERE id = $1", tournament_id)
+
+        if not tournament:
+            return JSONResponse(content={"error": "Tournament not found"}, status_code=404)
+
+        if tournament["creator_id"] != user["discord_id"]:
+            return JSONResponse(content={"error": "Only the tournament host can cancel it"}, status_code=403)
+
+        if tournament["status"] == "completed":
+            return JSONResponse(content={"error": "Tournament already completed. Contact support@evilapples4d.com for refund inquiries."}, status_code=400)
+
+        if tournament["status"] == "cancelled":
+            return JSONResponse(content={"error": "Tournament is already cancelled"}, status_code=400)
+
+        entry_fee = tournament.get("entry_fee_cents", 0) or 0
+        refund_summary = None
+
+        if entry_fee > 0 and tournament["status"] == "registration":
+            from stripe_routes import refund_tournament_entries
+            refund_summary = await refund_tournament_entries(tournament_id)
+        else:
+            from db import end_tournament
+            await end_tournament(tournament_id)
+
+        result = {"success": True, "tournament_id": tournament_id, "status": "cancelled"}
+        if refund_summary:
+            result["refund"] = refund_summary
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Cancel tournament error: {e}")
+        return JSONResponse(content={"error": "Server error"}, status_code=500)
+
+
 @app.post("/api/tournaments/{tournament_id}/join")
 async def api_join_tournament(tournament_id: int, request: Request):
     from discord_auth import get_discord_user

@@ -438,6 +438,47 @@ async def tournament_entry_checkout(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
+async def refund_tournament_entries(tournament_id: int):
+    from db import get_paid_tournament_entries, mark_entry_refunded, mark_tournament_refunded
+
+    entries = await get_paid_tournament_entries(tournament_id)
+    if not entries:
+        await mark_tournament_refunded(tournament_id)
+        return {"refunded": 0, "failed": 0, "total_cents": 0, "errors": []}
+
+    stripe_mod = await get_stripe_client()
+    refunded = 0
+    failed = 0
+    total_refunded_cents = 0
+    errors = []
+
+    for entry in entries:
+        pi_id = entry.get("stripe_payment_intent_id")
+        user_id = entry["discord_user_id"]
+        amount = entry.get("amount_cents", 0)
+
+        if not pi_id:
+            logger.warning(f"Refund: no payment_intent for entry user={user_id} tournament={tournament_id}, marking refunded")
+            await mark_entry_refunded(tournament_id, user_id)
+            refunded += 1
+            continue
+
+        try:
+            stripe_mod.Refund.create(payment_intent=pi_id)
+            await mark_entry_refunded(tournament_id, user_id)
+            refunded += 1
+            total_refunded_cents += amount
+            logger.info(f"Refund: tournament={tournament_id} user={user_id} amount=${amount/100:.2f} pi={pi_id}")
+        except Exception as e:
+            failed += 1
+            err_msg = str(e)
+            errors.append({"user_id": user_id, "error": err_msg})
+            logger.error(f"Refund failed: tournament={tournament_id} user={user_id} pi={pi_id}: {err_msg}")
+
+    await mark_tournament_refunded(tournament_id)
+    return {"refunded": refunded, "failed": failed, "total_cents": total_refunded_cents, "errors": errors}
+
+
 async def process_tournament_payout(tournament_id: int, winner_discord_id: str = None):
     """Process tournament completion and optional winner prize transfers.
 
