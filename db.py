@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import logging
 import asyncpg
@@ -42,6 +43,14 @@ async def get_db_pool():
 async def init_db():
     pool = await get_db_pool()
     async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS active_game_sessions (
+                session_key VARCHAR(64) PRIMARY KEY,
+                session_type VARCHAR(16) NOT NULL DEFAULT 'channel',
+                game_data JSONB NOT NULL,
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS game_rounds (
                 id SERIAL PRIMARY KEY,
@@ -1697,3 +1706,51 @@ async def seed_store_decks():
             logger.info(f"Seeded {created} new store decks and listings")
         else:
             logger.info("All store decks already present")
+
+
+async def save_game_session(session_key, session_type, game_data):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO active_game_sessions (session_key, session_type, game_data, updated_at)
+            VALUES ($1, $2, $3::jsonb, NOW())
+            ON CONFLICT (session_key) DO UPDATE
+            SET game_data = $3::jsonb, updated_at = NOW()
+        """, str(session_key), session_type, json.dumps(game_data))
+
+
+async def load_game_session(session_key):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT game_data FROM active_game_sessions WHERE session_key = $1",
+            str(session_key)
+        )
+        if row:
+            return json.loads(row["game_data"])
+        return None
+
+
+async def delete_game_session(session_key):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM active_game_sessions WHERE session_key = $1",
+            str(session_key)
+        )
+
+
+async def load_all_game_sessions(session_type=None):
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        if session_type:
+            rows = await conn.fetch(
+                "SELECT session_key, game_data FROM active_game_sessions WHERE session_type = $1",
+                session_type
+            )
+        else:
+            rows = await conn.fetch("SELECT session_key, session_type, game_data FROM active_game_sessions")
+        result = {}
+        for row in rows:
+            result[row["session_key"]] = json.loads(row["game_data"])
+        return result

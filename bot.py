@@ -21,7 +21,8 @@ from db import (
     is_premium_server, get_premium_server,
     get_all_decks, get_deck_by_name, get_deck_by_id,
     get_random_cards, get_random_cards_multi, get_user_deck_count,
-    create_deck, add_cards_to_deck
+    create_deck, add_cards_to_deck,
+    save_game_session, load_game_session, delete_game_session, load_all_game_sessions
 )
 from tournament import (
     active_tournament_rounds, run_tournament_round,
@@ -29,6 +30,53 @@ from tournament import (
 )
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
+
+
+def _sanitize_game_data(data):
+    clean = {}
+    for k, v in data.items():
+        if k.startswith("_"):
+            continue
+        if isinstance(v, set):
+            clean[k] = list(v)
+        elif isinstance(v, dict):
+            clean[k] = _sanitize_game_data(v)
+        else:
+            clean[k] = v
+    return clean
+
+
+async def _persist_game(channel_id):
+    game = active_games.get(channel_id)
+    if game:
+        try:
+            await save_game_session(f"ch_{channel_id}", "channel", _sanitize_game_data(game))
+        except Exception as e:
+            logger.error(f"Failed to persist game {channel_id}: {e}")
+
+
+async def _persist_solo(player_id):
+    game = solo_games.get(player_id)
+    if game:
+        try:
+            await save_game_session(f"solo_{player_id}", "solo", _sanitize_game_data(game))
+        except Exception as e:
+            logger.error(f"Failed to persist solo game {player_id}: {e}")
+
+
+async def _remove_game(channel_id):
+    try:
+        await delete_game_session(f"ch_{channel_id}")
+    except Exception as e:
+        logger.error(f"Failed to remove game session {channel_id}: {e}")
+
+
+async def _remove_solo(player_id):
+    try:
+        await delete_game_session(f"solo_{player_id}")
+    except Exception as e:
+        logger.error(f"Failed to remove solo session {player_id}: {e}")
+
 
 def format_prompt(prompt_text):
     formatted = prompt_text.replace("_", "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
@@ -98,6 +146,48 @@ async def on_ready():
     await record_bot_guild_count(len(bot.guilds))
     print(f"Recorded guild count: {len(bot.guilds)}")
     bot.loop.create_task(periodic_guild_count())
+
+    try:
+        channel_sessions = await load_all_game_sessions("channel")
+        restored_ch = 0
+        stale_keys = []
+        for key, data in channel_sessions.items():
+            raw_key = str(key)
+            ch_id_str = raw_key.replace("ch_", "") if raw_key.startswith("ch_") else raw_key
+            try:
+                ch_id = int(ch_id_str)
+            except ValueError:
+                stale_keys.append(raw_key)
+                continue
+            if isinstance(data, dict) and data.get("state") in ("waiting_for_players", "finished", "idle"):
+                active_games[ch_id] = data
+                if "exchanged" in data and isinstance(data["exchanged"], list):
+                    data["exchanged"] = set(data["exchanged"])
+                restored_ch += 1
+            else:
+                stale_keys.append(raw_key)
+
+        solo_sessions = await load_all_game_sessions("solo")
+        restored_solo = 0
+        for key, data in solo_sessions.items():
+            raw_key = str(key)
+            player_id = raw_key.replace("solo_", "") if raw_key.startswith("solo_") else raw_key
+            if isinstance(data, dict) and data.get("state") in ("idle",):
+                solo_games[player_id] = data
+                if "exchanged" in data and isinstance(data["exchanged"], list):
+                    data["exchanged"] = set(data["exchanged"])
+                restored_solo += 1
+            else:
+                stale_keys.append(raw_key)
+
+        if restored_ch or restored_solo:
+            print(f"Restored {restored_ch} channel games and {restored_solo} solo games from database")
+        for key in stale_keys:
+            await delete_game_session(key)
+        if stale_keys:
+            print(f"Cleaned up {len(stale_keys)} stale game sessions")
+    except Exception as e:
+        logger.error(f"Failed to restore game sessions: {e}")
 
 
 async def periodic_guild_count():
@@ -276,6 +366,7 @@ async def start_game(ctx, mode: str = "friend"):
     mode_info = GAME_MODES[mode]
     session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name, game_mode=mode)
     active_games[ctx.channel.id] = session.to_dict()
+    await _persist_game(ctx.channel.id)
 
     channel_decks.pop(ctx.channel.id, None)
 
@@ -324,6 +415,7 @@ async def join_game(ctx):
         game["all_player_ids"].append(player_id)
     if player_id not in game.get("scores", {}):
         game.setdefault("scores", {})[player_id] = 0
+    await _persist_game(ctx.channel.id)
     await ctx.send(f"**{ctx.author.display_name}** has joined! ({len(game['players'])} players)")
 
     deck_count = await get_user_deck_count(player_id)
@@ -456,6 +548,7 @@ async def deal_cards(ctx):
         game["state"] = "submitting"
         game["playing_ids"] = playing_ids
         game["exchanged"] = set()
+        await _persist_game(ctx.channel.id)
 
         timer_seconds = channel_timers.get(ctx.channel.id)
         if game_mode == "friend":
@@ -543,6 +636,7 @@ async def handle_round_winner(game, winner_id, winner_name, channel):
             judge_task.cancel()
         if channel.id in active_games:
             del active_games[channel.id]
+        await _remove_game(channel.id)
         if channel.id in timer_tasks:
             timer_tasks[channel.id].cancel()
             del timer_tasks[channel.id]
@@ -649,6 +743,14 @@ async def ai_judge_pick(game, channel):
     )
 
     game_over = await handle_round_winner(game, winner_id, winner_name, channel)
+    if not game_over:
+        channel_id = None
+        for ch_id, g in active_games.items():
+            if g is game:
+                channel_id = ch_id
+                break
+        if channel_id is not None:
+            await _persist_game(channel_id)
 
     scores = game.setdefault("scores", {})
     scores_text = " | ".join(
@@ -702,11 +804,13 @@ async def check_all_submitted(game, interaction):
 
     if game.get("use_ai_judge"):
         game["state"] = "judging"
+        await _persist_game(channel_id)
         if channel:
             await ai_judge_pick(game, channel)
         return
 
     game["state"] = "judging"
+    await _persist_game(channel_id)
     if channel:
         submissions = list(game["submissions"].items())
         random.shuffle(submissions)
@@ -751,6 +855,7 @@ async def end_game(ctx):
     if judge_task and not judge_task.done():
         judge_task.cancel()
     del active_games[ctx.channel.id]
+    await _remove_game(ctx.channel.id)
     await ctx.send("Game ended. Start a new one with `!startgame`.")
 
 
@@ -924,6 +1029,7 @@ async def solo_group(ctx, opponents: int = 3):
     }
     for name in ai_names:
         solo_games[player_id]["scores"][name] = 0
+    await _persist_solo(player_id)
 
     if ctx.channel.id in channel_decks:
         channel_decks[ctx.channel.id].pop(player_id, None)
@@ -998,6 +1104,7 @@ async def solo_deal(ctx):
             game["state"] = "submitting"
             game["submitted"] = False
             game["exchanged"] = set()
+            await _persist_solo(player_id)
 
             timer_seconds = channel_timers.get(ctx.channel.id)
             timer_text = ""
@@ -1135,12 +1242,14 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out: 
         await channel.send(embed=result_embed, view=SoloControlsView(player_id))
 
         game["state"] = "idle"
+        await _persist_solo(player_id)
 
     except Exception as e:
         print(f"Error in finish_solo_round: {e}")
         import traceback
         traceback.print_exc()
         game["state"] = "idle"
+        await _persist_solo(player_id)
         try:
             await channel.send(f"Something went wrong during judging. Type `!solo deal` to try again.")
         except Exception:
@@ -1173,6 +1282,7 @@ async def solo_end(ctx):
     player_id = str(ctx.author.id)
     game = solo_games.pop(player_id, None)
     solo_locks.pop(player_id, None)
+    await _remove_solo(player_id)
     if not game:
         await ctx.send("No solo game to end.")
         return

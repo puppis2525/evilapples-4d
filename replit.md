@@ -16,6 +16,7 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 - **Scoring**: Points-based system, typically first to 7 points wins, with automatic game conclusion.
 - **Judge Rotation**: Round-robin judge rotation among players. If fewer than 3 players, or if a human judge fails to pick, Dr. Evil (Venice.ai) acts as judge.
 - **Card System**: Uses a default pool of classic cards (`classic_cards.json`), with **Venice.ai** for AI-generated cards as fallback. Players can select custom decks, and cards are dealt based on player-specific deck selections. Hand size is 7 cards, with one-time per-round card exchange. **Rapidfuzz** is used for card deduplication.
+- **Game State Persistence**: Active game sessions (both channel and solo) are persisted to the `active_game_sessions` PostgreSQL table as JSONB. On bot restart, games in safe states (`waiting_for_players`, `finished`, `idle`) are restored; mid-round sessions are cleaned up.
 - **In-channel Interaction**: Game actions (viewing hands, submitting cards, judging) are managed via Discord buttons and ephemeral messages, minimizing DM usage.
 - **Premium Features**: A Pro subscription offers unlimited games per server (vs. 3 free games/day).
 
@@ -56,6 +57,7 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
   - **Deck System**: `/decks`, `/deck upload/delete`, `/store` — custom deck upload via CSV, premium-gated for groups
   - **Premium**: `/premium` — shows Pro features and upgrade link; groups need Pro for custom decks
   - **Wired via lifespan**: `telegram/server.py` starts bot polling alongside FastAPI
+- **Workflow**: "Start Telegram bot" (`cd telegram && python server.py`) runs as a separate workflow on port 5001
 - **Framework**: FastAPI + Jinja2 templates on port 5001
 - **Templates**: `telegram/templates/` — `base.html` (shared nav/footer), `index.html`, `howtoplay.html`, `store.html`, `premium.html`, `leaderboard.html`
 - **Static**: `telegram/static/style.css` — CSS-variable-based dark purple design system (no Tailwind)

@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@source "./templates/**/*.html";
+
+@theme {
+  --color-evil-50: #f3f0ff;
+  --color-evil-100: #e5deff;
+  --color-evil-200: #cdbbff;
+  --color-evil-300: #b08dff;
+  --color-evil-400: #9055ff;
+  --color-evil-500: #7c3aed;
+  --color-evil-600: #6d28d9;
+  --color-evil-700: #5b21b6;
+  --color-evil-800: #4c1d95;
+  --color-evil-900: #3b1578;
+  --color-evil-950: #1a0a3e;
+  --color-evil-bg: #0d0520;
+  --color-evil-surface: #170e30;
+  --color-evil-card: #1e1245;
+}
