@@ -3,7 +3,7 @@
 python server.py &
 PID_DISCORD=$!
 
-cd telegram && python server.py &
+cd telegram && PORT=5001 python server.py &
 PID_TELEGRAM=$!
 
 cleanup() {
