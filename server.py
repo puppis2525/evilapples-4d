@@ -160,6 +160,25 @@ app.include_router(auth_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: StarletteHTTPException):
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+    return JSONResponse(content={"error": "Not found"}, status_code=404)
+
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc: Exception):
+    logger.error(f"Internal server error: {exc}")
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
+    return JSONResponse(content={"error": "Internal server error"}, status_code=500)
+
 
 @app.get("/favicon.ico")
 async def favicon():
@@ -263,7 +282,20 @@ async def tournament_create_page(request: Request):
 
 @app.get("/tournaments/{tournament_id}", response_class=HTMLResponse)
 async def tournament_detail_page(request: Request, tournament_id: int):
-    return templates.TemplateResponse("tournament_detail.html", {"request": request, "tournament_id": tournament_id})
+    og_ctx = {"tournament_id": tournament_id}
+    try:
+        from db import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            t = await conn.fetchrow("SELECT name, rounds_total, entry_fee_cents, creator_name FROM tournaments WHERE id = $1", tournament_id)
+        if t:
+            fee_text = f" | Entry: ${t['entry_fee_cents']/100:.2f}" if t.get("entry_fee_cents") else ""
+            og_ctx["og_title"] = f"{t['name']} — Evil Apples 4D Tournament"
+            og_ctx["og_description"] = f"{t['rounds_total']}-round tournament by {t['creator_name']}{fee_text}. Join and compete on Discord!"
+            og_ctx["og_url"] = f"https://evilapples4d.com/tournaments/{tournament_id}"
+    except Exception:
+        pass
+    return templates.TemplateResponse("tournament_detail.html", {"request": request, **og_ctx})
 
 
 @app.get("/api/tournaments")

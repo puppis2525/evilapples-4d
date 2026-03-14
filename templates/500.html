@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 — Evil Apples 4D</title>
+    <meta name="description" content="Something went wrong. Our evil servers are plotting their revenge.">
+    <meta name="theme-color" content="#7c3aed">
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        evil: {
+                            50: '#f3f0ff', 100: '#e5deff', 200: '#cdbbff',
+                            300: '#b08dff', 400: '#9055ff', 500: '#7c3aed',
+                            600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95',
+                            900: '#3b1578', 950: '#1a0a3e', bg: '#0d0520',
+                            surface: '#170e30', card: '#1e1245',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-brand { font-family: 'Luckiest Guy', cursive; }
+        .purple-glow { text-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3); }
+        .logo-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .bg-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.08) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .black-card {
+            background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+            border: 2px solid #2a2a4a;
+        }
+    </style>
+</head>
+<body class="bg-evil-bg text-white min-h-screen bg-grid flex flex-col">
+    <nav class="border-b border-evil-800/50 bg-evil-bg/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Evil Apples 4D" class="w-10 h-10">
+                <h1 class="font-brand text-2xl tracking-tight">
+                    <span class="text-evil-400">Evil Apples</span>
+                    <span class="text-evil-300 text-lg ml-1">4D</span>
+                </h1>
+            </a>
+            <div class="flex items-center gap-6 text-sm">
+                <a href="/" class="text-evil-300 hover:text-white transition font-semibold">Home</a>
+                <a href="/tournaments" class="text-evil-300 hover:text-white transition font-semibold">Tournaments</a>
+                <a href="/howtoplay" class="text-evil-300 hover:text-white transition font-semibold">How to Play</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex items-center justify-center px-6 py-20">
+        <div class="text-center max-w-lg">
+            <img src="/static/logo.png" alt="Evil Apples 4D" class="w-24 h-24 mx-auto mb-8 logo-float drop-shadow-2xl opacity-60">
+            <h2 class="font-brand text-8xl md:text-9xl mb-4 purple-glow text-red-400">500</h2>
+            <div class="black-card rounded-2xl p-6 mb-8 mx-auto max-w-md">
+                <p class="text-evil-400 text-xs uppercase tracking-widest mb-2 font-semibold">Dr. Evil says:</p>
+                <p class="text-white font-bold text-xl leading-snug">"My evil plan backfired. The server had a meltdown. Even villains have bad days."</p>
+            </div>
+            <p class="text-evil-400 mb-8">Something went wrong on our end. Try refreshing the page or come back in a moment.</p>
+            <div class="flex items-center justify-center gap-4">
+                <a href="/" class="inline-flex items-center gap-2 px-8 py-3 bg-evil-500 hover:bg-evil-400 text-white font-bold rounded-xl transition shadow-lg hover:shadow-xl">
+                    Back to Home
+                </a>
+                <button onclick="location.reload()" class="inline-flex items-center gap-2 px-8 py-3 bg-evil-card hover:bg-evil-700 text-evil-300 font-bold rounded-xl transition border border-evil-800/50">
+                    Try Again
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t border-evil-800/30 py-6 text-center text-evil-400/50 text-sm">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <img src="/static/logo.png" alt="" class="w-5 h-5 opacity-50">
+            <span class="font-brand text-evil-400/70">Evil Apples 4D</span>
+        </div>
+        <p>Be evil. Be funny.</p>
+    </footer>
+</body>
+</html>
