@@ -900,10 +900,33 @@ async def cmd_endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if task:
             task.cancel()
 
+    scores = game.get("scores", {})
+    players = game.get("players", {})
+
+    if scores and any(v > 0 for v in scores.values()):
+        sorted_scores = sorted(scores.items(), key=lambda x: -x[1])
+        winner_id, winner_pts = sorted_scores[0]
+        winner_name = players.get(winner_id, "Unknown")
+
+        standings = "\n".join(
+            f"  {'🥇' if i == 0 else '🥈' if i == 1 else '🥉' if i == 2 else '  '} "
+            f"{players.get(pid, pid)}: {pts} pts"
+            for i, (pid, pts) in enumerate(sorted_scores)
+        )
+
+        await update.message.reply_text(
+            f"🏁 *Game Over!*\n\n"
+            f"🏆 *Winner: {winner_name}* with {winner_pts} points!\n\n"
+            f"*Final Standings:*\n{standings}\n\n"
+            f"Start a new game with /startgame!",
+            parse_mode="Markdown"
+        )
+    else:
+        await update.message.reply_text(
+            "Game ended — no rounds were played.\nStart a new one with /startgame!"
+        )
+
     active_games.pop(chat_id, None)
-    await update.message.reply_text(
-        "Game ended. Start a new one with /startgame!"
-    )
 
 
 async def cmd_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -146,10 +146,13 @@ async def generate_hand(count: int = HAND_SIZE) -> list[str]:
 
 
 async def generate_prompt() -> str:
-    black_cards = CLASSIC_CARDS.get("black_cards", [])
-    if black_cards:
-        return random.choice(black_cards)
-    return await generate_card("black")
+    try:
+        return await generate_card("black")
+    except Exception:
+        black_cards = CLASSIC_CARDS.get("black_cards", [])
+        if black_cards:
+            return random.choice(black_cards)
+        return "What's the worst thing you can say at a funeral? _"
 
 
 SYSTEM_PROMPT_JUDGE = """You are the judge of a dark comedy card game called Evil Apples.
