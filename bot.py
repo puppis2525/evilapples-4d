@@ -151,6 +151,7 @@ async def on_ready():
         channel_sessions = await load_all_game_sessions("channel")
         restored_ch = 0
         stale_keys = []
+        restorable_states = ("waiting_for_players", "finished", "submitting", "judging", "dealing")
         for key, data in channel_sessions.items():
             raw_key = str(key)
             ch_id_str = raw_key.replace("ch_", "") if raw_key.startswith("ch_") else raw_key
@@ -159,26 +160,41 @@ async def on_ready():
             except ValueError:
                 stale_keys.append(raw_key)
                 continue
-            if isinstance(data, dict) and data.get("state") in ("waiting_for_players", "finished", "idle"):
-                active_games[ch_id] = data
-                if "exchanged" in data and isinstance(data["exchanged"], list):
-                    data["exchanged"] = set(data["exchanged"])
-                restored_ch += 1
-            else:
+            if not isinstance(data, dict):
                 stale_keys.append(raw_key)
+                continue
+            state = data.get("state")
+            if state not in restorable_states:
+                stale_keys.append(raw_key)
+                continue
+            if "exchanged" in data and isinstance(data["exchanged"], list):
+                data["exchanged"] = set(data["exchanged"])
+            if state == "dealing":
+                data["state"] = "waiting_for_players"
+            if state == "judging":
+                data["state"] = "submitting"
+            active_games[ch_id] = data
+            restored_ch += 1
 
         solo_sessions = await load_all_game_sessions("solo")
         restored_solo = 0
+        solo_restorable = ("idle", "submitting", "dealing")
         for key, data in solo_sessions.items():
             raw_key = str(key)
             player_id = raw_key.replace("solo_", "") if raw_key.startswith("solo_") else raw_key
-            if isinstance(data, dict) and data.get("state") in ("idle",):
-                solo_games[player_id] = data
-                if "exchanged" in data and isinstance(data["exchanged"], list):
-                    data["exchanged"] = set(data["exchanged"])
-                restored_solo += 1
-            else:
+            if not isinstance(data, dict):
                 stale_keys.append(raw_key)
+                continue
+            state = data.get("state")
+            if state not in solo_restorable:
+                stale_keys.append(raw_key)
+                continue
+            if "exchanged" in data and isinstance(data["exchanged"], list):
+                data["exchanged"] = set(data["exchanged"])
+            if state in ("dealing", "submitting"):
+                data["state"] = "idle"
+            solo_games[player_id] = data
+            restored_solo += 1
 
         if restored_ch or restored_solo:
             print(f"Restored {restored_ch} channel games and {restored_solo} solo games from database")
@@ -186,6 +202,24 @@ async def on_ready():
             await delete_game_session(key)
         if stale_keys:
             print(f"Cleaned up {len(stale_keys)} stale game sessions")
+
+        for ch_id, game in list(active_games.items()):
+            if game.get("state") in ("submitting",) and game.get("prompt") and game.get("hands"):
+                channel = bot.get_channel(ch_id)
+                if channel:
+                    try:
+                        playing_ids = game.get("playing_ids", [pid for pid in game["players"] if pid != game.get("judge_id")])
+                        submitted = len(game.get("submissions", {}))
+                        remaining = len(playing_ids) - submitted
+                        embed = discord.Embed(
+                            title="Game Resumed After Restart",
+                            description=f"The bot restarted mid-round. The current prompt is:\n\n## {format_prompt(game['prompt'])}\n\n**{remaining} player(s)** still need to submit. Click the button below!",
+                            color=discord.Color.purple()
+                        )
+                        view = HandView(game, mode="multiplayer", channel=channel)
+                        await channel.send(embed=embed, view=view)
+                    except Exception as e:
+                        logger.error(f"Failed to resume game in channel {ch_id}: {e}")
     except Exception as e:
         logger.error(f"Failed to restore game sessions: {e}")
 
