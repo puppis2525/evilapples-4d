@@ -203,12 +203,24 @@ async def ad_context(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, **(await ad_context(request))})
+    og = {
+        "og_title": "Evil Apples 4D — The Devilishly Funny Card Game for Discord",
+        "og_description": "Play Cards Against Humanity-style games on Discord with AI-generated cards, tournaments, and leaderboards. Be evil. Be funny.",
+        "og_url": "https://evilapples4d.com",
+        "og_image": "https://evilapples4d.com/static/logo.png",
+    }
+    return templates.TemplateResponse("index.html", {"request": request, **(await ad_context(request)), **og})
 
 
 @app.get("/howtoplay", response_class=HTMLResponse)
 async def howtoplay_page(request: Request):
-    return templates.TemplateResponse("howtoplay.html", {"request": request, **(await ad_context(request))})
+    og = {
+        "og_title": "How to Play — Evil Apples 4D",
+        "og_description": "Learn how to play Evil Apples 4D on Discord — game modes, commands, tournaments, and tips to dominate the leaderboard.",
+        "og_url": "https://evilapples4d.com/howtoplay",
+        "og_image": "https://evilapples4d.com/static/logo.png",
+    }
+    return templates.TemplateResponse("howtoplay.html", {"request": request, **(await ad_context(request)), **og})
 
 
 @app.get("/privacy", response_class=HTMLResponse)
