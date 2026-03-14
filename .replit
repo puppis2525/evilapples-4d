@@ -39,13 +39,13 @@ outputType = "webview"
 name = "Start Telegram bot"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd telegram && python server.py"
-waitForPort = 5001
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python telegram/server.py"
+waitForPort = 5001
 
 [[ports]]
 localPort = 5000
