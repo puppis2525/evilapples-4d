@@ -144,8 +144,8 @@ COMMAND_HELP = {
     },
     "settimer": {
         "usage": "!settimer <seconds>",
-        "description": "Set the round timer (30-300 seconds, or 0 to disable).",
-        "details": "Set a time limit for each round. Players who don't submit in time are skipped.\n\n**Examples:**\n`!settimer 60` — 60 seconds per round\n`!settimer 0` — No timer",
+        "description": "Set the round timer (10-60 seconds, or off to disable).",
+        "details": "Set a time limit for each round. Players who don't submit in time are skipped.\n\n**Examples:**\n`!settimer 30` — 30 seconds per round\n`!settimer off` — Disable the timer",
         "category": "Game",
     },
     "decks": {
@@ -205,7 +205,7 @@ async def help_cmd(ctx, *, command_name: str = ""):
             color=discord.Color.purple()
         )
         embed.add_field(name="Usage", value=f"`{cmd_info['usage']}`", inline=False)
-        embed.set_footer(text=f"Category: {cmd_info['category']} | evilapples4d.com")
+        embed.set_footer(text=f"Category: {cmd_info['category']} | {host}")
         await ctx.send(embed=embed)
         return
 
