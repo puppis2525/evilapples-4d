@@ -45,7 +45,10 @@ async def lifespan(app: FastAPI):
         await tg_app.updater.start_polling(allowed_updates=["message", "callback_query"])
         logger.info("Telegram bot started (polling)")
     else:
-        logger.warning("TELEGRAM_BOT_TOKEN not set — bot not started")
+        logger.error(
+            "TELEGRAM_BOT_TOKEN is not set! The Telegram bot will NOT start. "
+            "Set this environment variable with your bot token from @BotFather to enable the bot."
+        )
 
     yield
 

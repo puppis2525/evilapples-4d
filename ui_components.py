@@ -1,8 +1,10 @@
 import discord
 import random
+import logging
 from slugify import slugify
 from db import save_round, save_game_session
-import json
+
+logger = logging.getLogger("ui_components")
 
 
 def format_prompt(prompt_text):
@@ -35,8 +37,8 @@ async def _persist_from_ui(game):
             if g is game:
                 await save_game_session(f"solo_{pid}", "solo", _sanitize_for_persist(game))
                 return
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Failed to persist game state from UI: {e}")
 
 
 class HandView(discord.ui.View):

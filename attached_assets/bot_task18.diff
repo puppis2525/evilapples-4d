@@ -1,0 +1,261 @@
+diff --git a/bot.py b/bot.py
+index c85ddcc..130270d 100644
+--- a/bot.py
++++ b/bot.py
+@@ -22,5 +22,6 @@ from db import (
+     get_all_decks, get_deck_by_name, get_deck_by_id,
+     get_random_cards, get_random_cards_multi, get_user_deck_count,
+-    create_deck, add_cards_to_deck
++    create_deck, add_cards_to_deck,
++    save_game_session, load_game_session, delete_game_session, load_all_game_sessions
+ )
+ from tournament import (
+@@ -31,4 +32,51 @@ from tournament import (
+ DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
+ 
++
++def _sanitize_game_data(data):
++    clean = {}
++    for k, v in data.items():
++        if k.startswith("_"):
++            continue
++        if isinstance(v, set):
++            clean[k] = list(v)
++        elif isinstance(v, dict):
++            clean[k] = _sanitize_game_data(v)
++        else:
++            clean[k] = v
++    return clean
++
++
++async def _persist_game(channel_id):
++    game = active_games.get(channel_id)
++    if game:
++        try:
++            await save_game_session(f"ch_{channel_id}", "channel", _sanitize_game_data(game))
++        except Exception as e:
++            logger.error(f"Failed to persist game {channel_id}: {e}")
++
++
++async def _persist_solo(player_id):
++    game = solo_games.get(player_id)
++    if game:
++        try:
++            await save_game_session(f"solo_{player_id}", "solo", _sanitize_game_data(game))
++        except Exception as e:
++            logger.error(f"Failed to persist solo game {player_id}: {e}")
++
++
++async def _remove_game(channel_id):
++    try:
++        await delete_game_session(f"ch_{channel_id}")
++    except Exception as e:
++        logger.error(f"Failed to remove game session {channel_id}: {e}")
++
++
++async def _remove_solo(player_id):
++    try:
++        await delete_game_session(f"solo_{player_id}")
++    except Exception as e:
++        logger.error(f"Failed to remove solo session {player_id}: {e}")
++
++
+ def format_prompt(prompt_text):
+     formatted = prompt_text.replace("_", "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
+@@ -100,4 +148,111 @@ async def on_ready():
+     bot.loop.create_task(periodic_guild_count())
+ 
++    try:
++        channel_sessions = await load_all_game_sessions("channel")
++        restored_ch = 0
++        stale_keys = []
++        restorable_states = ("waiting_for_players", "finished", "submitting", "judging", "dealing")
++        for key, data in channel_sessions.items():
++            raw_key = str(key)
++            ch_id_str = raw_key.replace("ch_", "") if raw_key.startswith("ch_") else raw_key
++            try:
++                ch_id = int(ch_id_str)
++            except ValueError:
++                stale_keys.append(raw_key)
++                continue
++            if not isinstance(data, dict):
++                stale_keys.append(raw_key)
++                continue
++            state = data.get("state")
++            if state not in restorable_states:
++                stale_keys.append(raw_key)
++                continue
++            if "exchanged" in data and isinstance(data["exchanged"], list):
++                data["exchanged"] = set(data["exchanged"])
++            if state == "dealing":
++                data["state"] = "waiting_for_players"
++            active_games[ch_id] = data
++            restored_ch += 1
++
++        solo_sessions = await load_all_game_sessions("solo")
++        restored_solo = 0
++        solo_restorable = ("idle", "submitting", "dealing")
++        for key, data in solo_sessions.items():
++            raw_key = str(key)
++            player_id = raw_key.replace("solo_", "") if raw_key.startswith("solo_") else raw_key
++            if not isinstance(data, dict):
++                stale_keys.append(raw_key)
++                continue
++            state = data.get("state")
++            if state not in solo_restorable:
++                stale_keys.append(raw_key)
++                continue
++            if "exchanged" in data and isinstance(data["exchanged"], list):
++                data["exchanged"] = set(data["exchanged"])
++            if state in ("dealing", "submitting"):
++                data["state"] = "idle"
++            solo_games[player_id] = data
++            restored_solo += 1
++
++        if restored_ch or restored_solo:
++            print(f"Restored {restored_ch} channel games and {restored_solo} solo games from database")
++        for key in stale_keys:
++            await delete_game_session(key)
++        if stale_keys:
++            print(f"Cleaned up {len(stale_keys)} stale game sessions")
++
++        for ch_id, game in list(active_games.items()):
++            channel = bot.get_channel(ch_id)
++            if not channel:
++                continue
++            try:
++                state = game.get("state")
++                if state == "submitting" and game.get("prompt") and game.get("hands"):
++                    playing_ids = game.get("playing_ids", [pid for pid in game["players"] if pid != game.get("judge_id")])
++                    submitted = len(game.get("submissions", {}))
++                    remaining = len(playing_ids) - submitted
++                    embed = discord.Embed(
++                        title="Game Resumed After Restart",
++                        description=f"The bot restarted mid-round. The current prompt is:\n\n## {format_prompt(game['prompt'])}\n\n**{remaining} player(s)** still need to submit. Click the button below!",
++                        color=discord.Color.purple()
++                    )
++                    game_mode = game.get("game_mode", "friend")
++                    if game_mode == "wildcard":
++                        from ui_components import WildcardView
++                        view = WildcardView(game, channel=channel)
++                    else:
++                        view = HandView(game, mode="multiplayer", channel=channel)
++                    await channel.send(embed=embed, view=view)
++                elif state == "judging" and game.get("prompt") and game.get("submissions"):
++                    if game.get("use_ai_judge"):
++                        await channel.send("The bot restarted during judging. Dr. Evil is re-judging...")
++                        bot.loop.create_task(ai_judge_pick(game, channel))
++                    else:
++                        submissions = list(game["submissions"].items())
++                        random.shuffle(submissions)
++                        submission_text = "\n".join(
++                            f"\U0001F0CF **Card {i+1}:** {card}"
++                            for i, (_, card) in enumerate(submissions)
++                        )
++                        embed = discord.Embed(
++                            title="Game Resumed — Time to Judge!",
++                            description=f"The bot restarted. All cards were submitted.\n\n## {format_prompt(game['prompt'])}\n\n{submission_text}\n\n*Judge: pick the winning card!*",
++                            color=discord.Color.from_rgb(106, 27, 154)
++                        )
++                        view = JudgingView(game, channel)
++                        await channel.send(embed=embed, view=view)
++                        round_id = game.get("round_id", 0)
++                        async def judge_timeout(c_id, rid):
++                            try:
++                                await asyncio.sleep(120)
++                                await handle_judge_timeout(c_id, rid)
++                            except asyncio.CancelledError:
++                                pass
++                        game["_judge_timeout_task"] = asyncio.create_task(judge_timeout(ch_id, round_id))
++            except Exception as e:
++                logger.error(f"Failed to resume game in channel {ch_id}: {e}")
++    except Exception as e:
++        logger.error(f"Failed to restore game sessions: {e}")
++
+ 
+ async def periodic_guild_count():
+@@ -277,4 +432,5 @@ async def start_game(ctx, mode: str = "friend"):
+     session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name, game_mode=mode)
+     active_games[ctx.channel.id] = session.to_dict()
++    await _persist_game(ctx.channel.id)
+ 
+     channel_decks.pop(ctx.channel.id, None)
+@@ -325,4 +481,5 @@ async def join_game(ctx):
+     if player_id not in game.get("scores", {}):
+         game.setdefault("scores", {})[player_id] = 0
++    await _persist_game(ctx.channel.id)
+     await ctx.send(f"**{ctx.author.display_name}** has joined! ({len(game['players'])} players)")
+ 
+@@ -457,4 +614,5 @@ async def deal_cards(ctx):
+         game["playing_ids"] = playing_ids
+         game["exchanged"] = set()
++        await _persist_game(ctx.channel.id)
+ 
+         timer_seconds = channel_timers.get(ctx.channel.id)
+@@ -544,4 +702,5 @@ async def handle_round_winner(game, winner_id, winner_name, channel):
+         if channel.id in active_games:
+             del active_games[channel.id]
++        await _remove_game(channel.id)
+         if channel.id in timer_tasks:
+             timer_tasks[channel.id].cancel()
+@@ -650,4 +809,12 @@ async def ai_judge_pick(game, channel):
+ 
+     game_over = await handle_round_winner(game, winner_id, winner_name, channel)
++    if not game_over:
++        channel_id = None
++        for ch_id, g in active_games.items():
++            if g is game:
++                channel_id = ch_id
++                break
++        if channel_id is not None:
++            await _persist_game(channel_id)
+ 
+     scores = game.setdefault("scores", {})
+@@ -703,4 +870,5 @@ async def check_all_submitted(game, interaction):
+     if game.get("use_ai_judge"):
+         game["state"] = "judging"
++        await _persist_game(channel_id)
+         if channel:
+             await ai_judge_pick(game, channel)
+@@ -708,4 +876,5 @@ async def check_all_submitted(game, interaction):
+ 
+     game["state"] = "judging"
++    await _persist_game(channel_id)
+     if channel:
+         submissions = list(game["submissions"].items())
+@@ -752,4 +921,5 @@ async def end_game(ctx):
+         judge_task.cancel()
+     del active_games[ctx.channel.id]
++    await _remove_game(ctx.channel.id)
+     await ctx.send("Game ended. Start a new one with `!startgame`.")
+ 
+@@ -925,4 +1095,5 @@ async def solo_group(ctx, opponents: int = 3):
+     for name in ai_names:
+         solo_games[player_id]["scores"][name] = 0
++    await _persist_solo(player_id)
+ 
+     if ctx.channel.id in channel_decks:
+@@ -999,4 +1170,5 @@ async def solo_deal(ctx):
+             game["submitted"] = False
+             game["exchanged"] = set()
++            await _persist_solo(player_id)
+ 
+             timer_seconds = channel_timers.get(ctx.channel.id)
+@@ -1136,4 +1308,5 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out:
+ 
+         game["state"] = "idle"
++        await _persist_solo(player_id)
+ 
+     except Exception as e:
+@@ -1142,4 +1315,5 @@ async def finish_solo_round(player_id: str, player_card: str = None, timed_out:
+         traceback.print_exc()
+         game["state"] = "idle"
++        await _persist_solo(player_id)
+         try:
+             await channel.send(f"Something went wrong during judging. Type `!solo deal` to try again.")
+@@ -1174,4 +1348,5 @@ async def solo_end(ctx):
+     game = solo_games.pop(player_id, None)
+     solo_locks.pop(player_id, None)
++    await _remove_solo(player_id)
+     if not game:
+         await ctx.send("No solo game to end.")
