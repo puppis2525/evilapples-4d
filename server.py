@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
+import httpx
 import uvicorn
 
 logging.basicConfig(
@@ -88,6 +89,62 @@ rate_limiter = RateLimiter()
 RATE_LIMIT_SKIP = {"/static", "/api/stripe/webhook", "/favicon.ico"}
 
 
+TG_PROXY_DOMAIN = "evilapples4tg.com"
+TG_PROXY_TARGET = "http://127.0.0.1:5001"
+
+_proxy_client = None
+
+def get_proxy_client():
+    global _proxy_client
+    if _proxy_client is None:
+        _proxy_client = httpx.AsyncClient(base_url=TG_PROXY_TARGET, timeout=30.0)
+    return _proxy_client
+
+class TelegramProxyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        host = request.headers.get("host", "")
+        if TG_PROXY_DOMAIN not in host:
+            return await call_next(request)
+
+        client = get_proxy_client()
+        url = request.url.path
+        if request.url.query:
+            url = f"{url}?{request.url.query}"
+
+        headers = {}
+        for key, value in request.headers.items():
+            if key.lower() not in ("host", "transfer-encoding"):
+                headers[key] = value
+        headers["host"] = "127.0.0.1:5001"
+
+        body = await request.body()
+
+        try:
+            resp = await client.request(
+                method=request.method,
+                url=url,
+                headers=headers,
+                content=body if body else None,
+            )
+        except httpx.ConnectError:
+            return JSONResponse(
+                status_code=502,
+                content={"error": "Telegram service unavailable"}
+            )
+
+        response_headers = dict(resp.headers)
+        response_headers.pop("transfer-encoding", None)
+        response_headers.pop("content-encoding", None)
+        response_headers.pop("content-length", None)
+
+        from starlette.responses import Response
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=response_headers,
+        )
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -150,6 +207,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(TelegramProxyMiddleware)
 
 from stripe_routes import router as stripe_router
 from stripe_client import get_stripe_client
