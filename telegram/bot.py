@@ -64,6 +64,10 @@ def format_prompt(text: str) -> str:
     return text.replace("_", "________")
 
 
+def format_hand(hand: list[str]) -> str:
+    return "\n".join(f"{i+1}. {card}" for i, card in enumerate(hand))
+
+
 def scores_text(game: dict) -> str:
     scores = game.get("scores", {})
     players = game.get("players", {})
@@ -95,24 +99,21 @@ def hand_keyboard(chat_id: int) -> InlineKeyboardMarkup:
 def card_keyboard(hand: list[str], prefix: str) -> InlineKeyboardMarkup:
     buttons = []
     for i, card in enumerate(hand):
-        label = card[:60] + "…" if len(card) > 60 else card
-        buttons.append([InlineKeyboardButton(label, callback_data=f"{prefix}_{i}")])
+        buttons.append([InlineKeyboardButton(str(i + 1), callback_data=f"{prefix}_{i}")])
     return InlineKeyboardMarkup(buttons)
 
 
 def judge_keyboard(submissions: list[tuple], chat_id: int) -> InlineKeyboardMarkup:
     buttons = []
     for i, (_, card) in enumerate(submissions):
-        label = f"Card {i+1}: " + (card[:50] + "…" if len(card) > 50 else card)
-        buttons.append([InlineKeyboardButton(label, callback_data=f"judge_{chat_id}_{i}")])
+        buttons.append([InlineKeyboardButton(f"Card {i+1}", callback_data=f"judge_{chat_id}_{i}")])
     return InlineKeyboardMarkup(buttons)
 
 
 def vote_keyboard(submissions: list[tuple], chat_id: int) -> InlineKeyboardMarkup:
     buttons = []
     for i, (_, card) in enumerate(submissions):
-        label = f"Card {i+1}: " + (card[:50] + "…" if len(card) > 50 else card)
-        buttons.append([InlineKeyboardButton(label, callback_data=f"vote_{chat_id}_{i}")])
+        buttons.append([InlineKeyboardButton(f"Card {i+1}", callback_data=f"vote_{chat_id}_{i}")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -131,16 +132,14 @@ def tournament_join_keyboard(tournament_id: int) -> InlineKeyboardMarkup:
 def tournament_card_keyboard(hand: list[str], tournament_id: int) -> InlineKeyboardMarkup:
     buttons = []
     for i, card in enumerate(hand):
-        label = card[:60] + "…" if len(card) > 60 else card
-        buttons.append([InlineKeyboardButton(label, callback_data=f"tsub_{tournament_id}_{i}")])
+        buttons.append([InlineKeyboardButton(str(i + 1), callback_data=f"tsub_{tournament_id}_{i}")])
     return InlineKeyboardMarkup(buttons)
 
 
 def tournament_judge_keyboard(submissions: list[tuple], tournament_id: int) -> InlineKeyboardMarkup:
     buttons = []
     for i, (_, card) in enumerate(submissions):
-        label = f"Card {i+1}: " + (card[:50] + "…" if len(card) > 50 else card)
-        buttons.append([InlineKeyboardButton(label, callback_data=f"tjudge_{tournament_id}_{i}")])
+        buttons.append([InlineKeyboardButton(f"Card {i+1}", callback_data=f"tjudge_{tournament_id}_{i}")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -560,7 +559,8 @@ async def cb_view_hand(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user.id,
             f"🃏 *Your Hand*\n\n"
             f"Prompt: _{prompt_display}_\n\n"
-            f"Pick a card to submit:",
+            f"{format_hand(hand)}\n\n"
+            f"Pick a number:",
             parse_mode="Markdown",
             reply_markup=card_keyboard(hand, f"submit_{chat_id}")
         )
@@ -1170,7 +1170,8 @@ async def cmd_solo_deal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🟣 *Solo Round {game['round_number']}*\n\n"
             f"Prompt: *{prompt_display}*\n\n"
-            f"Pick your card:",
+            f"{format_hand(player_hand)}\n\n"
+            f"Pick a number:",
             parse_mode="Markdown",
             reply_markup=card_keyboard(player_hand, f"solosub_{player_id}")
         )
@@ -1639,7 +1640,8 @@ async def cb_tournament_view_hand(update: Update, context: ContextTypes.DEFAULT_
             user.id,
             f"🃏 *Your Tournament Hand*\n\n"
             f"Prompt: _{format_prompt(t['round_prompt'])}_\n\n"
-            f"Pick a card:",
+            f"{format_hand(hand)}\n\n"
+            f"Pick a number:",
             parse_mode="Markdown",
             reply_markup=tournament_card_keyboard(hand, tournament_id)
         )
