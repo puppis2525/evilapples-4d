@@ -570,7 +570,8 @@ async def deal_cards(ctx):
         await ctx.send("Dealing hands from the default card pool...")
 
     try:
-        prompt = await generate_prompt()
+        prompt = await generate_prompt(exclude=set(game.get("used_prompts", [])))
+        game.setdefault("used_prompts", []).append(prompt)
         game["prompt"] = prompt
 
         if game_mode == "wildcard":
@@ -1150,7 +1151,8 @@ async def solo_deal(ctx):
             if player_deck_info and player_deck_info.get("ids"):
                 solo_deck_ids = player_deck_info["ids"]
 
-            prompt = await generate_prompt()
+            prompt = await generate_prompt(exclude=set(game.get("used_prompts", [])))
+            game.setdefault("used_prompts", []).append(prompt)
 
             if solo_deck_ids:
                 player_cards = await get_random_cards_multi(solo_deck_ids, "answer", HAND_SIZE)

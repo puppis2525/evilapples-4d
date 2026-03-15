@@ -447,7 +447,8 @@ async def _do_deal(chat_id: int, bot, game: dict):
     is_wildcard = (mode == "wildcard")
 
     try:
-        prompt = await generate_prompt()
+        prompt = await generate_prompt(exclude=set(game.get("used_prompts", [])))
+        game.setdefault("used_prompts", []).append(prompt)
         game["prompt"] = prompt
 
         if is_wildcard:
@@ -1159,7 +1160,8 @@ async def cmd_solo_deal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game["submitted"] = False
 
     try:
-        prompt = await generate_prompt()
+        prompt = await generate_prompt(exclude=set(game.get("used_prompts", [])))
+        game.setdefault("used_prompts", []).append(prompt)
         player_hand, ai_cards = deal_default_solo(HAND_SIZE, len(game["ai_opponents"]))
         game["prompt"] = prompt
         game["hand"] = player_hand
@@ -1580,7 +1582,8 @@ async def _run_tournament_round(chat_id: int, bot, t: dict):
     t["_playing_ids"] = playing_ids
 
     try:
-        prompt = await generate_prompt()
+        prompt = await generate_prompt(exclude=set(t.get("used_prompts", [])))
+        t.setdefault("used_prompts", []).append(prompt)
         t["round_prompt"] = prompt
 
         hands = await asyncio.gather(*(generate_hand(HAND_SIZE) for _ in playing_ids))

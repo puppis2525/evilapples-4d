@@ -146,10 +146,14 @@ async def generate_hand(count: int = HAND_SIZE) -> list[str]:
     return cards
 
 
-async def generate_prompt() -> str:
+async def generate_prompt(exclude: set = None) -> str:
     import random
     black_cards = CLASSIC_CARDS.get("black_cards", [])
     if black_cards:
+        if exclude:
+            available = [c for c in black_cards if c not in exclude]
+            if available:
+                return random.choice(available)
         return random.choice(black_cards)
     return await generate_card("black")
 
