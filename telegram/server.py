@@ -22,7 +22,7 @@ logger = logging.getLogger("tg_server")
 
 PORT = int(os.environ.get("PORT", 5001))
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_CODE", "") or os.environ.get("TELEGRAM_BOT_TOKEN", "")
-BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "EvilApplesTGBot")
+BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "EvilApplesBot")
 
 tg_app = None
 
