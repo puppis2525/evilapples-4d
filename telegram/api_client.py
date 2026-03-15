@@ -40,9 +40,10 @@ HAND_SIZE = 7
 
 def sanitize_card_text(text: str) -> str:
     text = re.sub(r'[^\x20-\x7E\n]', '', text)
-    text = text.strip().strip('"').strip("'").strip()
-    text = re.sub(r'\s+', ' ', text)
-    return text
+    lines = [l.strip().strip('"').strip("'").strip() for l in text.split('\n')]
+    first_line = next((l for l in lines if l), "")
+    first_line = re.sub(r'\s+', ' ', first_line)
+    return first_line
 
 
 def is_duplicate(card_text: str) -> bool:
@@ -67,8 +68,9 @@ async def generate_card(card_type: str = "white") -> str:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_msg},
         ],
-        "max_tokens": 100,
+        "max_tokens": 50,
         "temperature": 1.1,
+        "venice_parameters": {"include_venice_system_prompt": False},
     }
 
     for attempt in range(2):
