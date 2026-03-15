@@ -102,8 +102,8 @@ def get_proxy_client():
 
 class TelegramProxyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        host = request.headers.get("host", "")
-        if TG_PROXY_DOMAIN not in host:
+        raw_host = request.headers.get("host", "").lower().split(":")[0]
+        if raw_host != TG_PROXY_DOMAIN:
             return await call_next(request)
 
         client = get_proxy_client()
@@ -133,9 +133,8 @@ class TelegramProxyMiddleware(BaseHTTPMiddleware):
             )
 
         response_headers = dict(resp.headers)
-        response_headers.pop("transfer-encoding", None)
-        response_headers.pop("content-encoding", None)
-        response_headers.pop("content-length", None)
+        for drop_header in ("transfer-encoding", "content-encoding", "content-length"):
+            response_headers.pop(drop_header, None)
 
         from starlette.responses import Response
         return Response(
