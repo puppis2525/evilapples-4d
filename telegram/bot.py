@@ -197,7 +197,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/solo — Play solo vs AI\n"
         "/leaderboard — Top players\n"
         "/help — All commands\n\n"
-        f"🌐 [Visit our website]({WEB_BASE.replace('.', '\\.')}) for leaderboards, stats & more\\!",
+        f"🌐 [Visit our website]({WEB_BASE}) for leaderboards, stats & more\\!",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton(
