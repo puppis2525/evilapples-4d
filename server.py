@@ -202,6 +202,8 @@ async def lifespan(app: FastAPI):
 
     yield
     logger.info("Application shutting down...")
+    if _proxy_client is not None:
+        await _proxy_client.aclose()
 
 
 app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
