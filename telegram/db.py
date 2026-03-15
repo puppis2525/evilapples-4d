@@ -537,3 +537,22 @@ async def get_tg_store_listing(listing_id: int) -> dict | None:
             WHERE id = $1 AND active = TRUE
         """, listing_id)
         return dict(row) if row else None
+
+
+async def get_store_listing(listing_id: int) -> dict | None:
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM store_listings WHERE id = $1", listing_id
+        )
+        return dict(row) if row else None
+
+
+async def has_purchased(user_id: str, listing_id: int) -> bool:
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id FROM store_purchases WHERE discord_user_id = $1 AND listing_id = $2",
+            user_id, listing_id
+        )
+        return row is not None

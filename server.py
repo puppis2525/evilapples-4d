@@ -1061,8 +1061,8 @@ async def store_checkout(request: Request):
             return JSONResponse(content={"error": "Missing listing_ids or discord_user_id"}, status_code=400)
 
         import re
-        if not re.match(r'^\d{17,20}$', discord_user_id):
-            return JSONResponse(content={"error": "Invalid Discord User ID"}, status_code=400)
+        if not re.match(r'^\d{17,20}$', discord_user_id) and not re.match(r'^tg_\d+$', discord_user_id):
+            return JSONResponse(content={"error": "Invalid User ID"}, status_code=400)
 
         from db import get_store_listing, has_purchased
         listings = []
@@ -1114,6 +1114,7 @@ async def store_checkout(request: Request):
                 "listing_ids": ",".join(str(l["id"]) for l in listings),
                 "listing_id": str(listings[0]["id"]),
                 "discord_user_id": discord_user_id,
+                "user_id": discord_user_id,
             },
         )
 

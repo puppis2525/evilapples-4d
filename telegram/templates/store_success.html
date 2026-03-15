@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Purchase Complete — Evil Apples for Telegram{% endblock %}
+
+{% block head %}
+<style>
+    .success-container { text-align: center; padding: 3rem 1rem; max-width: 480px; margin: 0 auto; }
+    .success-icon { width: 80px; height: 80px; border-radius: 50%; background: rgba(74,222,128,0.15); border: 2px solid #4ade80; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; animation: checkPop 0.6s ease forwards; }
+    .success-icon svg { width: 40px; height: 40px; color: #4ade80; }
+    @keyframes checkPop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+    .success-title { font-size: 1.8rem; font-weight: bold; color: #c084fc; margin-bottom: 0.75rem; }
+    .success-desc { color: #aaa; font-size: 1rem; margin-bottom: 1.5rem; }
+    .success-instructions { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.25); border-radius: 0.75rem; padding: 1rem 1.2rem; text-align: left; margin-bottom: 1.5rem; }
+    .success-instructions h3 { font-size: 0.9rem; color: #c084fc; margin-bottom: 0.5rem; }
+    .success-instructions ol { color: #aaa; font-size: 0.85rem; padding-left: 1.2rem; margin: 0; }
+    .success-instructions ol li { margin-bottom: 0.3rem; }
+    .success-instructions code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; color: #e2e8f0; }
+    .success-buttons { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .success-buttons a { padding: 0.6rem 1.5rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.9rem; text-decoration: none; }
+    .btn-store { border: 1px solid rgba(124,58,237,0.3); color: #ccc; }
+    .btn-store:hover { background: rgba(124,58,237,0.15); }
+    .btn-home { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; }
+    .btn-home:hover { opacity: 0.9; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="success-container">
+    <div class="success-icon">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+        </svg>
+    </div>
+    <h1 class="success-title">Purchase Complete!</h1>
+    <p class="success-desc">Your new deck has been added to your collection!</p>
+    <div class="success-instructions">
+        <h3>How to use your deck in Telegram:</h3>
+        <ol>
+            <li>Type <code>/deck</code> to see your decks</li>
+            <li>Select the deck you want to use when starting a game</li>
+            <li>Then use <code>/deal</code> to play with your new cards!</li>
+        </ol>
+    </div>
+    <div class="success-buttons">
+        <a href="/store" class="btn-store">Back to Store</a>
+        <a href="/" class="btn-home">Home</a>
+    </div>
+</div>
+{% endblock %}

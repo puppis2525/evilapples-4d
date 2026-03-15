@@ -158,6 +158,23 @@
         const cart = new Map();
 
         (async () => {
+            const params = new URLSearchParams(window.location.search);
+            const platform = params.get('platform');
+            const tgUserId = params.get('user_id');
+
+            if (platform === 'telegram' && tgUserId && /^tg_\d+$/.test(tgUserId)) {
+                const container = document.querySelector('#user-id')?.closest('.bg-evil-surface');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">📱</span>
+                            <span class="text-evil-300 text-sm font-semibold">Signed in as <span class="text-white">Telegram User #${tgUserId.replace('tg_', '')}</span></span>
+                            <input type="hidden" id="user-id" value="${tgUserId}">
+                        </div>`;
+                }
+                return;
+            }
+
             const user = await initAuth();
             if (user.logged_in) {
                 const input = document.getElementById('user-id');
@@ -315,11 +332,11 @@
             const userId = document.getElementById('user-id').value.trim();
 
             if (!userId) {
-                showCartError('Enter your Discord User ID first.');
+                showCartError('Enter your User ID first.');
                 return;
             }
-            if (!/^\d{17,20}$/.test(userId)) {
-                showCartError('Invalid Discord User ID (should be 17-20 digits).');
+            if (!/^\d{17,20}$/.test(userId) && !/^tg_\d+$/.test(userId)) {
+                showCartError('Invalid User ID.');
                 return;
             }
 
