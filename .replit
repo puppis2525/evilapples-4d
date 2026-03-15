@@ -63,3 +63,4 @@ run = ["bash", "start.sh"]
 
 [userenv.shared]
 STRIPE_PRICE_ID = "price_1T8SN1IacFZgLtySudO62Iz6"
+WEB_BASE_URL = "https://evilapples4tg.com"

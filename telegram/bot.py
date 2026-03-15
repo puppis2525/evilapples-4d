@@ -57,7 +57,7 @@ timer_tasks: dict = {}
 active_tournaments: dict[int, dict] = {}
 pending_deck_uploads: dict[int, dict] = {}
 
-WEB_BASE = os.environ.get("WEB_BASE_URL", "https://evilapples4d.com")
+WEB_BASE = os.environ.get("WEB_BASE_URL", "https://evilapples4tg.com")
 
 
 def format_prompt(text: str) -> str:
@@ -197,7 +197,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/solo — Play solo vs AI\n"
         "/leaderboard — Top players\n"
         "/help — All commands\n\n"
-        f"🌐 [Visit our website](https://evilapples4d\\.com) for leaderboards, stats & more\\!",
+        f"🌐 [Visit our website]({WEB_BASE.replace('.', '\\.')}) for leaderboards, stats & more\\!",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton(
