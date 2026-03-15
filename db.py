@@ -1311,6 +1311,30 @@ async def has_purchased(discord_user_id, listing_id):
         return row is not None
 
 
+FREE_DAILY_GAME_LIMIT = 3
+
+PLAN_LIMITS = {
+    "overlord": {"tournaments_per_month": None, "max_players": None, "daily_game_limit": None, "custom_decks": True, "label": "Overlord"},
+    "pro": {"tournaments_per_month": None, "max_players": None, "daily_game_limit": None, "custom_decks": True, "label": "Overlord (Legacy Pro)"},
+    "schemer": {"tournaments_per_month": 1, "max_players": 50, "daily_game_limit": None, "custom_decks": True, "label": "Schemer"},
+}
+
+MINION_LIMITS = {"tournaments_per_month": 0, "max_players": 0, "daily_game_limit": FREE_DAILY_GAME_LIMIT, "custom_decks": False, "label": "Minion"}
+
+
+async def get_plan_limits(guild_id: str) -> dict:
+    server = await get_premium_server(guild_id)
+    plan = server["plan"] if server and server.get("active") else "minion"
+    return PLAN_LIMITS.get(plan, MINION_LIMITS).copy()
+
+
+async def get_server_plan(guild_id: str) -> str:
+    server = await get_premium_server(guild_id)
+    if server and server.get("active"):
+        return server["plan"]
+    return "minion"
+
+
 async def is_premium_server(guild_id: str) -> bool:
     pool = await get_db_pool()
     async with pool.acquire() as conn:

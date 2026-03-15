@@ -18,7 +18,7 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 - **Card System**: Uses a default pool of classic cards (`classic_cards.json`), with **Venice.ai** for AI-generated cards as fallback. Players can select custom decks, and cards are dealt based on player-specific deck selections. Hand size is 7 cards, with one-time per-round card exchange. **Rapidfuzz** is used for card deduplication.
 - **Game State Persistence**: Active game sessions (both channel and solo) are persisted to the `active_game_sessions` PostgreSQL table as JSONB. On bot restart, games in safe states (`waiting_for_players`, `finished`, `idle`) are restored; mid-round sessions are cleaned up.
 - **In-channel Interaction**: Game actions (viewing hands, submitting cards, judging) are managed via Discord buttons and ephemeral messages, minimizing DM usage.
-- **Premium Features**: A Pro subscription offers unlimited games per server (vs. 3 free games/day).
+- **Premium Tiers**: Three-tier system — **Minion** (free: 3 games/day, no tournaments, no custom decks), **Schemer** ($19/mo: unlimited games, 1 tournament/month with 50-player cap, custom decks), **Overlord** ($99/mo: unlimited everything, priority AI). Legacy "pro" plan maps to Overlord behavior. Plan enforcement via `get_plan_limits()` and `get_server_plan()` in `db.py`.
 
 ### Tournament System
 - **Multi-round structure**: Supports individual and team-based tournaments with rotating judges and points-based standings.

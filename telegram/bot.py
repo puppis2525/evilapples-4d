@@ -1966,7 +1966,7 @@ async def cmd_decks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not decks:
         msg += "\nNo custom decks yet.\n\n"
         if is_group and not group_premium:
-            msg += "⭐ *Custom decks require Pro!* Upgrade with /premium to use custom decks in this group.\n\n"
+            msg += "⭐ *Custom decks require Schemer or Overlord!* Upgrade with /premium to use custom decks in this group.\n\n"
         msg += (
             "• Use `/deck upload <name>` and attach a CSV file to create one\n"
             "• Visit the store with `/store` to browse purchasable decks"

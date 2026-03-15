@@ -18,7 +18,7 @@ from db import (
     get_tournament_entry, get_paid_tournament_entries,
     get_tournament_by_id, link_tournament_to_channel, get_team_standings,
     get_tiered_fee_percent, get_server_monthly_tournament_count,
-    is_premium_server, get_premium_server,
+    is_premium_server, get_premium_server, get_plan_limits, get_server_plan,
     get_all_decks, get_deck_by_name, get_deck_by_id,
     get_random_cards, get_random_cards_multi, get_user_deck_count,
     create_deck, add_cards_to_deck,
@@ -323,14 +323,14 @@ COMMAND_HELP = {
     },
     "deck": {
         "usage": "!deck <subcommand>",
-        "description": "Manage custom card decks (Pro feature).",
-        "details": "**Subcommands:**\n`!deck upload <name>` — Upload a CSV deck (attach file)\n`!deck list` — View your decks\n`!deck use <name>` — Activate a deck for this channel\n`!deck ai` — Switch back to AI-generated cards\n`!deck info <name>` — View deck details\n`!deck delete <name>` — Delete a deck\n\nRequires Pro subscription. Visit evilapples4d.com/premium to upgrade.",
+        "description": "Manage custom card decks (Schemer+ feature).",
+        "details": "**Subcommands:**\n`!deck upload <name>` — Upload a CSV deck (attach file)\n`!deck list` — View your decks\n`!deck use <name>` — Activate a deck for this channel\n`!deck ai` — Switch back to AI-generated cards\n`!deck info <name>` — View deck details\n`!deck delete <name>` — Delete a deck\n\nRequires Schemer or Overlord subscription. Visit evilapples4d.com/premium to upgrade.",
         "category": "Deck",
     },
     "premium": {
         "usage": "!premium",
-        "description": "View Pro subscription status or upgrade.",
-        "details": "Shows whether this server has Pro status. If not, displays pricing and an upgrade link.\n\n**Pro features:** Unlimited games, unlimited tournaments, priority AI cards, custom deck uploads.",
+        "description": "View subscription status or upgrade.",
+        "details": "Shows your server's current tier (Minion/Schemer/Overlord) and features.\n\n**Tiers:** Minion (free), Schemer ($19/mo), Overlord ($99/mo).",
         "category": "Premium",
     },
 }
@@ -339,7 +339,7 @@ HELP_CATEGORIES = [
     ("Game", "Core gameplay commands"),
     ("Solo", "Solo mode vs AI opponents"),
     ("Tournament", "Competitive tournaments with prizes"),
-    ("Deck", "Custom card deck management (Pro)"),
+    ("Deck", "Custom card deck management (Schemer+)"),
     ("Premium", "Subscription & upgrade info"),
 ]
 
@@ -518,8 +518,8 @@ async def deal_cards(ctx):
             if count >= FREE_DAILY_GAME_LIMIT:
                 host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
                 await ctx.send(
-                    f"**Free tier limit reached!** ({FREE_DAILY_GAME_LIMIT} games/day)\n"
-                    f"Upgrade to Pro for unlimited games: https://{host}/premium\n"
+                    f"**Minion limit reached!** ({FREE_DAILY_GAME_LIMIT} games/day)\n"
+                    f"Upgrade to Schemer or Overlord for unlimited games: https://{host}/premium\n"
                     f"Or use `!premium` for details."
                 )
                 return
@@ -1407,6 +1407,26 @@ async def tournament_create(ctx, *, args: str = ""):
         await ctx.send("There's already an active tournament in this channel! Use `!tournament end` first.")
         return
 
+    guild_id = str(ctx.guild.id)
+    limits = await get_plan_limits(guild_id)
+    plan = await get_server_plan(guild_id)
+    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+
+    if limits["tournaments_per_month"] == 0:
+        await ctx.send(
+            f"**Tournaments require a Schemer or Overlord subscription!**\n"
+            f"Upgrade your server at https://{host}/premium"
+        )
+        return
+
+    monthly_count = await get_server_monthly_tournament_count(guild_id)
+    if limits["tournaments_per_month"] is not None and monthly_count >= limits["tournaments_per_month"]:
+        await ctx.send(
+            f"**Schemer limit reached!** You've used your {limits['tournaments_per_month']} tournament(s) this month.\n"
+            f"Upgrade to **Overlord** for unlimited tournaments at https://{host}/premium"
+        )
+        return
+
     import re
     rounds_total = 5
     entry_fee_cents = 0
@@ -1425,7 +1445,6 @@ async def tournament_create(ctx, *, args: str = ""):
     elif args.strip():
         name = args.strip()
 
-    monthly_count = await get_server_monthly_tournament_count(str(ctx.guild.id))
     fee_percent = get_tiered_fee_percent(monthly_count)
     host_keeps = 100 - fee_percent
 
@@ -1468,6 +1487,10 @@ async def tournament_create(ctx, *, args: str = ""):
         embed.set_footer(text=f"Tournament ID: {tournament_id} | Need at least 3 players | Entry: {fee_display}")
         await ctx.send(embed=embed)
     else:
+        max_players_kwarg = {}
+        if limits["max_players"] is not None:
+            max_players_kwarg["max_players"] = limits["max_players"]
+
         tournament_id = await create_tournament(
             name=name,
             guild_id=str(ctx.guild.id),
@@ -1476,6 +1499,7 @@ async def tournament_create(ctx, *, args: str = ""):
             creator_name=ctx.author.display_name,
             rounds_total=rounds_total,
             platform_fee_percent=fee_percent,
+            **max_players_kwarg,
         )
 
         embed = discord.Embed(
@@ -1811,7 +1835,7 @@ async def tournament_teams_cmd(ctx):
 
 channel_decks = {}
 
-FREE_DAILY_GAME_LIMIT = 3
+from db import FREE_DAILY_GAME_LIMIT
 daily_game_counts = {}
 MAX_UPLOAD_SIZE_BOT = 2 * 1024 * 1024
 MAX_CARDS_PER_DECK = 5000
@@ -1826,13 +1850,12 @@ async def check_pro_for_decks(ctx):
     if not ctx.guild:
         await ctx.send("Deck commands can only be used in a server.")
         return False
-    premium = await is_premium_server(str(ctx.guild.id))
-    if not premium:
+    limits = await get_plan_limits(str(ctx.guild.id))
+    if not limits["custom_decks"]:
         host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
         await ctx.send(
-            f"**Custom decks are a Pro feature!**\n"
-            f"Upgrade your server to Pro to upload and use custom card decks.\n"
-            f"Use `!premium` or visit https://{host}/premium"
+            f"**Custom decks require a Schemer or Overlord subscription!**\n"
+            f"Upgrade your server at https://{host}/premium"
         )
         return False
     return True
@@ -1841,8 +1864,8 @@ async def check_pro_for_decks(ctx):
 @bot.group(name="deck", invoke_without_command=True)
 async def deck_group(ctx):
     embed = discord.Embed(
-        title="Evil Apples 4D — Card Decks (Pro)",
-        description="Upload and use your own custom card decks! *(Pro feature)*",
+        title="Evil Apples 4D — Card Decks",
+        description="Upload and use your own custom card decks! *(Schemer+ feature)*",
         color=discord.Color.purple()
     )
     embed.add_field(name="Commands", value=(
@@ -2077,43 +2100,54 @@ async def premium_cmd(ctx):
         await ctx.send("This command can only be used in a server.")
         return
 
-    premium = await get_premium_server(str(ctx.guild.id))
+    from db import FREE_DAILY_GAME_LIMIT as GAME_LIMIT
+    guild_id = str(ctx.guild.id)
+    limits = await get_plan_limits(guild_id)
+    plan_label = limits["label"]
+    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+    upgrade_url = f"https://{host}/premium"
+    plan = await get_server_plan(guild_id)
 
-    if premium and premium.get("active"):
+    if plan in ("schemer", "overlord", "pro"):
+        tourney_desc = "Unlimited tournaments" if limits["tournaments_per_month"] is None else f"{limits['tournaments_per_month']} tournament/month (max {limits['max_players']} players)"
+        features = (
+            f"- Unlimited games per day\n"
+            f"- {tourney_desc}\n"
+            f"- Custom deck uploads\n"
+            f"- Priority AI card generation"
+        )
         embed = discord.Embed(
-            title="Evil Apples 4D Pro — Active",
+            title=f"Evil Apples 4D — {plan_label}",
             description=(
-                f"This server has **Pro** status!\n\n"
-                f"**Plan:** {premium['plan'].title()}\n"
-                f"**Activated by:** {premium['activated_by_name']}\n\n"
-                "**Pro Features:**\n"
-                "- Unlimited games per day\n"
-                "- Unlimited tournaments\n"
-                "- Priority AI card generation\n"
-                "- Premium card packs (coming soon)"
+                f"This server has **{plan_label}** status!\n\n"
+                f"**Activated by:** {(await get_premium_server(guild_id))['activated_by_name']}\n\n"
+                f"**Your Features:**\n{features}"
             ),
             color=discord.Color.gold()
         )
-        embed.set_footer(text="Thank you for supporting Evil Apples 4D!")
+        if plan == "schemer":
+            embed.set_footer(text=f"Want unlimited tournaments? Upgrade to Overlord at {upgrade_url}")
+        else:
+            embed.set_footer(text="Thank you for supporting Evil Apples 4D!")
         await ctx.send(embed=embed)
     else:
-        host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
-        upgrade_url = f"https://{host}/premium"
-
         embed = discord.Embed(
-            title="Evil Apples 4D Pro",
+            title="Evil Apples 4D — Upgrade Your Server",
             description=(
-                "Upgrade your server to **Pro** for unlimited evil fun!\n\n"
-                "**Free Tier:**\n"
-                f"- {FREE_DAILY_GAME_LIMIT} games per day\n"
-                "- 1 tournament at a time\n"
-                "- Standard AI cards\n\n"
-                "**Pro — $5.99/month:**\n"
-                "- Unlimited games per day\n"
-                "- Unlimited tournaments\n"
-                "- Priority AI card generation\n"
-                "- Premium card packs (coming soon)\n"
-                "- Support the developer!\n\n"
+                f"Your server is on the **Minion** (free) tier.\n\n"
+                f"**Minion (Free):**\n"
+                f"- {GAME_LIMIT} games per day\n"
+                f"- No tournaments\n"
+                f"- No custom decks\n\n"
+                f"**Schemer — $19/month:**\n"
+                f"- Unlimited games\n"
+                f"- 1 tournament/month (50 players max)\n"
+                f"- Custom deck uploads\n\n"
+                f"**Overlord — $99/month:**\n"
+                f"- Unlimited games\n"
+                f"- Unlimited tournaments\n"
+                f"- Unlimited players\n"
+                f"- Priority AI generation\n\n"
                 f"**[Upgrade Now]({upgrade_url})**"
             ),
             color=discord.Color.purple()

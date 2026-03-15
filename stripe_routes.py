@@ -10,10 +10,20 @@ logger = logging.getLogger("stripe_routes")
 router = APIRouter(prefix="/api/stripe")
 
 PREMIUM_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "")
+PRICE_ID_SCHEMER = os.environ.get("STRIPE_PRICE_ID_SCHEMER", "")
+PRICE_ID_OVERLORD = os.environ.get("STRIPE_PRICE_ID_OVERLORD", "")
 PLATFORM_FEE_PERCENT = 10
 
-if not PREMIUM_PRICE_ID:
-    logger.warning("STRIPE_PRICE_ID not set — checkout will not work until it is configured")
+PLAN_PRICE_MAP = {}
+if PRICE_ID_SCHEMER:
+    PLAN_PRICE_MAP["schemer"] = PRICE_ID_SCHEMER
+if PRICE_ID_OVERLORD:
+    PLAN_PRICE_MAP["overlord"] = PRICE_ID_OVERLORD
+if PREMIUM_PRICE_ID and "overlord" not in PLAN_PRICE_MAP:
+    PLAN_PRICE_MAP["overlord"] = PREMIUM_PRICE_ID
+
+if not PLAN_PRICE_MAP:
+    logger.warning("No Stripe price IDs set — checkout will not work until configured")
 
 
 @router.get("/config")
@@ -28,18 +38,19 @@ async def stripe_config():
 
 @router.post("/create-checkout")
 async def create_checkout(request: Request):
-    if not PREMIUM_PRICE_ID:
-        return JSONResponse(
-            content={"error": "Premium pricing not configured. Contact the admin."},
-            status_code=503
-        )
-
     try:
         body = await request.json()
         guild_id = body.get("guild_id", "")
         guild_name = body.get("guild_name", "Unknown Server")
         user_id = body.get("user_id", "")
         user_name = body.get("user_name", "Unknown")
+        plan = body.get("plan", "overlord")
+
+        if plan not in PLAN_PRICE_MAP:
+            return JSONResponse(
+                content={"error": f"Plan '{plan}' is not configured. Contact the admin."},
+                status_code=503
+            )
 
         if not guild_id or not user_id:
             return JSONResponse(content={"error": "Missing guild_id or user_id"}, status_code=400)
@@ -54,10 +65,12 @@ async def create_checkout(request: Request):
         protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
         base_url = f"{protocol}://{host}"
 
+        price_id = PLAN_PRICE_MAP[plan]
+
         session = stripe_mod.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
-                "price": PREMIUM_PRICE_ID,
+                "price": price_id,
                 "quantity": 1,
             }],
             mode="subscription",
@@ -68,6 +81,7 @@ async def create_checkout(request: Request):
                 "guild_name": guild_name[:256],
                 "user_id": user_id,
                 "user_name": user_name[:128],
+                "plan": plan,
             },
         )
 
@@ -171,17 +185,21 @@ async def stripe_webhook(request: Request):
                 customer_id = session.get("customer", "")
                 subscription_id = session.get("subscription", "")
 
+                plan = metadata.get("plan", "overlord")
+                if plan not in ("schemer", "overlord"):
+                    plan = "overlord"
+
                 if guild_id:
                     await activate_premium(
                         guild_id=guild_id,
                         guild_name=guild_name,
-                        plan="pro",
+                        plan=plan,
                         stripe_customer_id=customer_id,
                         stripe_subscription_id=subscription_id,
                         activated_by=user_id,
                         activated_by_name=user_name,
                     )
-                    logger.info(f"Premium activated for guild {guild_id} ({guild_name})")
+                    logger.info(f"Premium activated for guild {guild_id} ({guild_name}) — plan={plan}")
 
         elif event_type == "customer.subscription.deleted":
             subscription = event["data"]["object"]
