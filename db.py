@@ -1633,6 +1633,14 @@ STORE_DECK_META = {
     "stinkypinky": ("Stinky Pinky", "20 rhyming cards that are pure poetry"),
     "stranger": ("Stranger Things", "20 cards from the Upside Down"),
     "surreal": ("Surreal", "30 mind-bending cards from the fever dreams of deranged artists"),
+    "paranormal2": ("Paranormal", "10 spooky answer cards featuring ghosts, aliens, and things that go bump in the night"),
+    "texas": ("Texas", "30 big ol' Texas-sized answer cards — everything's bigger and filthier in the Lone Star State"),
+    "outerspace2": ("Outer Space 2", "30 more cards from the final frontier — zero gravity, maximum filth"),
+    "monsters2": ("Monsters! 2", "30 more monstrous answer cards for the creature-feature crowd"),
+    "alliterativeanimals": ("Alliterative Animals", "30 cards featuring animals doing alliteratively awful things"),
+    "abracadabra": ("Abracadabra", "30 cards about magic, sorcery, and pulling things out of surprising places"),
+    "wildwest": ("Wild West", "30 cards from the Old West, where the cowboys are rowdy and the saloons are rowdier"),
+    "nerdorama": ("Nerd-O-Rama", "30 cards for the pasty, pocket-protected, Cheeto-fingered nerd in all of us"),
 }
 
 
@@ -1655,6 +1663,24 @@ async def seed_store_decks():
                     if len(parts) >= 3:
                         card_text = parts[0].strip()
                         deck_key = parts[2].strip()
+                        if deck_key not in decks:
+                            decks[deck_key] = []
+                        decks[deck_key].append(card_text)
+
+        batch2_file = os.path.join(os.path.dirname(__file__),
+            "attached_assets", "store_decks_batch2.tsv")
+        display_name_to_key = {v[0]: k for k, v in STORE_DECK_META.items()}
+        if os.path.exists(batch2_file):
+            with open(batch2_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) >= 2:
+                        card_text = parts[0].strip()
+                        deck_display = parts[1].strip()
+                        deck_key = display_name_to_key.get(deck_display, deck_display)
                         if deck_key not in decks:
                             decks[deck_key] = []
                         decks[deck_key].append(card_text)
