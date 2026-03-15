@@ -1458,6 +1458,8 @@ async def tournament_create(ctx, *, args: str = ""):
             )
             return
 
+        paid_max_players = limits["max_players"] if limits["max_players"] is not None else 20
+
         tournament_id = await create_paid_tournament(
             name=name,
             guild_id=str(ctx.guild.id),
@@ -1468,6 +1470,7 @@ async def tournament_create(ctx, *, args: str = ""):
             entry_fee_cents=entry_fee_cents,
             host_stripe_account_id=host_account["stripe_account_id"],
             platform_fee_percent=fee_percent,
+            max_players=paid_max_players,
         )
 
         fee_display = f"${entry_fee_cents / 100:.2f}"
