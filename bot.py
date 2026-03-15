@@ -1458,7 +1458,7 @@ async def tournament_create(ctx, *, args: str = ""):
             )
             return
 
-        paid_max_players = limits["max_players"] if limits["max_players"] is not None else 20
+        paid_max_players = limits["max_players"] if limits["max_players"] is not None else 10000
 
         tournament_id = await create_paid_tournament(
             name=name,
@@ -1490,9 +1490,7 @@ async def tournament_create(ctx, *, args: str = ""):
         embed.set_footer(text=f"Tournament ID: {tournament_id} | Need at least 3 players | Entry: {fee_display}")
         await ctx.send(embed=embed)
     else:
-        max_players_kwarg = {}
-        if limits["max_players"] is not None:
-            max_players_kwarg["max_players"] = limits["max_players"]
+        free_max_players = limits["max_players"] if limits["max_players"] is not None else 10000
 
         tournament_id = await create_tournament(
             name=name,
@@ -1502,7 +1500,7 @@ async def tournament_create(ctx, *, args: str = ""):
             creator_name=ctx.author.display_name,
             rounds_total=rounds_total,
             platform_fee_percent=fee_percent,
-            **max_players_kwarg,
+            max_players=free_max_players,
         )
 
         embed = discord.Embed(
