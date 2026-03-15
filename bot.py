@@ -2111,12 +2111,9 @@ async def premium_cmd(ctx):
 
     if plan in ("schemer", "overlord", "pro"):
         tourney_desc = "Unlimited tournaments" if limits["tournaments_per_month"] is None else f"{limits['tournaments_per_month']} tournament/month (max {limits['max_players']} players)"
-        features = (
-            f"- Unlimited games per day\n"
-            f"- {tourney_desc}\n"
-            f"- Custom deck uploads\n"
-            f"- Priority AI card generation"
-        )
+        features = f"- Unlimited games per day\n- {tourney_desc}\n- Custom deck uploads"
+        if plan in ("overlord", "pro"):
+            features += "\n- Priority AI card generation"
         embed = discord.Embed(
             title=f"Evil Apples 4D — {plan_label}",
             description=(
