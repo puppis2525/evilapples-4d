@@ -65,6 +65,8 @@ async def lifespan(app: FastAPI):
             await tg_app.bot.set_webhook(url=url, allowed_updates=["message", "callback_query"])
             logger.info(f"Telegram bot started (webhook: {url})")
         else:
+            await tg_app.bot.delete_webhook(drop_pending_updates=False)
+            logger.info("Telegram webhook cleared, starting polling...")
             await tg_app.updater.start_polling(allowed_updates=["message", "callback_query"])
             logger.info("Telegram bot started (polling)")
     else:
