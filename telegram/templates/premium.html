@@ -1,50 +1,131 @@
 {% extends "base.html" %}
-{% block title %}Premium — Evil Apples for Telegram{% endblock %}
+{% block title %}Unlock Your Group — Evil Apples for Telegram{% endblock %}
+
+{% block head %}
+<style>
+    .unlock-hero { text-align: center; padding: 2rem 1rem 1rem; }
+    .unlock-hero h1 { font-size: 2rem; color: #c084fc; margin-bottom: 0.5rem; }
+    .unlock-hero .price { font-size: 2.5rem; font-weight: bold; color: #4ade80; margin: 0.5rem 0; }
+    .unlock-hero .price-note { color: #999; font-size: 0.9rem; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    .feature-card { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.2); border-radius: 0.75rem; padding: 1.2rem; text-align: center; }
+    .feature-card .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+    .feature-card h3 { font-size: 1rem; color: #e2e8f0; margin-bottom: 0.3rem; }
+    .feature-card p { font-size: 0.85rem; color: #999; margin: 0; }
+    .free-section { max-width: 480px; margin: 1.5rem auto; padding: 1rem 1.2rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.75rem; }
+    .free-section h3 { font-size: 0.95rem; color: #aaa; margin-bottom: 0.5rem; }
+    .free-section ul { color: #888; font-size: 0.85rem; padding-left: 1.2rem; margin: 0; }
+    .free-section ul li { margin-bottom: 0.2rem; }
+    .cta-area { text-align: center; padding: 1.5rem 1rem 3rem; }
+    .btn-unlock { display: inline-block; padding: 0.9rem 2.5rem; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; font-size: 1.1rem; font-weight: 700; border: none; border-radius: 0.75rem; cursor: pointer; text-decoration: none; transition: opacity 0.2s; }
+    .btn-unlock:hover { opacity: 0.9; }
+    .btn-unlock:disabled { opacity: 0.5; cursor: not-allowed; }
+    .cta-note { color: #666; font-size: 0.8rem; margin-top: 0.75rem; }
+    .already-unlocked { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); border-radius: 0.75rem; padding: 1rem 1.5rem; max-width: 480px; margin: 2rem auto; text-align: center; color: #4ade80; }
+    #error-msg { color: #f87171; margin-top: 0.75rem; font-size: 0.9rem; display: none; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="content">
-    <h1>Premium</h1>
-    <p>Upgrade your Telegram group to unlock the full Evil Apples experience. Use <code>/premium</code> in your group to check your status.</p>
+    <div class="unlock-hero">
+        <h1>Unlock Your Group</h1>
+        <div class="price">$4.99</div>
+        <div class="price-note">One-time payment &bull; permanent unlock</div>
+    </div>
 
-    <div class="premium-features">
-        <div class="premium-feature">
-            <div class="icon">&#x1F6AB;</div>
-            <h3>No Ads</h3>
-            <p>Remove all ads between rounds for a clean, uninterrupted game experience.</p>
-        </div>
-        <div class="premium-feature">
+    <div class="features-grid">
+        <div class="feature-card">
             <div class="icon">&#x1F0CF;</div>
-            <h3>Unlimited Decks</h3>
-            <p>Create as many custom card decks as you want — no limits on creativity.</p>
+            <h3>Custom Decks</h3>
+            <p>Use custom card decks in group games — no limits on creativity.</p>
         </div>
-        <div class="premium-feature">
-            <div class="icon">&#x1F3C6;</div>
-            <h3>Tournaments</h3>
-            <p>Run multi-round tournaments with standings, brackets, and AI fallback judging.</p>
+        <div class="feature-card">
+            <div class="icon">&#x1F6AB;</div>
+            <h3>Ad-Free</h3>
+            <p>Clean, uninterrupted rounds with no ads between games.</p>
         </div>
-        <div class="premium-feature">
+        <div class="feature-card">
             <div class="icon">&#x1F916;</div>
             <h3>Priority AI</h3>
-            <p>Faster AI judging from Dr. Evil when there aren't enough human judges.</p>
+            <p>Faster AI judging from Dr. Evil when there aren't enough judges.</p>
         </div>
-        <div class="premium-feature">
+        <div class="feature-card">
+            <div class="icon">&#x1F3C6;</div>
+            <h3>Tournaments</h3>
+            <p>Run multi-round tournaments with standings and brackets.</p>
+        </div>
+        <div class="feature-card">
             <div class="icon">&#x2B50;</div>
-            <h3>Custom Game Rules</h3>
-            <p>Set custom win scores, hand sizes, and timer durations for your group.</p>
+            <h3>Custom Rules</h3>
+            <p>Set custom win scores, hand sizes, and timer durations.</p>
         </div>
-        <div class="premium-feature">
+        <div class="feature-card">
             <div class="icon">&#x1F451;</div>
             <h3>Premium Badge</h3>
-            <p>Show off your premium status with a special badge on the leaderboard.</p>
+            <p>Show off your group's premium status on the leaderboard.</p>
         </div>
     </div>
 
-    <div class="cta-section">
-        <h2>Get Premium</h2>
-        <p>Type <code>/premium</code> in your Telegram group to activate Premium features.</p>
-        <a class="btn btn-primary mt-1" href="https://t.me/{{ bot_username }}" target="_blank">
-            Open Bot in Telegram
-        </a>
+    <div class="free-section">
+        <h3>Already included for free:</h3>
+        <ul>
+            <li>Core game with unlimited rounds</li>
+            <li>AI judging & leaderboards</li>
+            <li>Solo mode</li>
+            <li>Store card packs</li>
+        </ul>
+    </div>
+
+    <div class="cta-area">
+        <button id="unlock-btn" class="btn-unlock" onclick="startCheckout()">Unlock This Group &mdash; $4.99</button>
+        <div id="error-msg"></div>
+        <p class="cta-note">Secure checkout powered by Stripe. No subscription — pay once, unlocked forever.</p>
     </div>
 </div>
+
+<script>
+function getParam(name) {
+    return new URLSearchParams(window.location.search).get(name) || '';
+}
+
+async function startCheckout() {
+    const chatId = getParam('chat_id');
+    const userId = getParam('user_id');
+    const errEl = document.getElementById('error-msg');
+    const btn = document.getElementById('unlock-btn');
+
+    if (!chatId) {
+        errEl.textContent = 'No group selected. Use /premium in your Telegram group to get the unlock link.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Redirecting to checkout...';
+    errEl.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/premium/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, user_id: userId, chat_title: 'Telegram Group' })
+        });
+        const data = await res.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            errEl.textContent = data.error || 'Something went wrong. Please try again.';
+            errEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Unlock This Group \u2014 $4.99';
+        }
+    } catch (e) {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Unlock This Group \u2014 $4.99';
+    }
+}
+</script>
 {% endblock %}

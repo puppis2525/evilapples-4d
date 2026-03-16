@@ -227,9 +227,67 @@ async def store_checkout(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
+@app.post("/api/premium/checkout")
+async def premium_checkout(request: Request):
+    try:
+        body = await request.json()
+        chat_id = str(body.get("chat_id", "")).strip()
+        chat_title = body.get("chat_title", "Telegram Group")
+        user_id = str(body.get("user_id", "")).strip()
+
+        if not chat_id:
+            return JSONResponse(content={"error": "Missing chat_id"}, status_code=400)
+
+        from telegram.db import is_premium_group
+        already = await is_premium_group(int(chat_id))
+        if already:
+            return JSONResponse(content={"error": "This group is already unlocked!"}, status_code=400)
+
+        from stripe_client import get_stripe_client
+        stripe_mod = await get_stripe_client()
+
+        host = request.headers.get("host", "localhost:5001")
+        protocol = "https" if "replit" in host or "evilapples4tg" in host else "http"
+        base_url = f"{protocol}://{host}"
+
+        session = stripe_mod.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": 499,
+                    "product_data": {
+                        "name": "Evil Apples Group Unlock",
+                        "description": "Permanent unlock for your Telegram group — custom decks, ad-free, priority AI",
+                    },
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=f"{base_url}/premium/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}/premium?chat_id={chat_id}&user_id={user_id}",
+            metadata={
+                "type": "group_unlock",
+                "chat_id": chat_id,
+                "chat_title": chat_title[:200],
+                "user_id": user_id,
+            },
+        )
+
+        return JSONResponse(content={"url": session.url})
+    except Exception as e:
+        logger.error(f"Premium checkout error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
 @app.get("/premium", response_class=HTMLResponse)
 async def premium(request: Request):
     return templates.TemplateResponse("premium.html", _ctx(request, "premium"))
+
+
+@app.get("/premium/success", response_class=HTMLResponse)
+async def premium_success(request: Request):
+    return templates.TemplateResponse("premium_success.html", _ctx(request, "premium"))
 
 
 @app.get("/leaderboard", response_class=HTMLResponse)

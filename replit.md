@@ -55,7 +55,7 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
   - **Solo Mode**: `/solo`, `/solodeal`, `/soloend` — play vs AI opponents with Dr. Evil judging
   - **Tournaments**: `/tournament create/join/start/status/end` — multi-round with standings
   - **Deck System**: `/decks`, `/deck upload/delete`, `/store` — custom deck upload via CSV, premium-gated for groups
-  - **Premium**: `/premium` — shows Pro features and upgrade link; groups need Pro for custom decks
+  - **Premium**: `/premium` — shows $4.99 one-time group unlock; groups need unlock for custom decks
   - **Wired via lifespan**: `telegram/server.py` starts bot polling alongside FastAPI
 - **Workflow**: "Start Telegram bot" (`cd telegram && python server.py`) runs as a separate workflow on port 5001
 - **Production**: Both Discord and Telegram servers launch via `start.sh` (deployment run command)

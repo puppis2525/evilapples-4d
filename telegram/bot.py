@@ -1966,7 +1966,7 @@ async def cmd_decks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not decks:
         msg += "\nNo custom decks yet.\n\n"
         if is_group and not group_premium:
-            msg += "⭐ *Custom decks require Schemer or Overlord!* Upgrade with /premium to use custom decks in this group.\n\n"
+            msg += "⭐ *Custom decks require a Group Unlock!* Use /premium to unlock this group for $4.99.\n\n"
         msg += (
             "• Use `/deck upload <name>` and attach a CSV file to create one\n"
             "• Visit the store with `/store` to browse purchasable decks"
@@ -1982,7 +1982,7 @@ async def cmd_decks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg += f"\n*Your Custom Decks ({len(decks)}):*\n" + "\n".join(deck_lines)
     if is_group and not group_premium:
-        msg += "\n\n⭐ *Custom decks require Pro for this group.* Use /premium to upgrade."
+        msg += "\n\n⭐ *Custom decks require a Group Unlock.* Use /premium to unlock for $4.99."
     else:
         msg += "\n\n_Start a game with /startgame to pick your custom decks!_"
     msg += "\n\nUse `/deck delete <name>` to remove a deck."
@@ -2132,7 +2132,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_group_premium:
         await update.message.reply_text(
-            "⭐ *This group has Evil Apples Pro!*\n\n"
+            "⭐ *This group is unlocked!*\n\n"
             "You're enjoying all premium features:\n"
             "✅ Custom card decks in games\n"
             "✅ Ad-free experience\n"
@@ -2142,19 +2142,19 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(
-        "⭐ *Evil Apples Pro*\n\n"
+        "⭐ *Unlock Your Group*\n\n"
         "*Free tier:*\n"
         "• Core game — unlimited rounds\n"
         "• AI judging & leaderboards\n"
         "• Tournaments\n\n"
-        "*Pro — $19/month per group:*\n"
+        "*Group Unlock — $4.99 one-time:*\n"
         "✅ Custom card decks in games\n"
         "✅ Ad-free announcements\n"
         "✅ Priority AI responses\n\n"
-        "Upgrade at the link below:",
+        "Tap below to unlock this group permanently:",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("⭐ Upgrade to Pro", url=upgrade_url)
+            InlineKeyboardButton("⭐ Unlock Group — $4.99", url=upgrade_url)
         ]])
     )
 
