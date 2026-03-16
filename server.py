@@ -103,7 +103,9 @@ def get_proxy_client():
 class TelegramProxyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         raw_host = request.headers.get("host", "").lower().split(":")[0]
-        if raw_host != TG_PROXY_DOMAIN:
+        is_tg_domain = raw_host == TG_PROXY_DOMAIN
+        is_tg_webhook = request.url.path == "/telegram/webhook" and request.method == "POST"
+        if not is_tg_domain and not is_tg_webhook:
             return await call_next(request)
 
         client = get_proxy_client()
