@@ -8,17 +8,19 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 logger = logging.getLogger("db")
 
-_pool = None
+_pools: dict = {}
 
 
 async def get_db_pool():
-    global _pool
-    if _pool is None or _pool._closed:
+    loop = asyncio.get_running_loop()
+    loop_id = id(loop)
+    pool = _pools.get(loop_id)
+    if pool is None or pool._closed:
         max_retries = 5
         for attempt in range(1, max_retries + 1):
             try:
                 logger.info(f"Creating database connection pool (attempt {attempt}/{max_retries})...")
-                _pool = await asyncio.wait_for(
+                pool = await asyncio.wait_for(
                     asyncpg.create_pool(
                         DATABASE_URL,
                         min_size=2,
@@ -29,7 +31,8 @@ async def get_db_pool():
                     timeout=15
                 )
                 logger.info("Database pool created successfully")
-                return _pool
+                _pools[loop_id] = pool
+                return pool
             except (asyncio.TimeoutError, OSError, asyncpg.PostgresError) as e:
                 logger.warning(f"Database connection attempt {attempt} failed: {e}")
                 if attempt < max_retries:
@@ -37,7 +40,7 @@ async def get_db_pool():
                 else:
                     logger.error("All database connection attempts failed")
                     raise
-    return _pool
+    return pool
 
 
 async def init_db():
