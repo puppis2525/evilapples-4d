@@ -430,30 +430,21 @@ async def activate_group_unlock(chat_id: str, chat_title: str,
     pool = await get_db_pool()
     guild_id = f"tg_chat_{chat_id}"
     async with pool.acquire() as conn:
-        existing = await conn.fetchrow(
-            "SELECT id, active FROM premium_servers WHERE guild_id = $1",
-            guild_id
-        )
-        if existing and existing["active"]:
-            return False
-        if existing:
-            await conn.execute("""
-                UPDATE premium_servers
+        result = await conn.fetchrow("""
+            INSERT INTO premium_servers
+                (guild_id, guild_name, plan, activated_by,
+                 activated_by_name, stripe_subscription_id, active)
+            VALUES ($1, $2, 'group_unlock', $3, $4, $5, TRUE)
+            ON CONFLICT (guild_id) DO UPDATE
                 SET active = TRUE, plan = 'group_unlock',
-                    guild_name = $2, activated_by = $3,
-                    activated_by_name = $4,
-                    stripe_subscription_id = $5,
+                    guild_name = EXCLUDED.guild_name,
+                    activated_by = EXCLUDED.activated_by,
+                    activated_by_name = EXCLUDED.activated_by_name,
+                    stripe_subscription_id = EXCLUDED.stripe_subscription_id,
                     created_at = NOW(), expires_at = NULL
-                WHERE guild_id = $1
-            """, guild_id, chat_title, user_id, user_name, stripe_session_id)
-        else:
-            await conn.execute("""
-                INSERT INTO premium_servers
-                    (guild_id, guild_name, plan, activated_by,
-                     activated_by_name, stripe_subscription_id, active)
-                VALUES ($1, $2, 'group_unlock', $3, $4, $5, TRUE)
-            """, guild_id, chat_title, user_id, user_name, stripe_session_id)
-        return True
+            RETURNING (xmax = 0) AS is_new
+        """, guild_id, chat_title, user_id, user_name, stripe_session_id)
+        return result["is_new"] if result else True
 
 
 # ─── Deck functions (Task #9) ─────────────────────────────────────────────────

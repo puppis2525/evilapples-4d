@@ -238,8 +238,13 @@ async def premium_checkout(request: Request):
         if not chat_id:
             return JSONResponse(content={"error": "Missing chat_id"}, status_code=400)
 
+        try:
+            chat_id_int = int(chat_id)
+        except (ValueError, TypeError):
+            return JSONResponse(content={"error": "Invalid chat_id"}, status_code=400)
+
         from telegram.db import is_premium_group
-        already = await is_premium_group(int(chat_id))
+        already = await is_premium_group(chat_id_int)
         if already:
             return JSONResponse(content={"error": "This group is already unlocked!"}, status_code=400)
 

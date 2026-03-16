@@ -2128,7 +2128,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         is_group_premium = False
 
-    upgrade_url = f"{WEB_BASE}/premium?platform=telegram&chat_id={chat_id}"
+    upgrade_url = f"{WEB_BASE}/premium?platform=telegram&chat_id={chat_id}&user_id=tg_{user.id}"
 
     if is_group_premium:
         await update.message.reply_text(
