@@ -276,6 +276,7 @@ async def premium_checkout(request: Request):
                 "chat_id": chat_id,
                 "chat_title": chat_title[:200],
                 "user_id": user_id,
+                "user_name": str(body.get("user_name", ""))[:200],
             },
         )
 

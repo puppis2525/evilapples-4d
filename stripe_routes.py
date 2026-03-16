@@ -184,12 +184,13 @@ async def stripe_webhook(request: Request):
                     chat_id = metadata.get("chat_id", "")
                     chat_title = metadata.get("chat_title", "Telegram Group")
                     unlock_user_id = metadata.get("user_id", "")
+                    unlock_user_name = metadata.get("user_name", "") or unlock_user_id
                     session_id = session.get("id", "")
                     if chat_id:
                         from telegram.db import activate_group_unlock
                         was_new = await activate_group_unlock(
                             chat_id, chat_title, unlock_user_id,
-                            unlock_user_id, session_id
+                            unlock_user_name, session_id
                         )
                         if was_new:
                             logger.info(f"Group unlock activated: chat={chat_id} title={chat_title} user={unlock_user_id}")
