@@ -29,8 +29,19 @@ logger = logging.getLogger("tg_server")
 PORT = int(os.environ.get("PORT", 5001))
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_CODE", "") or os.environ.get("TELEGRAM_BOT_TOKEN", "")
 BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "EvilApplesBot")
+IS_PRODUCTION = os.environ.get("REPLIT_DEPLOYMENT") == "1"
 
 tg_app = None
+
+
+def _webhook_url() -> str:
+    explicit = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
+    if explicit:
+        return explicit
+    domains = os.environ.get("REPLIT_DOMAINS", "")
+    host = domains.split(",")[0].strip() if domains else "evilapples4tg.com"
+    return f"https://{host}/telegram/webhook"
+
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
@@ -48,18 +59,28 @@ async def lifespan(app: FastAPI):
         await tg_app.initialize()
         await set_commands(tg_app)
         await tg_app.start()
-        await tg_app.updater.start_polling(allowed_updates=["message", "callback_query"])
-        logger.info("Telegram bot started (polling)")
+
+        if IS_PRODUCTION:
+            url = _webhook_url()
+            await tg_app.bot.set_webhook(url=url, allowed_updates=["message", "callback_query"])
+            logger.info(f"Telegram bot started (webhook: {url})")
+        else:
+            await tg_app.updater.start_polling(allowed_updates=["message", "callback_query"])
+            logger.info("Telegram bot started (polling)")
     else:
         logger.error(
-            "TELEGRAM_BOT_CODE is not set! The Telegram bot will NOT start. "
+            "TELEGRAM_BOT_TOKEN is not set! The Telegram bot will NOT start. "
             "Set this environment variable with your bot token from @BotFather to enable the bot."
         )
 
     yield
 
     if tg_app:
-        await tg_app.updater.stop()
+        if IS_PRODUCTION:
+            await tg_app.bot.delete_webhook()
+            logger.info("Telegram webhook removed")
+        else:
+            await tg_app.updater.stop()
         await tg_app.stop()
         await tg_app.shutdown()
         logger.info("Telegram bot stopped")
@@ -256,9 +277,22 @@ async def api_rounds():
         return JSONResponse(content={"error": "Failed to load rounds"}, status_code=500)
 
 
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    if tg_app is None:
+        return JSONResponse(content={"error": "Bot not initialized"}, status_code=503)
+    import json
+    from telegram import Update
+    body = await request.body()
+    update = Update.de_json(json.loads(body), tg_app.bot)
+    await tg_app.process_update(update)
+    return JSONResponse(content={"ok": True})
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "evil-apples-telegram"}
+    mode = "webhook" if IS_PRODUCTION else "polling"
+    return {"status": "ok", "service": "evil-apples-telegram", "bot_mode": mode}
 
 
 if __name__ == "__main__":
