@@ -46,7 +46,22 @@ The application is a full-stack project utilizing a **FastAPI** backend (`server
 - **Admin Management**: Full CRUD at `/api/admin/ads` (GET/POST/PUT/DELETE), with an Ads tab in the admin dashboard showing impressions, clicks, CTR, and pause/delete controls.
 
 ### Rate Limiting
-- In-memory, per-IP rate limiting across three tiers (Strict, Moderate, Relaxed) for API endpoints, excluding webhooks and static files.
+- Database-backed, per-IP rate limiting across three tiers (Strict, Moderate, Relaxed) for API endpoints, excluding webhooks and static files. Rate limit state persists across restarts via the `rate_limit_entries` table with periodic cleanup of expired entries.
+
+### Health Checks
+- `/health` endpoint on both main server (port 5000) and Telegram server (port 5001). Returns JSON with status, service name, uptime, and database connectivity. Returns 200 when healthy, 503 when degraded.
+
+### Database Migrations
+- Versioned migration system via `migrations.py`. A `schema_migrations` table tracks applied migrations by version number and timestamp. On startup, only unapplied migrations run in order. All schema creation is now managed through numbered migrations (12 total).
+
+### CORS
+- `CORSMiddleware` configured on both servers. Allowed origins pulled from `CORS_ALLOWED_ORIGINS` env var (comma-separated), with automatic inclusion of Replit domains and app custom domains.
+
+### Session Security
+- `SESSION_SECRET` is required at startup — the app fails with a clear error if not set, preventing silent session key regeneration on restarts.
+
+### Testing
+- `pytest` test suite in `tests/` covering: Stripe webhook signature verification, tournament creation validation (names, rounds, teams), rate limiter tier detection, health check endpoints, Discord auth cookie signing/verification, Discord ID validation, migration structure validation, and CORS configuration. Run with `python -m pytest tests/ -v`.
 
 ### Telegram Bot & Website (`telegram/`)
 - **Bot**: `telegram/bot.py` — full gameplay bot using `python-telegram-bot` v21.6 (asyncio-native)

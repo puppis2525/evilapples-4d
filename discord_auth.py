@@ -20,8 +20,11 @@ DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
 
 if not SESSION_SECRET:
-    logger.warning("SESSION_SECRET not set — generating random key (sessions won't persist across restarts)")
-    SESSION_SECRET = secrets.token_hex(32)
+    raise RuntimeError(
+        "SESSION_SECRET environment variable is not set. "
+        "Set a stable secret (e.g. `python -c \"import secrets; print(secrets.token_hex(32))\"`) "
+        "to ensure sessions persist across restarts."
+    )
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
 DISCORD_AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"

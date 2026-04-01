@@ -13,4 +13,6 @@ dependencies = [
     "python-slugify>=8.0.4",
     "rapidfuzz>=3.14.3",
     "uvicorn>=0.41.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
 ]

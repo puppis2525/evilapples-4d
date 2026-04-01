@@ -44,108 +44,10 @@ async def get_db_pool():
 
 
 async def init_db():
+    from migrations import run_migrations
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS active_game_sessions (
-                session_key VARCHAR(64) PRIMARY KEY,
-                session_type VARCHAR(16) NOT NULL DEFAULT 'channel',
-                game_data JSONB NOT NULL,
-                updated_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS game_rounds (
-                id SERIAL PRIMARY KEY,
-                prompt TEXT NOT NULL,
-                winning_card TEXT NOT NULL,
-                winner_discord_id VARCHAR(64) NOT NULL,
-                winner_name VARCHAR(128) NOT NULL DEFAULT 'Unknown',
-                slug VARCHAR(256) UNIQUE NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS leaderboard (
-                id SERIAL PRIMARY KEY,
-                discord_id VARCHAR(64) UNIQUE NOT NULL,
-                discord_name VARCHAR(128) NOT NULL DEFAULT 'Unknown',
-                wins INTEGER DEFAULT 0,
-                games_played INTEGER DEFAULT 0,
-                updated_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS tournaments (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(256) NOT NULL,
-                guild_id VARCHAR(64) NOT NULL,
-                channel_id VARCHAR(64) NOT NULL,
-                creator_id VARCHAR(64) NOT NULL,
-                creator_name VARCHAR(128) NOT NULL DEFAULT 'Unknown',
-                status VARCHAR(32) NOT NULL DEFAULT 'registration',
-                rounds_total INTEGER NOT NULL DEFAULT 5,
-                current_round INTEGER NOT NULL DEFAULT 0,
-                max_players INTEGER NOT NULL DEFAULT 20,
-                created_at TIMESTAMP DEFAULT NOW(),
-                completed_at TIMESTAMP
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS tournament_players (
-                id SERIAL PRIMARY KEY,
-                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
-                discord_id VARCHAR(64) NOT NULL,
-                discord_name VARCHAR(128) NOT NULL,
-                points INTEGER DEFAULT 0,
-                rounds_won INTEGER DEFAULT 0,
-                joined_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE(tournament_id, discord_id)
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS tournament_rounds (
-                id SERIAL PRIMARY KEY,
-                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
-                round_number INTEGER NOT NULL,
-                prompt TEXT,
-                winning_card TEXT,
-                winner_discord_id VARCHAR(64),
-                winner_name VARCHAR(128),
-                completed_at TIMESTAMP,
-                UNIQUE(tournament_id, round_number)
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS premium_servers (
-                id SERIAL PRIMARY KEY,
-                guild_id VARCHAR(64) UNIQUE NOT NULL,
-                guild_name VARCHAR(256) NOT NULL DEFAULT 'Unknown',
-                plan VARCHAR(32) NOT NULL DEFAULT 'pro',
-                stripe_customer_id VARCHAR(128),
-                stripe_subscription_id VARCHAR(128),
-                activated_by VARCHAR(64),
-                activated_by_name VARCHAR(128),
-                active BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT NOW(),
-                expires_at TIMESTAMP
-            );
-        """)
-
-
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS text_ads (
-                id SERIAL PRIMARY KEY,
-                title VARCHAR(128) NOT NULL,
-                body VARCHAR(256) NOT NULL,
-                url TEXT NOT NULL,
-                display_name VARCHAR(128) NOT NULL DEFAULT '',
-                active BOOLEAN DEFAULT TRUE,
-                impressions INTEGER DEFAULT 0,
-                clicks INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
+        await run_migrations(conn)
 
 
 async def get_random_active_ad():
@@ -218,9 +120,9 @@ async def save_round(prompt: str, winning_card: str, winner_discord_id: str, win
                 prompt, winning_card, winner_discord_id, winner_name, slug
             )
             await conn.execute(
-                """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, updated_at)
-                   VALUES ($1, $2, 1, 1, NOW())
-                   ON CONFLICT (discord_id) DO UPDATE
+                """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, platform, updated_at)
+                   VALUES ($1, $2, 1, 1, 'discord', NOW())
+                   ON CONFLICT (discord_id, platform) DO UPDATE
                    SET wins = leaderboard.wins + 1,
                        games_played = leaderboard.games_played + 1,
                        discord_name = $2,
@@ -235,9 +137,9 @@ async def batch_update_games_played(players: dict):
         async with conn.transaction():
             for discord_id, discord_name in players.items():
                 await conn.execute(
-                    """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, updated_at)
-                       VALUES ($1, $2, 0, 1, NOW())
-                       ON CONFLICT (discord_id) DO UPDATE
+                    """INSERT INTO leaderboard (discord_id, discord_name, wins, games_played, platform, updated_at)
+                       VALUES ($1, $2, 0, 1, 'discord', NOW())
+                       ON CONFLICT (discord_id, platform) DO UPDATE
                        SET games_played = leaderboard.games_played + 1,
                            discord_name = $2,
                            updated_at = NOW()""",
@@ -501,75 +403,7 @@ async def get_tournament_details(tournament_id: int):
 
 
 async def init_paid_tournament_tables():
-    pool = await get_db_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS connected_accounts (
-                discord_user_id VARCHAR(64) PRIMARY KEY,
-                stripe_account_id VARCHAR(128) NOT NULL,
-                onboarding_complete BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS tournament_entries (
-                id SERIAL PRIMARY KEY,
-                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
-                discord_user_id VARCHAR(64) NOT NULL,
-                stripe_session_id VARCHAR(256),
-                stripe_payment_intent_id VARCHAR(256),
-                amount_cents INTEGER NOT NULL DEFAULT 0,
-                status VARCHAR(32) DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE(tournament_id, discord_user_id)
-            );
-        """)
-        try:
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS entry_fee_cents INTEGER DEFAULT 0")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS prize_pool_cents INTEGER DEFAULT 0")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS platform_fee_percent INTEGER DEFAULT 10")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payout_status VARCHAR(32) DEFAULT 'none'")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS host_stripe_account_id VARCHAR(128)")
-            await conn.execute("ALTER TABLE tournament_entries ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(256)")
-            await conn.execute("ALTER TABLE tournament_entries ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMP")
-        except Exception:
-            pass
-
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS tournament_teams (
-                id SERIAL PRIMARY KEY,
-                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
-                name VARCHAR(128) NOT NULL,
-                captain_discord_id VARCHAR(64),
-                captain_name VARCHAR(128) DEFAULT '',
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS tournament_sponsors (
-                id SERIAL PRIMARY KEY,
-                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
-                sponsor_name VARCHAR(256) NOT NULL,
-                logo_url TEXT DEFAULT '',
-                amount_cents INTEGER NOT NULL DEFAULT 0,
-                stripe_session_id VARCHAR(256),
-                status VARCHAR(32) DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        try:
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_count INTEGER DEFAULT 0")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_size INTEGER DEFAULT 0")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS join_mode VARCHAR(32) DEFAULT 'open'")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS prize_distribution TEXT DEFAULT '[]'")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsor_enabled BOOLEAN DEFAULT FALSE")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsor_slots INTEGER DEFAULT 0")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS sponsor_price_cents INTEGER DEFAULT 0")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS web_created BOOLEAN DEFAULT FALSE")
-            await conn.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS game_mode VARCHAR(32) DEFAULT 'friend'")
-            await conn.execute("ALTER TABLE tournament_players ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES tournament_teams(id) ON DELETE SET NULL")
-        except Exception:
-            pass
+    pass
 
 
 async def save_connected_account(discord_user_id: str, stripe_account_id: str, onboarding_complete: bool = False):
@@ -934,40 +768,7 @@ async def remove_tournament_player(tournament_id: int, discord_id: str):
 
 
 async def init_deck_tables():
-    pool = await get_db_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS custom_decks (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(128) NOT NULL,
-                description TEXT DEFAULT '',
-                creator_name VARCHAR(128) DEFAULT 'Unknown',
-                discord_user_id VARCHAR(64),
-                prompt_count INTEGER DEFAULT 0,
-                answer_count INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS custom_cards (
-                id SERIAL PRIMARY KEY,
-                deck_id INTEGER REFERENCES custom_decks(id) ON DELETE CASCADE,
-                card_type VARCHAR(16) NOT NULL,
-                card_text TEXT NOT NULL
-            );
-        """)
-        try:
-            await conn.execute(
-                "ALTER TABLE custom_decks ADD COLUMN IF NOT EXISTS discord_user_id VARCHAR(64)"
-            )
-        except Exception:
-            pass
-        try:
-            await conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_custom_decks_name_user ON custom_decks (LOWER(name), discord_user_id) WHERE discord_user_id IS NOT NULL"
-            )
-        except Exception:
-            pass
+    pass
 
 
 async def create_deck(name: str, description: str, creator_name: str, discord_user_id: str = None):
@@ -1094,39 +895,7 @@ async def get_user_deck_count(discord_user_id: str) -> int:
 
 
 async def init_store_tables():
-    pool = await get_db_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS store_listings (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(256) NOT NULL,
-                description TEXT DEFAULT '',
-                image_url VARCHAR(512) DEFAULT '',
-                price_cents INTEGER DEFAULT 99,
-                bundle_size INTEGER DEFAULT 1,
-                deck_ids TEXT DEFAULT '',
-                active BOOLEAN DEFAULT TRUE,
-                featured BOOLEAN DEFAULT FALSE,
-                sort_order INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS store_purchases (
-                id SERIAL PRIMARY KEY,
-                discord_user_id VARCHAR(64) NOT NULL,
-                listing_id INTEGER REFERENCES store_listings(id),
-                stripe_session_id VARCHAR(256) UNIQUE,
-                status VARCHAR(32) DEFAULT 'completed',
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        try:
-            await conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_store_purchases_session ON store_purchases(stripe_session_id)"
-            )
-        except Exception:
-            pass
+    pass
 
 
 async def get_store_listings(active_only: bool = True):
@@ -1406,15 +1175,7 @@ async def get_premium_stats():
 
 
 async def init_bot_stats_table():
-    pool = await get_db_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS bot_stats (
-                id SERIAL PRIMARY KEY,
-                guild_count INTEGER NOT NULL DEFAULT 0,
-                recorded_at TIMESTAMP DEFAULT NOW()
-            );
-        """)
+    pass
 
 
 async def record_bot_guild_count(count: int):

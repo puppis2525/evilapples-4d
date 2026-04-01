@@ -1,15 +1,19 @@
 import os
 import asyncio
 import logging
+import time
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.templating import Jinja2Templates
 
 import re
 import sys
+
+_start_time = time.time()
 
 from db import (
     init_db, get_leaderboard, get_recent_rounds, record_bot_group_count,
@@ -89,6 +93,25 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Evil Apples for Telegram", lifespan=lifespan)
+
+_cors_origins_raw = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()] if _cors_origins_raw else []
+_replit_dev_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
+_replit_domains = os.environ.get("REPLIT_DOMAINS", "")
+for _d in [_replit_dev_domain] + (_replit_domains.split(",") if _replit_domains else []):
+    _d = _d.strip()
+    if _d:
+        _cors_origins.append(f"https://{_d}")
+if "https://evilapples4tg.com" not in _cors_origins:
+    _cors_origins.append("https://evilapples4tg.com")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+)
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -357,8 +380,31 @@ async def telegram_webhook(request: Request):
 
 @app.get("/health")
 async def health():
+    db_ok = False
+    try:
+        from db import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        db_ok = True
+    except Exception as e:
+        logger.error(f"Health check DB failure: {e}")
+
     mode = "webhook" if IS_PRODUCTION else "polling"
-    return {"status": "ok", "service": "evil-apples-telegram", "bot_mode": mode}
+    uptime_seconds = round(time.time() - _start_time, 1)
+    status = "healthy" if db_ok else "degraded"
+    status_code = 200 if db_ok else 503
+
+    return JSONResponse(
+        content={
+            "status": status,
+            "service": "evil-apples-telegram",
+            "bot_mode": mode,
+            "uptime_seconds": uptime_seconds,
+            "database": "connected" if db_ok else "disconnected",
+        },
+        status_code=status_code,
+    )
 
 
 if __name__ == "__main__":

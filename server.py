@@ -10,9 +10,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 import httpx
 import uvicorn
+
+_start_time = time.time()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,17 +43,7 @@ class RateLimiter:
     }
 
     def __init__(self):
-        self._hits = defaultdict(list)
         self._last_cleanup = time.time()
-
-    def _cleanup(self):
-        now = time.time()
-        if now - self._last_cleanup < 30:
-            return
-        self._last_cleanup = now
-        stale = [k for k, v in self._hits.items() if not v or v[-1] < now - 120]
-        for k in stale:
-            del self._hits[k]
 
     def _get_tier(self, path: str):
         for prefix, tier in self.ROUTE_TIERS.items():
@@ -60,27 +53,54 @@ class RateLimiter:
             return "relaxed"
         return None
 
-    def is_allowed(self, client_ip: str, path: str) -> bool:
+    async def is_allowed(self, client_ip: str, path: str) -> bool:
         tier_name = self._get_tier(path)
         if tier_name is None:
             return True
 
         tier = self.TIERS[tier_name]
-        now = time.time()
         key = f"{client_ip}:{tier_name}"
 
-        self._cleanup()
+        try:
+            from db import get_db_pool
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                await self._maybe_cleanup(conn)
 
-        timestamps = self._hits[key]
-        cutoff = now - tier["window"]
-        while timestamps and timestamps[0] < cutoff:
-            timestamps.pop(0)
+                row = await conn.fetchrow(
+                    """
+                    WITH inserted AS (
+                        INSERT INTO rate_limit_entries (key, hit_at) VALUES ($1, NOW())
+                        RETURNING hit_at
+                    )
+                    SELECT COUNT(*) as cnt FROM rate_limit_entries
+                    WHERE key = $1 AND hit_at > NOW() - INTERVAL '1 second' * $2
+                    """,
+                    key, tier["window"]
+                )
+                count = row["cnt"] if row else 0
 
-        if len(timestamps) >= tier["requests"]:
-            return False
+                if count > tier["requests"]:
+                    return False
 
-        timestamps.append(now)
-        return True
+                return True
+        except Exception as e:
+            logger.warning(f"Rate limiter DB error: {e}")
+            if tier_name == "strict":
+                return False
+            return True
+
+    async def _maybe_cleanup(self, conn):
+        now = time.time()
+        if now - self._last_cleanup < 60:
+            return
+        self._last_cleanup = now
+        try:
+            await conn.execute(
+                "DELETE FROM rate_limit_entries WHERE hit_at < NOW() - INTERVAL '120 seconds'"
+            )
+        except Exception as e:
+            logger.warning(f"Rate limiter cleanup error: {e}")
 
 
 rate_limiter = RateLimiter()
@@ -157,7 +177,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if forwarded:
             client_ip = forwarded.split(",")[0].strip()
 
-        if not rate_limiter.is_allowed(client_ip, path):
+        if not await rate_limiter.is_allowed(client_ip, path):
             logger.warning(f"Rate limited: {client_ip} on {path}")
             return JSONResponse(
                 status_code=429,
@@ -209,6 +229,27 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Evil Apples 4D", lifespan=lifespan)
+
+_cors_origins_raw = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()] if _cors_origins_raw else []
+_replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
+_replit_domains = os.environ.get("REPLIT_DOMAINS", "")
+for _d in [_replit_domain] + (_replit_domains.split(",") if _replit_domains else []):
+    _d = _d.strip()
+    if _d:
+        _cors_origins.append(f"https://{_d}")
+if "https://evilapples4d.com" not in _cors_origins:
+    _cors_origins.append("https://evilapples4d.com")
+if "https://evilapples4tg.com" not in _cors_origins:
+    _cors_origins.append("https://evilapples4tg.com")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(TelegramProxyMiddleware)
 
@@ -239,6 +280,33 @@ async def server_error_handler(request: Request, exc: Exception):
     if "text/html" in accept:
         return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
     return JSONResponse(content={"error": "Internal server error"}, status_code=500)
+
+
+@app.get("/health")
+async def health_check():
+    db_ok = False
+    try:
+        from db import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        db_ok = True
+    except Exception as e:
+        logger.warning(f"Health check DB failure: {e}")
+
+    uptime_seconds = round(time.time() - _start_time, 1)
+    status = "healthy" if db_ok else "degraded"
+    status_code = 200 if db_ok else 503
+
+    return JSONResponse(
+        content={
+            "status": status,
+            "service": "evil-apples-4d",
+            "uptime_seconds": uptime_seconds,
+            "database": "connected" if db_ok else "disconnected",
+        },
+        status_code=status_code,
+    )
 
 
 @app.get("/favicon.ico")
