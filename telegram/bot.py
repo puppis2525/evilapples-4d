@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import asyncio
 import logging
@@ -58,6 +59,13 @@ active_tournaments: dict[int, dict] = {}
 pending_deck_uploads: dict[int, dict] = {}
 
 WEB_BASE = os.environ.get("WEB_BASE_URL", "https://evilapples4tg.com")
+
+
+_MD_ESCAPE_RE = re.compile(r'([_*\[\]()~`>#+\-=|{}.!\\])')
+
+
+def md_escape(text: str) -> str:
+    return _MD_ESCAPE_RE.sub(r'\\\1', str(text))
 
 
 def format_prompt(text: str) -> str:
@@ -243,6 +251,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_startgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  try:
     chat_id = update.effective_chat.id
     user = update.effective_user
 
@@ -289,10 +298,12 @@ async def cmd_startgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "warn_score": mode_info["warn_score"],
     }
 
+    safe_name = md_escape(user.full_name)
+    safe_desc = md_escape(mode_info['description'])
     await update.message.reply_text(
         f"😈 *Evil Apples — {mode.upper()} Mode*\n\n"
-        f"Started by *{user.full_name}*\\!\n\n"
-        f"_{mode_info['description']}_\n"
+        f"Started by *{safe_name}*\\!\n\n"
+        f"_{safe_desc}_\n"
         f"First to *{mode_info['win_score']} points* wins\\!\n"
         f"Min players: {mode_info['min_players']}\n\n"
         f"Tap the button or type /join to join\\!",
@@ -321,9 +332,17 @@ async def cmd_startgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown",
                 reply_markup=deck_picker_keyboard(decks, chat_id, [])
             )
-
+  except Exception as e:
+    logger.error(f"cmd_startgame error: {e}")
+    try:
+        await update.message.reply_text(
+            f"😈 Evil Apples game started by {user.full_name}! Use /join to join."
+        )
+    except Exception:
+        pass
 
 async def cmd_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  try:
     chat_id = update.effective_chat.id
     user = update.effective_user
     game = active_games.get(chat_id)
@@ -349,14 +368,24 @@ async def cmd_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game["scores"][player_id] = 0
 
     count = len(game["players"])
+    safe_name = md_escape(user.full_name)
     await update.message.reply_text(
-        f"✅ *{user.full_name}* joined the game! \\({count} players\\)\n\n"
+        f"✅ *{safe_name}* joined the game\\! \\({count} players\\)\n\n"
         f"When everyone's in, use /deal to start the first round\\!",
         parse_mode="MarkdownV2"
     )
+  except Exception as e:
+    logger.error(f"cmd_join error: {e}")
+    try:
+        await update.message.reply_text(
+            f"{user.full_name} joined the game! Use /deal when ready."
+        )
+    except Exception:
+        pass
 
 
 async def cb_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  try:
     query = update.callback_query
     await query.answer()
     chat_id_str = query.data.split("_", 1)[1]
@@ -386,14 +415,25 @@ async def cb_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game["scores"][player_id] = 0
 
     count = len(game["players"])
+    safe_name = md_escape(user.full_name)
     await context.bot.send_message(
         chat_id,
-        f"✅ *{user.full_name}* joined the game\\! \\({count} players\\)",
+        f"✅ *{safe_name}* joined the game\\! \\({count} players\\)",
         parse_mode="MarkdownV2"
     )
+  except Exception as e:
+    logger.error(f"cb_join error: {e}")
+    try:
+        await context.bot.send_message(
+            chat_id,
+            f"{user.full_name} joined the game!"
+        )
+    except Exception:
+        pass
 
 
 async def cmd_deal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  try:
     chat_id = update.effective_chat.id
     game = active_games.get(chat_id)
 
@@ -402,6 +442,12 @@ async def cmd_deal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await _do_deal(chat_id, context.bot, game)
+  except Exception as e:
+    logger.error(f"cmd_deal error: {e}")
+    try:
+        await update.message.reply_text("Something went wrong dealing cards. Try /deal again.")
+    except Exception:
+        pass
 
 
 async def cb_deal_next(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -474,8 +520,8 @@ async def _do_deal(chat_id: int, bot, game: dict):
 
         game["state"] = "submitting"
 
-        current_scores = scores_text(game)
-        prompt_display = format_prompt(prompt).replace(".", "\\.").replace("!", "\\!").replace("?", "\\?").replace("(", "\\(").replace(")", "\\)").replace("-", "\\-").replace("_", "\\_")
+        current_scores = md_escape(scores_text(game))
+        prompt_display = md_escape(format_prompt(prompt))
 
         if is_wildcard:
             await bot.send_message(
@@ -891,16 +937,23 @@ async def _announce_winner(
 
     current_scores = scores_text(game)
 
+    safe_winner = md_escape(winner_name)
+    safe_prompt = md_escape(format_prompt(prompt))
+    safe_card = md_escape(winning_card)
+    safe_scores = md_escape(current_scores)
+
     msg = (
-        f"🏆 *Winner: {winner_name}!*\n\n"
-        f"Prompt: _{format_prompt(prompt)}_\n\n"
-        f"Winning card: *{winning_card}*"
+        f"🏆 *Winner: {safe_winner}\\!*\n\n"
+        f"Prompt: _{safe_prompt}_\n\n"
+        f"Winning card: *{safe_card}*"
     )
     if vote_summary:
-        msg += f"\n\n🗳️ *Votes:*\n{vote_summary}"
+        safe_votes = md_escape(vote_summary)
+        msg += f"\n\n🗳️ *Votes:*\n{safe_votes}"
     if roast:
-        msg += f"\n\n😈 Dr. Evil says: _{roast}_"
-    msg += f"\n\n*Scores:*\n{current_scores}"
+        safe_roast = md_escape(roast)
+        msg += f"\n\n😈 Dr\\. Evil says: _{safe_roast}_"
+    msg += f"\n\n*Scores:*\n{safe_scores}"
 
     game["state"] = "finished"
 
@@ -909,26 +962,50 @@ async def _announce_winner(
         sorted_scores = sorted(scores.items(), key=lambda x: -x[1])
         standings = "\n".join(
             f"  {'🥇' if i == 0 else '🥈' if i == 1 else '🥉' if i == 2 else '  '} "
-            f"{game['players'].get(pid, pid)}: {pts} pts"
+            f"{md_escape(game['players'].get(pid, pid))}: {pts} pts"
             for i, (pid, pts) in enumerate(sorted_scores)
         )
         msg += (
-            f"\n\n🎉 *GAME OVER! {winner_name} wins with {player_score} points!*\n\n"
+            f"\n\n🎉 *GAME OVER\\! {safe_winner} wins with {player_score} points\\!*\n\n"
             f"*Final Standings:*\n{standings}\n\n"
             f"Start a new game with /startgame"
         )
-        await bot.send_message(chat_id, msg, parse_mode="Markdown")
+        try:
+            await bot.send_message(chat_id, msg, parse_mode="MarkdownV2")
+        except Exception as e:
+            logger.error(f"_announce_winner MarkdownV2 error: {e}")
+            plain = (
+                f"🏆 Winner: {winner_name}!\n"
+                f"Prompt: {format_prompt(prompt)}\n"
+                f"Winning card: {winning_card}\n\n"
+                f"🎉 GAME OVER! {winner_name} wins with {player_score} points!\n\n"
+                f"Scores:\n{current_scores}\n\nStart a new game with /startgame"
+            )
+            await bot.send_message(chat_id, plain)
         active_games.pop(chat_id, None)
         return
 
     if player_score >= warn_score:
-        msg += f"\n\n🔥 _{winner_name}_ is getting close to winning!"
+        msg += f"\n\n🔥 _{safe_winner}_ is getting close to winning\\!"
 
-    await bot.send_message(
-        chat_id, msg,
-        parse_mode="Markdown",
-        reply_markup=next_round_keyboard()
-    )
+    try:
+        await bot.send_message(
+            chat_id, msg,
+            parse_mode="MarkdownV2",
+            reply_markup=next_round_keyboard()
+        )
+    except Exception as e:
+        logger.error(f"_announce_winner MarkdownV2 error: {e}")
+        plain = (
+            f"🏆 Winner: {winner_name}!\n"
+            f"Prompt: {format_prompt(prompt)}\n"
+            f"Winning card: {winning_card}\n\n"
+            f"Scores:\n{current_scores}\n\nUse /deal for the next round!"
+        )
+        await bot.send_message(
+            chat_id, plain,
+            reply_markup=next_round_keyboard()
+        )
 
 
 async def cmd_endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
