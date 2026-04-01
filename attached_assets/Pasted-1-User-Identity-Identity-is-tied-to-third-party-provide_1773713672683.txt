@@ -1,0 +1,26 @@
+1. User Identity
+Identity is tied to third-party providers (Apple, Google, Facebook, Firebase, SMS), but players do have a first-party account ID.
+When a user registers, a first-party MongoDB ObjectId is generated (this is the user_id used internally across games, chats, and leaderboards).
+However, there is no first-party username/password system. Instead, the user_id is linked to one or more third-party identifiers.
+The User schema (lib/models/user.js) stores these identifiers:
+gc_id (Apple GameCenter)
+fb_id (Facebook)
+firebase_id (Firebase Auth, which handles email login and newer auth methods)
+phone.number (SMS verification)
+When a user logs in (via postLogin in version1_actions.js), the server looks up the user by one of these third-party IDs and returns the underlying first-party user_id.
+2. Entitlements (Deck Ownership)
+The source of truth for "this user owns these decks" lives in your own MongoDB database, specifically on the User document.
+The User schema has a decks array (an array of strings representing deck IDs) and a preferred_decks array.
+When a user purchases a deck, the updateUserFromPurchase method in lib/models/store.js pushes the new deck ID into the user's decks array and saves the User document.
+There is also an all_decks boolean flag on the User model. If a user buys the "Buy All Decks" (BAD) subscription, this flag is set to true, and a background process (syncAllDecksSubscriptionForUserDocument) automatically populates their decks array with every available deck ID from the store catalog.
+3. Purchase History
+Purchase history is stored in your own database, in addition to Apple/Google.
+There is a dedicated Store collection in MongoDB (lib/models/store.js).
+Every time a purchase is made, a new Store document is created. This document stores:
+user_id (who bought it)
+product_id (what they bought)
+receipt (the raw receipt string from Apple/Google)
+receipt_response_data (the parsed validation response from Apple/Google)
+verified (boolean indicating if the server successfully validated the receipt with Apple/Google)
+transaction_id and original_transaction
+The server actively verifies receipts with Apple (verifyPurchaseWithPlatform) before granting the entitlement and saving the Store record.
