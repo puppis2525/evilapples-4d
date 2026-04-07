@@ -141,6 +141,16 @@ class GameSession:
 @bot.event
 async def on_ready():
     print(f"Bot is online as {bot.user}")
+
+    if not bot.intents.message_content:
+        logger.warning(
+            "MESSAGE_CONTENT INTENT IS DISABLED — prefix commands (!) will NOT work. "
+            "Enable it at https://discord.com/developers/applications/%s/bot under 'Privileged Gateway Intents'.",
+            bot.user.id if bot.user else "UNKNOWN"
+        )
+    else:
+        logger.info("Message Content intent is enabled — prefix commands active.")
+
     from db import init_bot_stats_table, record_bot_guild_count
     await init_bot_stats_table()
     await record_bot_guild_count(len(bot.guilds))
@@ -418,79 +428,88 @@ async def on_command_error(ctx, error):
 
 @bot.command(name="startgame")
 async def start_game(ctx, mode: str = "friend"):
-    if ctx.channel.id in active_games:
-        await ctx.send("A game is already running in this channel! Use `!endgame` to stop it.")
-        return
+    try:
+        if ctx.channel.id in active_games:
+            await ctx.send("A game is already running in this channel! Use `!endgame` to stop it.")
+            return
 
-    mode = mode.lower().strip()
-    if mode not in GAME_MODES:
-        modes_list = ", ".join(f"`{m}`" for m in GAME_MODES)
-        await ctx.send(f"Unknown game mode `{mode}`. Available modes: {modes_list}")
-        return
+        mode = mode.lower().strip()
+        if mode not in GAME_MODES:
+            modes_list = ", ".join(f"`{m}`" for m in GAME_MODES)
+            await ctx.send(f"Unknown game mode `{mode}`. Available modes: {modes_list}")
+            return
 
-    mode_info = GAME_MODES[mode]
-    session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name, game_mode=mode)
-    active_games[ctx.channel.id] = session.to_dict()
-    await _persist_game(ctx.channel.id)
+        mode_info = GAME_MODES[mode]
+        session = GameSession(ctx.channel.id, ctx.author.id, ctx.author.display_name, game_mode=mode)
+        active_games[ctx.channel.id] = session.to_dict()
+        await _persist_game(ctx.channel.id)
 
-    channel_decks.pop(ctx.channel.id, None)
+        channel_decks.pop(ctx.channel.id, None)
 
-    mode_labels = {"friend": "FRIEND", "swap": "SWAP", "wildcard": "WILDCARD"}
-    mode_label = mode_labels.get(mode, mode.upper())
+        mode_labels = {"friend": "FRIEND", "swap": "SWAP", "wildcard": "WILDCARD"}
+        mode_label = mode_labels.get(mode, mode.upper())
 
-    embed = discord.Embed(
-        title=f"Evil Apples 4D — {mode_label} Mode",
-        description=f"A new game is starting! Type `!join` to play.\n**{ctx.author.display_name}** has joined! (1 player)\n\nAnyone can type `!deal` when ready.",
-        color=discord.Color.purple()
-    )
-    embed.add_field(name="Mode", value=f"**{mode_label}** — {mode_info['description']}", inline=False)
-    embed.add_field(name="Rules", value=(
-        f"First to **{mode_info['win_score']} points** wins!\n"
-        f"Min players: {mode_info['min_players']}\n"
-        "The judge rotates each round (round-robin style).\n"
-        "If fewer than 3 players, Dr. Evil judges instead."
-    ), inline=False)
-    await ctx.send(embed=embed, view=GameLobbyView())
+        embed = discord.Embed(
+            title=f"Evil Apples 4D — {mode_label} Mode",
+            description=f"A new game is starting! Type `!join` to play.\n**{ctx.author.display_name}** has joined! (1 player)\n\nAnyone can type `!deal` when ready.",
+            color=discord.Color.purple()
+        )
+        embed.add_field(name="Mode", value=f"**{mode_label}** — {mode_info['description']}", inline=False)
+        embed.add_field(name="Rules", value=(
+            f"First to **{mode_info['win_score']} points** wins!\n"
+            f"Min players: {mode_info['min_players']}\n"
+            "The judge rotates each round (round-robin style).\n"
+            "If fewer than 3 players, Dr. Evil judges instead."
+        ), inline=False)
+        await ctx.send(embed=embed, view=GameLobbyView())
 
-    user_id = str(ctx.author.id)
-    deck_count = await get_user_deck_count(user_id)
-    if deck_count > 0:
-        decks = await get_all_decks(discord_user_id=user_id)
-        if decks:
-            await ctx.send(
-                "**You own card decks!** Pick up to 3 to play with, or skip to use the default cards.",
-                view=DeckSelectView(decks, user_id, ctx.channel.id)
-            )
+        user_id = str(ctx.author.id)
+        deck_count = await get_user_deck_count(user_id)
+        if deck_count > 0:
+            decks = await get_all_decks(discord_user_id=user_id)
+            if decks:
+                await ctx.send(
+                    "**You own card decks!** Pick up to 3 to play with, or skip to use the default cards.",
+                    view=DeckSelectView(decks, user_id, ctx.channel.id)
+                )
+    except Exception as e:
+        logger.error("Error in !startgame command: %s", e, exc_info=True)
+        active_games.pop(ctx.channel.id, None)
+        await ctx.send("Something went wrong starting the game. Please try again.")
 
 
 @bot.command(name="join")
 async def join_game(ctx):
-    game = active_games.get(ctx.channel.id)
-    if not game:
-        await ctx.send("No active game. Use `!startgame` to start one.")
-        return
+    try:
+        game = active_games.get(ctx.channel.id)
+        if not game:
+            await ctx.send("No active game. Use `!startgame` to start one.")
+            return
 
-    player_id = str(ctx.author.id)
-    if player_id in game["players"]:
-        await ctx.send("You're already in the game!")
-        return
+        player_id = str(ctx.author.id)
+        if player_id in game["players"]:
+            await ctx.send("You're already in the game!")
+            return
 
-    game["players"][player_id] = ctx.author.display_name
-    if player_id not in game["all_player_ids"]:
-        game["all_player_ids"].append(player_id)
-    if player_id not in game.get("scores", {}):
-        game.setdefault("scores", {})[player_id] = 0
-    await _persist_game(ctx.channel.id)
-    await ctx.send(f"**{ctx.author.display_name}** has joined! ({len(game['players'])} players)")
+        game["players"][player_id] = ctx.author.display_name
+        if player_id not in game["all_player_ids"]:
+            game["all_player_ids"].append(player_id)
+        if player_id not in game.get("scores", {}):
+            game.setdefault("scores", {})[player_id] = 0
+        await _persist_game(ctx.channel.id)
+        await ctx.send(f"**{ctx.author.display_name}** has joined! ({len(game['players'])} players)")
 
-    deck_count = await get_user_deck_count(player_id)
-    if deck_count > 0:
-        decks = await get_all_decks(discord_user_id=player_id)
-        if decks:
-            await ctx.send(
-                f"**{ctx.author.display_name}**, you own card decks! Pick up to 3 to play with, or skip to use default cards.",
-                view=DeckSelectView(decks, player_id, ctx.channel.id)
-            )
+        deck_count = await get_user_deck_count(player_id)
+        if deck_count > 0:
+            decks = await get_all_decks(discord_user_id=player_id)
+            if decks:
+                await ctx.send(
+                    f"**{ctx.author.display_name}**, you own card decks! Pick up to 3 to play with, or skip to use default cards.",
+                    view=DeckSelectView(decks, player_id, ctx.channel.id)
+                )
+    except Exception as e:
+        logger.error("Error in !join command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong joining the game. Please try again.")
 
 
 @bot.command(name="deal")
@@ -670,8 +689,9 @@ async def deal_cards(ctx):
             )
 
     except Exception as e:
+        logger.error("Error in !deal command: %s", e, exc_info=True)
         game["state"] = "waiting_for_players"
-        await ctx.send(f"Error generating cards: {str(e)}")
+        await ctx.send("Something went wrong dealing cards. Please try `!deal` again.")
 
 
 async def handle_round_winner(game, winner_id, winner_name, channel):
@@ -1070,51 +1090,56 @@ async def solo_group(ctx, opponents: int = 3):
     if ctx.invoked_subcommand is not None:
         return
 
-    player_id = str(ctx.author.id)
+    try:
+        player_id = str(ctx.author.id)
 
-    if player_id in solo_games:
-        await ctx.send("You already have a solo game running! Use `!solo end` to stop it first.")
-        return
+        if player_id in solo_games:
+            await ctx.send("You already have a solo game running! Use `!solo end` to stop it first.")
+            return
 
-    if opponents < 1:
-        opponents = 1
-    if opponents > 5:
-        opponents = 5
+        if opponents < 1:
+            opponents = 1
+        if opponents > 5:
+            opponents = 5
 
-    ai_names = random.sample(AI_OPPONENT_NAMES, opponents)
+        ai_names = random.sample(AI_OPPONENT_NAMES, opponents)
 
-    solo_games[player_id] = {
-        "channel_id": ctx.channel.id,
-        "player_id": player_id,
-        "player_name": ctx.author.display_name,
-        "ai_opponents": ai_names,
-        "scores": {ctx.author.display_name: 0},
-        "round_number": 0,
-        "state": "idle",
-        "round_id": 0,
-    }
-    for name in ai_names:
-        solo_games[player_id]["scores"][name] = 0
-    await _persist_solo(player_id)
+        solo_games[player_id] = {
+            "channel_id": ctx.channel.id,
+            "player_id": player_id,
+            "player_name": ctx.author.display_name,
+            "ai_opponents": ai_names,
+            "scores": {ctx.author.display_name: 0},
+            "round_number": 0,
+            "state": "idle",
+            "round_id": 0,
+        }
+        for name in ai_names:
+            solo_games[player_id]["scores"][name] = 0
+        await _persist_solo(player_id)
 
-    if ctx.channel.id in channel_decks:
-        channel_decks[ctx.channel.id].pop(player_id, None)
+        if ctx.channel.id in channel_decks:
+            channel_decks[ctx.channel.id].pop(player_id, None)
 
-    embed = discord.Embed(
-        title="Solo Mode — Evil Apples 4D",
-        description=f"**{ctx.author.display_name}** vs. {', '.join(f'**{n}**' for n in ai_names)}\n\nType `!solo deal` to start a round!\n\U0001F608 Dr. Evil will judge each round.",
-        color=discord.Color.dark_purple()
-    )
-    await ctx.send(embed=embed, view=SoloControlsView(player_id))
+        embed = discord.Embed(
+            title="Solo Mode — Evil Apples 4D",
+            description=f"**{ctx.author.display_name}** vs. {', '.join(f'**{n}**' for n in ai_names)}\n\nType `!solo deal` to start a round!\n\U0001F608 Dr. Evil will judge each round.",
+            color=discord.Color.dark_purple()
+        )
+        await ctx.send(embed=embed, view=SoloControlsView(player_id))
 
-    deck_count = await get_user_deck_count(player_id)
-    if deck_count > 0:
-        decks = await get_all_decks(discord_user_id=player_id)
-        if decks:
-            await ctx.send(
-                "**You own card decks!** Pick up to 3 to play with, or skip to use the default cards.",
-                view=DeckSelectView(decks, player_id, ctx.channel.id, callback_type="solo")
-            )
+        deck_count = await get_user_deck_count(player_id)
+        if deck_count > 0:
+            decks = await get_all_decks(discord_user_id=player_id)
+            if decks:
+                await ctx.send(
+                    "**You own card decks!** Pick up to 3 to play with, or skip to use the default cards.",
+                    view=DeckSelectView(decks, player_id, ctx.channel.id, callback_type="solo")
+                )
+    except Exception as e:
+        logger.error("Error in !solo command: %s", e, exc_info=True)
+        solo_games.pop(str(ctx.author.id), None)
+        await ctx.send("Something went wrong starting the solo game. Please try again.")
 
 
 @solo_group.command(name="deal")
@@ -1206,8 +1231,9 @@ async def solo_deal(ctx):
                 )
 
         except Exception as e:
+            logger.error("Error in !solo deal command: %s", e, exc_info=True)
             game["state"] = "idle"
-            await ctx.send(f"Error generating cards: {str(e)}")
+            await ctx.send("Something went wrong dealing cards. Please try `!solo deal` again.")
 
 
 async def finish_solo_round(player_id: str, player_card: str = None, timed_out: bool = False, channel=None):
@@ -2167,6 +2193,17 @@ async def on_message(message):
     if not message.content.strip().isdigit():
         return
 
+    try:
+        await _handle_dm_card_submission(message)
+    except Exception as e:
+        logger.error("Error processing DM card submission: %s", e, exc_info=True)
+        try:
+            await message.channel.send("Something went wrong submitting your card. Please try again.")
+        except Exception:
+            pass
+
+
+async def _handle_dm_card_submission(message):
     choice = int(message.content.strip())
     player_id = str(message.author.id)
 

@@ -24,13 +24,13 @@ async def get_db_pool():
                     asyncpg.create_pool(
                         DATABASE_URL,
                         min_size=2,
-                        max_size=15,
+                        max_size=10,
                         command_timeout=30,
                         server_settings={"application_name": "evil_apples_4d"}
                     ),
                     timeout=15
                 )
-                logger.info("Database pool created successfully")
+                logger.info("Database pool created successfully (max_size=10)")
                 _pools[loop_id] = pool
                 return pool
             except (asyncio.TimeoutError, OSError, asyncpg.PostgresError) as e:
@@ -40,6 +40,11 @@ async def get_db_pool():
                 else:
                     logger.error("All database connection attempts failed")
                     raise
+    if pool and not pool._closed:
+        in_use = pool.get_size() - pool.get_idle_size()
+        max_sz = pool.get_max_size()
+        if max_sz > 0 and in_use >= max_sz * 0.8:
+            logger.warning("DB pool pressure: %d/%d connections in use (max %d)", in_use, pool.get_size(), max_sz)
     return pool
 
 

@@ -4,7 +4,7 @@ import asyncio
 import threading
 import logging
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
@@ -43,6 +43,7 @@ class RateLimiter:
     }
 
     def __init__(self):
+        self._buckets: dict[str, deque] = {}
         self._last_cleanup = time.time()
 
     def _get_tier(self, path: str):
@@ -53,6 +54,15 @@ class RateLimiter:
             return "relaxed"
         return None
 
+    def _cleanup(self):
+        now = time.time()
+        if now - self._last_cleanup < 30:
+            return
+        self._last_cleanup = now
+        stale = [k for k, dq in self._buckets.items() if not dq or dq[-1] < now - 120]
+        for k in stale:
+            del self._buckets[k]
+
     async def is_allowed(self, client_ip: str, path: str) -> bool:
         tier_name = self._get_tier(path)
         if tier_name is None:
@@ -60,47 +70,24 @@ class RateLimiter:
 
         tier = self.TIERS[tier_name]
         key = f"{client_ip}:{tier_name}"
-
-        try:
-            from db import get_db_pool
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                await self._maybe_cleanup(conn)
-
-                row = await conn.fetchrow(
-                    """
-                    WITH inserted AS (
-                        INSERT INTO rate_limit_entries (key, hit_at) VALUES ($1, NOW())
-                        RETURNING hit_at
-                    )
-                    SELECT COUNT(*) as cnt FROM rate_limit_entries
-                    WHERE key = $1 AND hit_at > NOW() - INTERVAL '1 second' * $2
-                    """,
-                    key, tier["window"]
-                )
-                count = row["cnt"] if row else 0
-
-                if count > tier["requests"]:
-                    return False
-
-                return True
-        except Exception as e:
-            logger.warning(f"Rate limiter DB error: {e}")
-            if tier_name == "strict":
-                return False
-            return True
-
-    async def _maybe_cleanup(self, conn):
         now = time.time()
-        if now - self._last_cleanup < 60:
-            return
-        self._last_cleanup = now
-        try:
-            await conn.execute(
-                "DELETE FROM rate_limit_entries WHERE hit_at < NOW() - INTERVAL '120 seconds'"
-            )
-        except Exception as e:
-            logger.warning(f"Rate limiter cleanup error: {e}")
+        cutoff = now - tier["window"]
+
+        self._cleanup()
+
+        bucket = self._buckets.get(key)
+        if bucket is None:
+            bucket = deque()
+            self._buckets[key] = bucket
+
+        while bucket and bucket[0] < cutoff:
+            bucket.popleft()
+
+        if len(bucket) >= tier["requests"]:
+            return False
+
+        bucket.append(now)
+        return True
 
 
 rate_limiter = RateLimiter()
