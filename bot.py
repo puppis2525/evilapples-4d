@@ -1428,6 +1428,14 @@ async def tournament_group(ctx):
 
 @tournament_group.command(name="create")
 async def tournament_create(ctx, *, args: str = ""):
+    try:
+        await _tournament_create_impl(ctx, args)
+    except Exception as e:
+        logger.error("Error in !tournament create command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong creating the tournament. Please try again.")
+
+
+async def _tournament_create_impl(ctx, args: str = ""):
     existing = await get_active_tournament(str(ctx.channel.id))
     if existing:
         await ctx.send("There's already an active tournament in this channel! Use `!tournament end` first.")
@@ -1545,129 +1553,149 @@ async def tournament_create(ctx, *, args: str = ""):
 
 @tournament_group.command(name="join")
 async def tournament_join(ctx):
-    tournament = await get_active_tournament(str(ctx.channel.id))
-    if not tournament:
-        await ctx.send("No active tournament. Create one with `!tournament create <name>`.")
-        return
-
-    if tournament["status"] != "registration":
-        await ctx.send("This tournament has already started! Wait for the next one.")
-        return
-
-    player_count = await get_tournament_player_count(tournament["id"])
-    if player_count >= tournament["max_players"]:
-        await ctx.send(f"Tournament is full ({tournament['max_players']} players max)!")
-        return
-
-    entry_fee = tournament.get("entry_fee_cents", 0) or 0
-    if entry_fee > 0:
-        entry = await get_tournament_entry(tournament["id"], str(ctx.author.id))
-        if entry and entry["status"] == "paid":
-            await ctx.send(f"**{ctx.author.display_name}**, you're already registered and paid!")
+    try:
+        tournament = await get_active_tournament(str(ctx.channel.id))
+        if not tournament:
+            await ctx.send("No active tournament. Create one with `!tournament create <name>`.")
             return
 
-        fee_display = f"${entry_fee / 100:.2f}"
+        if tournament["status"] != "registration":
+            await ctx.send("This tournament has already started! Wait for the next one.")
+            return
+
+        player_count = await get_tournament_player_count(tournament["id"])
+        if player_count >= tournament["max_players"]:
+            await ctx.send(f"Tournament is full ({tournament['max_players']} players max)!")
+            return
+
+        entry_fee = tournament.get("entry_fee_cents", 0) or 0
+        if entry_fee > 0:
+            entry = await get_tournament_entry(tournament["id"], str(ctx.author.id))
+            if entry and entry["status"] == "paid":
+                await ctx.send(f"**{ctx.author.display_name}**, you're already registered and paid!")
+                return
+
+            fee_display = f"${entry_fee / 100:.2f}"
+            await ctx.send(
+                f"**{tournament['name']}** requires a **{fee_display}** entry fee.\n"
+                f"Pay on the website to join — visit the **How to Play** page and look for tournament entry.\n"
+                f"Tournament ID: **{tournament['id']}**\n"
+                f"Your Discord ID: `{ctx.author.id}`"
+            )
+            return
+
+        team_count = tournament.get("team_count", 0) or 0
+        if team_count > 0:
+            await ctx.send(
+                f"**{tournament['name']}** uses teams! Join a team on the website or ask the host for details.\n"
+                f"Use `!tournament teams` to view current team standings."
+            )
+            return
+
+        await join_tournament(tournament["id"], str(ctx.author.id), ctx.author.display_name)
+        new_count = await get_tournament_player_count(tournament["id"])
+
         await ctx.send(
-            f"**{tournament['name']}** requires a **{fee_display}** entry fee.\n"
-            f"Pay on the website to join — visit the **How to Play** page and look for tournament entry.\n"
-            f"Tournament ID: **{tournament['id']}**\n"
-            f"Your Discord ID: `{ctx.author.id}`"
+            f"**{ctx.author.display_name}** joined **{tournament['name']}**! "
+            f"({new_count} player{'s' if new_count != 1 else ''} registered)"
         )
-        return
-
-    team_count = tournament.get("team_count", 0) or 0
-    if team_count > 0:
-        await ctx.send(
-            f"**{tournament['name']}** uses teams! Join a team on the website or ask the host for details.\n"
-            f"Use `!tournament teams` to view current team standings."
-        )
-        return
-
-    await join_tournament(tournament["id"], str(ctx.author.id), ctx.author.display_name)
-    new_count = await get_tournament_player_count(tournament["id"])
-
-    await ctx.send(
-        f"**{ctx.author.display_name}** joined **{tournament['name']}**! "
-        f"({new_count} player{'s' if new_count != 1 else ''} registered)"
-    )
+    except Exception as e:
+        logger.error("Error in !tournament join command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong joining the tournament. Please try again.")
 
 
 @tournament_group.command(name="start")
 async def tournament_start(ctx):
-    tournament = await get_active_tournament(str(ctx.channel.id))
-    if not tournament:
-        await ctx.send("No active tournament in this channel.")
-        return
+    try:
+        tournament = await get_active_tournament(str(ctx.channel.id))
+        if not tournament:
+            await ctx.send("No active tournament in this channel.")
+            return
 
-    if str(ctx.author.id) != tournament["creator_id"]:
-        await ctx.send("Only the tournament creator can start it!")
-        return
+        if str(ctx.author.id) != tournament["creator_id"]:
+            await ctx.send("Only the tournament creator can start it!")
+            return
 
-    if tournament["status"] != "registration":
-        await ctx.send("This tournament has already started!")
-        return
+        if tournament["status"] != "registration":
+            await ctx.send("This tournament has already started!")
+            return
 
-    players = await get_tournament_players(tournament["id"])
-    if len(players) < 3:
-        await ctx.send(f"Need at least 3 players to start! Currently have {len(players)}. Use `!tournament join`.")
-        return
+        players = await get_tournament_players(tournament["id"])
+        if len(players) < 3:
+            await ctx.send(f"Need at least 3 players to start! Currently have {len(players)}. Use `!tournament join`.")
+            return
 
-    await start_tournament(tournament["id"])
+        await start_tournament(tournament["id"])
 
-    player_list = "\n".join(f"**{i+1}.** {p['discord_name']}" for i, p in enumerate(players))
-    embed = discord.Embed(
-        title=f"Tournament Starting: {tournament['name']}!",
-        description=(
-            f"**{len(players)} players** competing over **{tournament['rounds_total']} rounds**!\n\n"
-            f"**Players:**\n{player_list}\n\n"
-            f"The judge rotates each round. First round begins now!"
-        ),
-        color=discord.Color.gold()
-    )
-    await ctx.send(embed=embed)
+        player_list = "\n".join(f"**{i+1}.** {p['discord_name']}" for i, p in enumerate(players))
+        embed = discord.Embed(
+            title=f"Tournament Starting: {tournament['name']}!",
+            description=(
+                f"**{len(players)} players** competing over **{tournament['rounds_total']} rounds**!\n\n"
+                f"**Players:**\n{player_list}\n\n"
+                f"The judge rotates each round. First round begins now!"
+            ),
+            color=discord.Color.gold()
+        )
+        await ctx.send(embed=embed)
 
-    player_dict = {p["discord_id"]: p["discord_name"] for p in players}
-    judge_rotation = list(player_dict.keys())
-    random.shuffle(judge_rotation)
+        player_dict = {p["discord_id"]: p["discord_name"] for p in players}
+        judge_rotation = list(player_dict.keys())
+        random.shuffle(judge_rotation)
 
-    await asyncio.sleep(3)
-    await run_tournament_round(ctx.channel, tournament, 1, player_dict, judge_rotation, bot)
+        await asyncio.sleep(3)
+        await run_tournament_round(ctx.channel, tournament, 1, player_dict, judge_rotation, bot)
+    except Exception as e:
+        logger.error("Error in !tournament start command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong starting the tournament. Please try again.")
 
 
 @tournament_group.command(name="status")
 async def tournament_status(ctx):
-    tournament = await get_active_tournament(str(ctx.channel.id))
-    if not tournament:
-        await ctx.send("No active tournament in this channel.")
-        return
+    try:
+        tournament = await get_active_tournament(str(ctx.channel.id))
+        if not tournament:
+            await ctx.send("No active tournament in this channel.")
+            return
 
-    players = await get_tournament_players(tournament["id"])
+        players = await get_tournament_players(tournament["id"])
 
-    if not players:
-        await ctx.send(f"**{tournament['name']}** — No players registered yet. Use `!tournament join`.")
-        return
+        if not players:
+            await ctx.send(f"**{tournament['name']}** — No players registered yet. Use `!tournament join`.")
+            return
 
-    standings = "\n".join(
-        f"**{i+1}.** {p['discord_name']} — {p['points']} pts ({p['rounds_won']} wins)"
-        for i, p in enumerate(players)
-    )
+        standings = "\n".join(
+            f"**{i+1}.** {p['discord_name']} — {p['points']} pts ({p['rounds_won']} wins)"
+            for i, p in enumerate(players)
+        )
 
-    status_label = {
-        "registration": "Registration Open",
-        "active": f"Round {tournament['current_round']}/{tournament['rounds_total']}",
-        "completed": "Completed"
-    }.get(tournament["status"], tournament["status"])
+        status_label = {
+            "registration": "Registration Open",
+            "active": f"Round {tournament['current_round']}/{tournament['rounds_total']}",
+            "completed": "Completed"
+        }.get(tournament["status"], tournament["status"])
 
-    embed = discord.Embed(
-        title=f"Tournament: {tournament['name']}",
-        description=f"**Status:** {status_label}\n**Players:** {len(players)}\n\n**Standings:**\n{standings}",
-        color=discord.Color.purple()
-    )
-    await ctx.send(embed=embed)
+        embed = discord.Embed(
+            title=f"Tournament: {tournament['name']}",
+            description=f"**Status:** {status_label}\n**Players:** {len(players)}\n\n**Standings:**\n{standings}",
+            color=discord.Color.purple()
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error("Error in !tournament status command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong checking tournament status. Please try again.")
 
 
 @tournament_group.command(name="end")
 async def tournament_end_cmd(ctx):
+    try:
+        await _tournament_end_impl(ctx)
+    except Exception as e:
+        logger.error("Error in !tournament end command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong ending the tournament. Please try again.")
+
+
+async def _tournament_end_impl(ctx):
     tournament = await get_active_tournament(str(ctx.channel.id))
     if not tournament:
         await ctx.send("No active tournament in this channel.")
@@ -1771,6 +1799,14 @@ async def tournament_end_cmd(ctx):
 
 @tournament_group.command(name="link")
 async def tournament_link(ctx, tournament_id: int = None):
+    try:
+        await _tournament_link_impl(ctx, tournament_id)
+    except Exception as e:
+        logger.error("Error in !tournament link command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong linking the tournament. Please try again.")
+
+
+async def _tournament_link_impl(ctx, tournament_id: int = None):
     if tournament_id is None:
         await ctx.send("Usage: `!tournament link <id>` — Link a web-created tournament to this channel.")
         return
@@ -1828,36 +1864,40 @@ async def tournament_link(ctx, tournament_id: int = None):
 
 @tournament_group.command(name="teams")
 async def tournament_teams_cmd(ctx):
-    tournament = await get_active_tournament(str(ctx.channel.id))
-    if not tournament:
-        await ctx.send("No active tournament in this channel.")
-        return
+    try:
+        tournament = await get_active_tournament(str(ctx.channel.id))
+        if not tournament:
+            await ctx.send("No active tournament in this channel.")
+            return
 
-    team_count = tournament.get("team_count", 0) or 0
-    if team_count == 0:
-        await ctx.send("This tournament doesn't use teams.")
-        return
+        team_count = tournament.get("team_count", 0) or 0
+        if team_count == 0:
+            await ctx.send("This tournament doesn't use teams.")
+            return
 
-    teams = await get_team_standings(tournament["id"])
-    if not teams:
-        await ctx.send("No teams found for this tournament.")
-        return
+        teams = await get_team_standings(tournament["id"])
+        if not teams:
+            await ctx.send("No teams found for this tournament.")
+            return
 
-    team_lines = []
-    medals = ["🥇", "🥈", "🥉"]
-    for i, t in enumerate(teams):
-        medal = medals[i] if i < len(medals) else f"**{i+1}.**"
-        captain = f" (Captain: {t['captain_name']})" if t.get("captain_name") else ""
-        team_lines.append(
-            f"{medal} **{t['name']}** — {t['total_points']} pts ({t['total_wins']} wins, {t['member_count']} members){captain}"
+        team_lines = []
+        medals = ["🥇", "🥈", "🥉"]
+        for i, t in enumerate(teams):
+            medal = medals[i] if i < len(medals) else f"**{i+1}.**"
+            captain = f" (Captain: {t['captain_name']})" if t.get("captain_name") else ""
+            team_lines.append(
+                f"{medal} **{t['name']}** — {t['total_points']} pts ({t['total_wins']} wins, {t['member_count']} members){captain}"
+            )
+
+        embed = discord.Embed(
+            title=f"Team Standings: {tournament['name']}",
+            description="\n".join(team_lines),
+            color=discord.Color.purple()
         )
-
-    embed = discord.Embed(
-        title=f"Team Standings: {tournament['name']}",
-        description="\n".join(team_lines),
-        color=discord.Color.purple()
-    )
-    await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error("Error in !tournament teams command: %s", e, exc_info=True)
+        await ctx.send("Something went wrong checking team standings. Please try again.")
 
 
 channel_decks = {}
