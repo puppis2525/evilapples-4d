@@ -135,12 +135,9 @@
                     <p id="rp-warning" class="text-red-400 text-xs hidden"></p>
                 </div>
                 <div id="fee-tier-info" class="bg-evil-card/30 rounded-xl p-4 hidden">
-                    <h4 class="text-evil-300 font-semibold text-sm mb-2">Platform Fee Tiers</h4>
-                    <div class="grid grid-cols-2 gap-1 text-xs">
-                        <span class="text-evil-400">1-2 tournaments/mo</span><span id="ft-1" class="text-evil-300">10%</span>
-                        <span class="text-evil-400">3-5 tournaments/mo</span><span id="ft-2" class="text-evil-300">15%</span>
-                        <span class="text-evil-400">6-10 tournaments/mo</span><span id="ft-3" class="text-evil-300">20%</span>
-                        <span class="text-evil-400">11+ tournaments/mo</span><span id="ft-4" class="text-evil-300">25%</span>
+                    <h4 class="text-evil-300 font-semibold text-sm mb-2">Platform Fee</h4>
+                    <div class="text-xs">
+                        <span class="text-yellow-400 font-bold">80% Evil Studios / 20% Host</span>
                     </div>
                     <p id="ft-current" class="text-evil-400 text-xs mt-2"></p>
                 </div>
@@ -255,21 +252,8 @@
                 const tierInfo = document.getElementById('fee-tier-info');
                 tierInfo.classList.remove('hidden');
 
-                const tierSpans = [document.getElementById('ft-1'), document.getElementById('ft-2'), document.getElementById('ft-3'), document.getElementById('ft-4')];
-                const tierFees = [10, 15, 20, 25];
-                tierSpans.forEach((span, i) => {
-                    span.classList.remove('text-yellow-400', 'font-bold');
-                    span.classList.add('text-evil-300');
-                    span.textContent = `${tierFees[i]}%`;
-                    if (tierFees[i] === currentFeePercent) {
-                        span.classList.remove('text-evil-300');
-                        span.classList.add('text-yellow-400', 'font-bold');
-                        span.textContent = `${tierFees[i]}% ← current`;
-                    }
-                });
-
                 const currentEl = document.getElementById('ft-current');
-                currentEl.textContent = `This server has run ${data.monthly_count} tournament${data.monthly_count !== 1 ? 's' : ''} this month. Next tournament fee: ${currentFeePercent}%`;
+                currentEl.textContent = `Platform fee: ${currentFeePercent}% (host receives ${100 - currentFeePercent}%)`;
 
                 updateRevenuePreview();
             } catch (e) {

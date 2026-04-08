@@ -240,7 +240,7 @@
                 if (t.status === 'registration') {
                     document.getElementById('host-panel').classList.remove('hidden');
                 }
-                const feePct = t.platform_fee_percent || 10;
+                const feePct = t.platform_fee_percent || 80;
                 const feeEl = document.getElementById('host-fee-tier');
                 feeEl.textContent = `Platform fee for this tournament: ${feePct}% (host keeps ${100 - feePct}%)`;
                 feeEl.classList.remove('hidden');

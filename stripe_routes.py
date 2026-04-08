@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/stripe")
 PREMIUM_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "")
 PRICE_ID_SCHEMER = os.environ.get("STRIPE_PRICE_ID_SCHEMER", "")
 PRICE_ID_OVERLORD = os.environ.get("STRIPE_PRICE_ID_OVERLORD", "")
-PLATFORM_FEE_PERCENT = 10
+PLATFORM_FEE_PERCENT = 80
 
 PLAN_PRICE_MAP = {}
 if PRICE_ID_SCHEMER:
