@@ -1769,7 +1769,7 @@ async def _tournament_end_impl(ctx):
                     await process_tournament_payout(tournament["id"], winner_discord_id=winner_discord_id)
                     entries = await get_paid_tournament_entries(tournament["id"])
                     total = sum(e["amount_cents"] for e in entries)
-                    fee_pct = tournament.get("platform_fee_percent", 80) or 80
+                    fee_pct = tournament.get("platform_fee_percent", 10) or 10
                     platform_fee = int(total * fee_pct / 100)
                     host_received = total - platform_fee
                     embed.add_field(
