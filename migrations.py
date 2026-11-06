@@ -276,6 +276,17 @@ MIGRATIONS = [
             "ALTER TABLE store_purchases ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'completed'",
         ]
     },
+    {
+        "version": 14,
+        "description": "Record Stripe webhook event ids for idempotent payment handling",
+        "sql": [
+            """CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+                event_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL DEFAULT '',
+                received_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )""",
+        ]
+    },
 ]
 
 

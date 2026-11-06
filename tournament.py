@@ -40,8 +40,12 @@ class TournamentJudgingView(discord.ui.View):
         self.picked = True
 
         winner_id, winning_card = self.submissions[index]
-        winner = interaction.guild.get_member(int(winner_id))
-        winner_name = winner.display_name if winner else "Unknown"
+        from discord_names import resolve_member_display_name
+        players = self.round_data.get("players", {})
+        fallback = players.get(str(winner_id)) or players.get(winner_id) or "Unknown"
+        winner_name = await resolve_member_display_name(
+            interaction.guild, winner_id, fallback
+        )
 
         prompt = self.round_data["prompt"]
         tournament_id = self.tournament_data["id"]

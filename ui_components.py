@@ -364,8 +364,12 @@ class JudgingView(discord.ui.View):
             judge_task.cancel()
 
         winner_id, winning_card = self.submissions[index]
-        winner = interaction.guild.get_member(int(winner_id))
-        winner_name = winner.display_name if winner else "Unknown"
+        from discord_names import resolve_member_display_name
+        players = self.game_session.get("players", {})
+        fallback = players.get(str(winner_id)) or players.get(winner_id) or "Unknown"
+        winner_name = await resolve_member_display_name(
+            interaction.guild, winner_id, fallback
+        )
 
         prompt = self.game_session["prompt"]
         slug = slugify(f"{prompt[:40]}-{random.randint(100, 999)}")

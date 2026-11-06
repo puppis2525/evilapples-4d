@@ -200,12 +200,11 @@ async def store_checkout(request: Request):
                 return JSONResponse(content={"error": f"You already own '{listing['name']}'!"}, status_code=400)
             listings.append(listing)
 
-        from stripe_client import get_stripe_client
+        from stripe_client import get_stripe_client, checkout_idempotency_key
+        from app_config import public_base_url
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5001")
-        protocol = "https" if "replit" in host or "evilapples4tg" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         total_cents = sum(l["price_cents"] for l in listings)
         discount = len(listings) >= 3
@@ -242,6 +241,9 @@ async def store_checkout(request: Request):
                 "discord_user_id": user_id,
                 "user_id": user_id,
             },
+            idempotency_key=checkout_idempotency_key(
+                "tg-deck-purchase", user_id, ",".join(str(l["id"]) for l in listings)
+            ),
         )
 
         return JSONResponse(content={"url": session.url})
@@ -271,12 +273,11 @@ async def premium_checkout(request: Request):
         if already:
             return JSONResponse(content={"error": "This group is already unlocked!"}, status_code=400)
 
-        from stripe_client import get_stripe_client
+        from stripe_client import get_stripe_client, checkout_idempotency_key
+        from app_config import public_base_url
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5001")
-        protocol = "https" if "replit" in host or "evilapples4tg" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         session = stripe_mod.checkout.Session.create(
             payment_method_types=["card"],
@@ -301,6 +302,7 @@ async def premium_checkout(request: Request):
                 "user_id": user_id,
                 "user_name": str(body.get("user_name", ""))[:200],
             },
+            idempotency_key=checkout_idempotency_key("tg-group-unlock", chat_id, user_id),
         )
 
         return JSONResponse(content={"url": session.url})
@@ -317,6 +319,16 @@ async def premium(request: Request):
 @app.get("/premium/success", response_class=HTMLResponse)
 async def premium_success(request: Request):
     return templates.TemplateResponse("premium_success.html", _ctx(request, "premium"))
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request):
+    return templates.TemplateResponse("privacy.html", _ctx(request, "privacy"))
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request):
+    return templates.TemplateResponse("terms.html", _ctx(request, "terms"))
 
 
 @app.get("/leaderboard", response_class=HTMLResponse)

@@ -82,9 +82,22 @@ def format_prompt(prompt_text):
     formatted = prompt_text.replace("_", "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
     return f"**{formatted}**"
 
+
+def _site() -> str:
+    from app_config import public_base_url
+    return public_base_url()
+
+
+from app_config import (
+    legacy_prefix_enabled,
+    members_intent_enabled,
+    message_content_intent_enabled,
+)
+
 intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+intents.message_content = message_content_intent_enabled()
+intents.members = members_intent_enabled()
+intents.presences = False
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
@@ -141,15 +154,28 @@ class GameSession:
 @bot.event
 async def on_ready():
     print(f"Bot is online as {bot.user}")
-
-    if not bot.intents.message_content:
+    logger.info(
+        "Gateway intents: message_content=%s members=%s presences=%s legacy_prefix=%s",
+        bot.intents.message_content,
+        bot.intents.members,
+        bot.intents.presences,
+        legacy_prefix_enabled(),
+    )
+    if legacy_prefix_enabled() and not bot.intents.message_content:
         logger.warning(
-            "MESSAGE_CONTENT INTENT IS DISABLED — prefix commands (!) will NOT work. "
-            "Enable it at https://discord.com/developers/applications/%s/bot under 'Privileged Gateway Intents'.",
-            bot.user.id if bot.user else "UNKNOWN"
+            "Legacy ! commands are enabled in config but the message content intent is off. "
+            "Guild prefix commands will not see message text."
         )
+    elif not legacy_prefix_enabled():
+        logger.info("Slash commands are the active interface. Legacy ! commands are off.")
     else:
-        logger.info("Message Content intent is enabled — prefix commands active.")
+        logger.info("Legacy ! commands are on. This uses the privileged message content intent.")
+
+    try:
+        from slash_commands import sync_slash_commands
+        await sync_slash_commands(bot)
+    except Exception as e:
+        logger.error("Slash command sync failed: %s", e)
 
     from db import init_bot_stats_table, record_bot_guild_count
     await init_bot_stats_table()
@@ -354,9 +380,21 @@ HELP_CATEGORIES = [
 ]
 
 
+@bot.before_invoke
+async def enforce_mature_channel(ctx):
+    from app_config import mature_play_allowed
+    root = ctx.command.qualified_name.split()[0] if ctx.command else ""
+    if root in ("help", "premium"):
+        return
+    ok, message = mature_play_allowed(ctx.channel, source="prefix")
+    if not ok:
+        await ctx.send(message)
+        raise commands.CheckFailure("mature channel required")
+
+
 @bot.command(name="help")
 async def help_cmd(ctx, *, command_name: str = ""):
-    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+    host = _site()
 
     if command_name:
         cmd_key = command_name.lower().strip().lstrip("!")
@@ -376,7 +414,13 @@ async def help_cmd(ctx, *, command_name: str = ""):
 
     embed = discord.Embed(
         title="Evil Apples 4D — Commands",
-        description=f"The devilishly funny card game for Discord.\nType `!help <command>` for details on any command.\n\n[Visit evilapples4d.com](https://{host}) | [How to Play](https://{host}/howtoplay)",
+        description=(
+            "The devilishly funny card game for Discord.\n"
+            "Play with slash commands: `/startgame`, `/join`, `/deal`, `/help`.\n"
+            "The `!` forms are an optional legacy fallback and need the message content intent.\n"
+            f"Type `/help <command>` or `!help <command>` for details.\n\n"
+            f"[Visit the site]({host}) | [How to Play]({host}/howtoplay)"
+        ),
         color=discord.Color.purple()
     )
 
@@ -535,10 +579,10 @@ async def deal_cards(ctx):
             key = get_daily_key(str(ctx.guild.id))
             count = daily_game_counts.get(key, 0)
             if count >= FREE_DAILY_GAME_LIMIT:
-                host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+                host = _site()
                 await ctx.send(
                     f"**Minion limit reached!** ({FREE_DAILY_GAME_LIMIT} games/day)\n"
-                    f"Upgrade to Schemer or Overlord for unlimited games: https://{host}/premium\n"
+                    f"Upgrade to Schemer or Overlord for unlimited games: {host}/premium\n"
                     f"Or use `!premium` for details."
                 )
                 return
@@ -761,8 +805,8 @@ async def maybe_append_ad(embed, channel):
         ad = await get_random_active_ad()
         if ad:
             await record_ad_impression(ad["id"])
-            host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
-            click_url = f"https://{host}/ad/click/{ad['id']}"
+            host = _site()
+            click_url = f"{host}/ad/click/{ad['id']}"
             ad_text = f"*{ad['title']} — {ad['body']}"
             if ad.get("display_name"):
                 ad_text += f" | {ad['display_name']}"
@@ -813,8 +857,12 @@ async def ai_judge_pick(game, channel):
         logger.error(f"Dr. Evil roast failed: {e}")
 
     winner_id, winning_card = submissions[chosen_index]
-    winner_member = channel.guild.get_member(int(winner_id)) if channel.guild else None
-    winner_name = winner_member.display_name if winner_member else game["players"].get(winner_id, "Unknown")
+    from discord_names import resolve_member_display_name
+    winner_name = await resolve_member_display_name(
+        channel.guild if channel else None,
+        winner_id,
+        game["players"].get(winner_id, "Unknown"),
+    )
 
     slug = slugify(f"{prompt[:40]}-{random.randint(100, 999)}")
     try:
@@ -931,8 +979,10 @@ async def end_game(ctx):
     if not game:
         await ctx.send("No active game to end.")
         return
-    if str(ctx.author.id) != game.get("host_id"):
-        await ctx.send("Only the game host can end the game!")
+    from access_checks import can_end_game
+    perms = getattr(ctx.author, "guild_permissions", None)
+    if not can_end_game(ctx.author.id, game.get("host_id"), perms):
+        await ctx.send("Only the game host, or a member with Manage Messages, can end the game.")
         return
     if ctx.channel.id in timer_tasks:
         timer_tasks[ctx.channel.id].cancel()
@@ -1444,12 +1494,12 @@ async def _tournament_create_impl(ctx, args: str = ""):
     guild_id = str(ctx.guild.id)
     limits = await get_plan_limits(guild_id)
     plan = await get_server_plan(guild_id)
-    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+    host = _site()
 
     if limits["tournaments_per_month"] == 0:
         await ctx.send(
             f"**Tournaments require a Schemer or Overlord subscription!**\n"
-            f"Upgrade your server at https://{host}/premium"
+            f"Upgrade your server at {host}/premium"
         )
         return
 
@@ -1457,7 +1507,7 @@ async def _tournament_create_impl(ctx, args: str = ""):
     if limits["tournaments_per_month"] is not None and monthly_count >= limits["tournaments_per_month"]:
         await ctx.send(
             f"**Schemer limit reached!** You've used your {limits['tournaments_per_month']} tournament(s) this month.\n"
-            f"Upgrade to **Overlord** for unlimited tournaments at https://{host}/premium"
+            f"Upgrade to **Overlord** for unlimited tournaments at {host}/premium"
         )
         return
 
@@ -1701,8 +1751,10 @@ async def _tournament_end_impl(ctx):
         await ctx.send("No active tournament in this channel.")
         return
 
-    if str(ctx.author.id) != tournament["creator_id"]:
-        await ctx.send("Only the tournament creator can end it!")
+    from access_checks import can_end_tournament
+    perms = getattr(ctx.author, "guild_permissions", None)
+    if not can_end_tournament(ctx.author.id, tournament["creator_id"], perms):
+        await ctx.send("Only the tournament creator, or a member with Manage Server, can end it.")
         return
 
     is_registration = tournament["status"] == "registration"
@@ -1852,7 +1904,7 @@ async def _tournament_link_impl(ctx, tournament_id: int = None):
             f"{team_info}"
             f"**Entry:** {fee_display}\n"
             f"**Created by:** {tournament.get('creator_name', 'Unknown')}\n\n"
-            f"Players can join on the website: **https://EvilApples4d.com/tournaments/{tournament_id}**\n"
+            f"Players can join on the website: **{_site()}/tournaments/{tournament_id}**\n"
             f"Or use `!tournament join` here in Discord.\n"
             f"The creator starts it with `!tournament start` when ready."
         ),
@@ -1919,10 +1971,10 @@ async def check_pro_for_decks(ctx):
         return False
     limits = await get_plan_limits(str(ctx.guild.id))
     if not limits["custom_decks"]:
-        host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
+        host = _site()
         await ctx.send(
             f"**Custom decks require a Schemer or Overlord subscription!**\n"
-            f"Upgrade your server at https://{host}/premium"
+            f"Upgrade your server at {host}/premium"
         )
         return False
     return True
@@ -2171,8 +2223,8 @@ async def premium_cmd(ctx):
     guild_id = str(ctx.guild.id)
     limits = await get_plan_limits(guild_id)
     plan_label = limits["label"]
-    host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
-    upgrade_url = f"https://{host}/premium"
+    host = _site()
+    upgrade_url = f"{host}/premium"
     plan = await get_server_plan(guild_id)
 
     if plan in ("schemer", "overlord", "pro"):
@@ -2225,7 +2277,11 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    await bot.process_commands(message)
+    # Guild ! commands need the privileged message-content intent. Leave them
+    # off unless ENABLE_LEGACY_PREFIX_COMMANDS is set. DM text is still delivered
+    # without that intent; numeric card picks below do not require it.
+    if legacy_prefix_enabled():
+        await bot.process_commands(message)
 
     if not isinstance(message.channel, discord.DMChannel):
         return
@@ -2379,4 +2435,11 @@ async def _handle_dm_card_submission(message):
 
 
 def run_bot():
+    if not DISCORD_TOKEN:
+        logger.error("DISCORD_TOKEN is not set. The Discord bot will not connect.")
+        return
     bot.run(DISCORD_TOKEN)
+
+
+from slash_commands import register_slash_commands
+register_slash_commands(bot)

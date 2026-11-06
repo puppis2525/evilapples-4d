@@ -40,7 +40,17 @@
 
     <main class="max-w-4xl mx-auto px-6 py-16">
         <h2 class="font-brand text-4xl md:text-5xl mb-8 purple-glow text-evil-300 text-center">Terms of Service</h2>
-        <p class="text-evil-400 text-sm text-center mb-12">Last updated: March 14, 2026</p>
+        <p class="text-evil-400 text-sm text-center mb-6">Last updated: November 6, 2026. This revises the March 14, 2026 page where that page disagreed with the code. It is not legal advice and not a finished contract.</p>
+        <div class="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-6 mb-8 text-sm text-yellow-100/90">
+            <p class="font-bold text-yellow-200 mb-2">Owner confirmation required</p>
+            <ul class="list-disc list-inside space-y-1">
+                <li>Legal entity name and postal address are not in the repository.</li>
+                <li>The published contact <strong>support@evilapples4d.com</strong> is not verified from this codebase.</li>
+                <li>The age rule below conflicts with the March 14, 2026 "13+" sentence. Counsel needs to pick the rule.</li>
+                <li>Governing law is still the published "United States" plus arbitration sentence. No state or venue is recorded here.</li>
+                <li>Paid tournaments may be treated as gambling-adjacent by Discord. That is an eligibility question, not a clearance.</li>
+            </ul>
+        </div>
 
         <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 space-y-8 text-evil-200/80 leading-relaxed">
 
@@ -51,10 +61,11 @@
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">2. Eligibility</h3>
+                <p class="mb-3">The shipped cards and the AI judge include sexual, violent, and substance-related humor. In this build, Discord gameplay slash commands are marked age-restricted when <code>MATURE_CONTENT_ENFORCEMENT</code> is <code>nsfw_channel</code> (the default). Discord then shows them in Age-Restricted channels to members 18 or older. The bot also refuses those commands in a channel that is not age-restricted. Turning enforcement off is an operator switch. It does not make the content suitable for a general audience, and it does not by itself make the app eligible for the Discord App Directory.</p>
                 <ul class="list-disc list-inside space-y-2">
-                    <li>You must be at least <strong class="text-evil-300">13 years of age</strong> to use Evil Apples 4D.</li>
-                    <li>You must be at least <strong class="text-evil-300">18 years of age</strong> to participate in paid tournaments, purchase premium features, or engage in any monetary transactions on the platform.</li>
-                    <li>By entering a paid tournament, you represent that you are of legal age to participate in such transactions in your jurisdiction.</li>
+                    <li>The March 14, 2026 terms said use required age 13, and payments required age 18. That split is not what the current content supports.</li>
+                    <li>This build does not ask for a date of birth. The enforceable control is Discord's age-restricted channel and command rules.</li>
+                    <li>Payments still do not check age in code. The old "18+ for payments" sentence is an unenforced representation until the operator confirms it.</li>
                 </ul>
             </section>
 
@@ -87,7 +98,7 @@
                     </div>
                     <div>
                         <h4 class="text-evil-300 font-semibold mb-1">Platform Fees</h4>
-                        <p>Evil Apples 4D charges tournament hosts a tiered platform fee based on the number of tournaments run per month:</p>
+                        <p>The fee stored on a new tournament comes from how many tournaments that Discord guild has already created in the current calendar month. The checkout uses the percent saved on that tournament, not a later change to this table. The function in this build is:</p>
                         <div class="mt-2 bg-evil-card/50 rounded-xl p-4">
                             <table class="w-full text-sm">
                                 <thead>
@@ -108,7 +119,7 @@
                     </div>
                     <div>
                         <h4 class="text-evil-300 font-semibold mb-1">Refund Policy</h4>
-                        <p>If a tournament is <strong class="text-evil-300">cancelled before it starts</strong> (while still in the registration phase), all entry fees will be automatically refunded to players. Once a tournament has started (status: active), entry fees are <strong class="text-evil-300">non-refundable</strong>. Premium subscriptions and store purchases are non-refundable unless required by applicable law.</p>
+                        <p>If a tournament is cancelled while it is still in registration, the code asks Stripe to refund each paid entry and to reverse the connected-account transfer and application fee. Entries that have no payment intent, or that Stripe rejects, stay unresolved and are logged. The March 14, 2026 page said every fee "will be automatically refunded." That guarantee is stronger than the code. Once status is active, the code does not automatically refund entry fees. Premium cancellation follows Stripe subscription status. Store purchases and the Telegram group unlock have no automatic refund path in this build. Whether any of those sales must be refundable under local law is an owner and counsel question.</p>
                     </div>
                     <div>
                         <h4 class="text-evil-300 font-semibold mb-1">Host Responsibilities</h4>
@@ -124,7 +135,7 @@
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">7. Premium Services</h3>
-                <p>Premium ("Pro") subscriptions unlock features such as ad-free gameplay, custom deck creation, and priority support. Premium status is tied to a Discord server and activated by the purchaser. Premium benefits are described on the <a href="/premium" class="text-evil-400 hover:text-evil-300 underline">Premium page</a> and may change over time.</p>
+                <p>The website advertises <strong class="text-evil-300">Schemer at $19 per month</strong> and <strong class="text-evil-300">Overlord at $99 per month</strong>. The amount Stripe actually charges is the Price id in the operator's environment (<code>STRIPE_PRICE_ID_SCHEMER</code>, <code>STRIPE_PRICE_ID_OVERLORD</code>, or the legacy <code>STRIPE_PRICE_ID</code>). Those ids must be pointed at the advertised amounts. The operator has to confirm that they match. A legacy "pro" plan is treated like Overlord in code. Premium status is stored per Discord guild. The Telegram bot has a separate one-time group unlock advertised at $4.99 in the Telegram checkout code. Benefits are described on the <a href="/premium" class="text-evil-400 hover:text-evil-300 underline">Premium page</a>.</p>
             </section>
 
             <section>
@@ -169,15 +180,16 @@
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">16. Governing Law</h3>
-                <p>These Terms shall be governed by and construed in accordance with the laws of the United States. Any disputes arising from these Terms or the Service shall be resolved through good-faith negotiation first, and if necessary, through binding arbitration.</p>
+                <p>The March 14, 2026 page said these terms are governed by the laws of the United States and that disputes go to negotiation and then binding arbitration. That sentence is still the published text. This repository does not name a state, an arbitration provider, or a venue. The operator and counsel need to confirm or replace it. This update does not add a jurisdiction.</p>
             </section>
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">17. Contact</h3>
                 <p>Questions about these Terms? Reach out to us:</p>
                 <div class="mt-3 bg-evil-card/50 rounded-xl p-4 text-sm">
-                    <p><strong class="text-evil-300">Email:</strong> support@evilapples4d.com</p>
+                    <p><strong class="text-evil-300">Published email (unconfirmed):</strong> support@evilapples4d.com</p>
                     <p><strong class="text-evil-300">Website:</strong> <a href="https://evilapples4d.com" class="text-evil-400 hover:text-evil-300 underline">evilapples4d.com</a></p>
+                    <p class="mt-2">No postal address is on file in this project.</p>
                 </div>
             </section>
 

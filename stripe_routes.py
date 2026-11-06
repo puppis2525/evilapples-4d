@@ -1,8 +1,19 @@
 import os
+import re
 import logging
+import stripe
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from stripe_client import get_stripe_client, get_publishable_key
+from app_config import public_base_url
+from stripe_client import (
+    get_stripe_client,
+    get_publishable_key,
+    checkout_idempotency_key,
+    stable_idempotency_key,
+    as_stripe_dict,
+    stripe_id,
+)
+from stripe_events import begin_webhook_event, complete_webhook_event, release_webhook_event
 from db import activate_premium, deactivate_premium
 
 logger = logging.getLogger("stripe_routes")
@@ -24,6 +35,64 @@ if PREMIUM_PRICE_ID and "overlord" not in PLAN_PRICE_MAP:
 
 if not PLAN_PRICE_MAP:
     logger.warning("No Stripe price IDs set — checkout will not work until configured")
+
+_GUILD_ID = re.compile(r"^\d{17,20}$")
+
+
+def price_ids_from_stripe_object(obj: dict) -> list[str]:
+    """Price ids Stripe actually attached to a session or subscription."""
+    if not isinstance(obj, dict):
+        return []
+    found = []
+
+    def add(price):
+        if isinstance(price, str):
+            pid = price
+        elif isinstance(price, dict):
+            pid = str(price.get("id") or "")
+        else:
+            return
+        if pid and pid not in found:
+            found.append(pid)
+
+    def from_item_list(container):
+        if not isinstance(container, dict):
+            return
+        for item in container.get("data") or []:
+            if isinstance(item, dict):
+                add(item.get("price"))
+
+    from_item_list(obj.get("line_items"))
+    from_item_list(obj.get("items"))
+    subscription = obj.get("subscription")
+    if isinstance(subscription, dict):
+        from_item_list(subscription.get("items"))
+    return found
+
+
+def plan_for_price_ids(price_ids) -> str | None:
+    """Map charged Price ids to one configured plan. Ambiguous or unknown -> None."""
+    matches = []
+    for pid in price_ids:
+        for plan, configured in PLAN_PRICE_MAP.items():
+            if configured and pid == configured and plan not in matches:
+                matches.append(plan)
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+async def entitled_premium_plan(session: dict) -> str | None:
+    """Plan granted by the Price on the Checkout Session, not by metadata."""
+    price_ids = price_ids_from_stripe_object(session)
+    if not price_ids and session.get("id"):
+        stripe_mod = await get_stripe_client()
+        retrieved = stripe_mod.checkout.Session.retrieve(
+            session["id"],
+            expand=["line_items", "subscription"],
+        )
+        price_ids = price_ids_from_stripe_object(as_stripe_dict(retrieved))
+    return plan_for_price_ids(price_ids)
 
 
 @router.get("/config")
@@ -61,9 +130,7 @@ async def create_checkout(request: Request):
 
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         price_id = PLAN_PRICE_MAP[plan]
 
@@ -83,6 +150,7 @@ async def create_checkout(request: Request):
                 "user_name": user_name[:128],
                 "plan": plan,
             },
+            idempotency_key=checkout_idempotency_key("premium", guild_id, user_id, plan),
         )
 
         return JSONResponse(content={"url": session.url})
@@ -95,22 +163,37 @@ async def create_checkout(request: Request):
 async def stripe_webhook(request: Request):
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    if not webhook_secret:
+        logger.error("STRIPE_WEBHOOK_SECRET not set — rejecting webhook for security")
+        return JSONResponse(content={"error": "Webhook not configured"}, status_code=500)
 
     try:
-        stripe_mod = await get_stripe_client()
-        webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+        event = as_stripe_dict(stripe.Webhook.construct_event(payload, sig, webhook_secret))
+    except stripe.SignatureVerificationError:
+        logger.warning("Rejected Stripe webhook with an invalid signature")
+        return JSONResponse(content={"error": "Invalid webhook signature"}, status_code=400)
+    except Exception:
+        logger.exception("Stripe webhook could not be verified")
+        return JSONResponse(content={"error": "Invalid webhook"}, status_code=400)
 
-        if not webhook_secret:
-            logger.error("STRIPE_WEBHOOK_SECRET not set — rejecting webhook for security")
-            return JSONResponse(content={"error": "Webhook not configured"}, status_code=500)
+    event_type = event.get("type") or ""
+    event_id = str(event.get("id") or "")
 
-        event = stripe_mod.Webhook.construct_event(payload, sig, webhook_secret)
+    state = await begin_webhook_event(event_id, str(event_type or ""))
+    if state == "duplicate":
+        logger.info("Ignoring duplicate Stripe webhook id=%s type=%s", event_id, event_type)
+        return JSONResponse(content={"received": True, "duplicate": True})
 
-        event_type = event.get("type", "") if isinstance(event, dict) else event["type"]
-
+    try:
         if event_type == "checkout.session.completed":
-            session = event["data"]["object"]
-            metadata = session.get("metadata", {})
+            session = (event.get("data") or {}).get("object") or {}
+            if not isinstance(session, dict):
+                session = as_stripe_dict(session)
+            metadata = session.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = as_stripe_dict(metadata)
 
             if metadata.get("type") == "tournament_entry":
                 payment_status = session.get("payment_status", "")
@@ -199,54 +282,75 @@ async def stripe_webhook(request: Request):
                 else:
                     logger.warning(f"Group unlock not paid: status={payment_status}")
             else:
-                guild_id = metadata.get("guild_id", "")
-                guild_name = metadata.get("guild_name", "Unknown")
-                user_id = metadata.get("user_id", "")
-                user_name = metadata.get("user_name", "Unknown")
-                customer_id = session.get("customer", "")
-                subscription_id = session.get("subscription", "")
-
-                plan = metadata.get("plan", "overlord")
-                if plan not in ("schemer", "overlord"):
-                    plan = "overlord"
-
-                if guild_id:
-                    await activate_premium(
-                        guild_id=guild_id,
-                        guild_name=guild_name,
-                        plan=plan,
-                        stripe_customer_id=customer_id,
-                        stripe_subscription_id=subscription_id,
-                        activated_by=user_id,
-                        activated_by_name=user_name,
-                    )
-                    logger.info(f"Premium activated for guild {guild_id} ({guild_name}) — plan={plan}")
+                payment_status = session.get("payment_status") or ""
+                if payment_status != "paid":
+                    logger.warning("Premium checkout not paid: status=%s session=%s", payment_status, session.get("id"))
+                else:
+                    plan = await entitled_premium_plan(session)
+                    guild_id = str(metadata.get("guild_id") or "")
+                    claimed = metadata.get("plan")
+                    if not plan:
+                        logger.warning(
+                            "Premium checkout %s has no configured Price id (metadata plan=%s)",
+                            session.get("id"), claimed,
+                        )
+                    elif not _GUILD_ID.match(guild_id):
+                        logger.warning("Premium checkout %s has no valid guild_id", session.get("id"))
+                    else:
+                        if claimed and claimed != plan:
+                            logger.warning(
+                                "Premium checkout %s metadata plan %s does not match Price plan %s",
+                                session.get("id"), claimed, plan,
+                            )
+                        await activate_premium(
+                            guild_id=guild_id,
+                            guild_name=metadata.get("guild_name") or "Unknown",
+                            plan=plan,
+                            stripe_customer_id=stripe_id(session.get("customer")),
+                            stripe_subscription_id=stripe_id(session.get("subscription")),
+                            activated_by=str(metadata.get("user_id") or ""),
+                            activated_by_name=metadata.get("user_name") or "Unknown",
+                        )
+                        logger.info("Premium activated for guild %s — plan=%s", guild_id, plan)
 
         elif event_type == "customer.subscription.deleted":
-            subscription = event["data"]["object"]
-            subscription_id = subscription.get("id", "")
+            subscription = (event.get("data") or {}).get("object") or {}
+            if not isinstance(subscription, dict):
+                subscription = as_stripe_dict(subscription)
+            subscription_id = str(subscription.get("id") or "")
             if subscription_id:
                 await deactivate_premium(subscription_id)
                 logger.info(f"Premium deactivated for subscription {subscription_id}")
 
         elif event_type == "customer.subscription.updated":
-            subscription = event["data"]["object"]
-            status = subscription.get("status", "")
-            subscription_id = subscription.get("id", "")
+            subscription = (event.get("data") or {}).get("object") or {}
+            if not isinstance(subscription, dict):
+                subscription = as_stripe_dict(subscription)
+            status = subscription.get("status") or ""
+            subscription_id = str(subscription.get("id") or "")
+            entitled = plan_for_price_ids(price_ids_from_stripe_object(subscription))
+            known_prices = bool(price_ids_from_stripe_object(subscription))
 
             if status in ("canceled", "unpaid", "past_due", "paused"):
                 if subscription_id:
                     await deactivate_premium(subscription_id)
                     logger.info(f"Premium deactivated (status={status}) for subscription {subscription_id}")
-            elif status == "active":
-                if subscription_id:
+            elif status == "active" and subscription_id:
+                if known_prices and entitled is None:
+                    logger.warning(
+                        "Subscription %s is active but its Price is not a configured plan; not reactivating",
+                        subscription_id,
+                    )
+                else:
                     await reactivate_premium(subscription_id)
                     logger.info(f"Premium reactivated for subscription {subscription_id}")
 
+        await complete_webhook_event(event_id)
         return JSONResponse(content={"received": True})
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+        await release_webhook_event(event_id)
+        logger.error("Webhook processing error: %s", e)
+        return JSONResponse(content={"error": "Webhook processing failed"}, status_code=500)
 
 
 async def reactivate_premium(subscription_id: str):
@@ -300,9 +404,7 @@ async def connect_onboard(request: Request):
             account_id = account.id
             await save_connected_account(discord_id, account_id, False)
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         link = stripe_mod.AccountLink.create(
             account=account_id,
@@ -326,7 +428,7 @@ async def connect_onboard_return(request: Request, account_id: str = ""):
 
     try:
         stripe_mod = await get_stripe_client()
-        account = stripe_mod.Account.retrieve(account_id)
+        account = as_stripe_dict(stripe_mod.Account.retrieve(account_id))
 
         if account.get("charges_enabled"):
             await mark_account_onboarded(account_id)
@@ -346,9 +448,7 @@ async def connect_onboard_refresh(request: Request, account_id: str = ""):
     try:
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         link = stripe_mod.AccountLink.create(
             account=account_id,
@@ -428,9 +528,7 @@ async def tournament_entry_checkout(request: Request):
 
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         fee_percent = tournament.get("platform_fee_percent", PLATFORM_FEE_PERCENT)
         application_fee = int(entry_fee * fee_percent / 100)
@@ -469,7 +567,12 @@ async def tournament_entry_checkout(request: Request):
                 },
             }
 
-        session = stripe_mod.checkout.Session.create(**checkout_params)
+        session = stripe_mod.checkout.Session.create(
+            **checkout_params,
+            idempotency_key=checkout_idempotency_key(
+                "tournament-entry", tournament_id, discord_user_id
+            ),
+        )
 
         return JSONResponse(content={"url": session.url})
     except Exception as e:
@@ -506,7 +609,10 @@ async def refund_tournament_entries(tournament_id: int):
             refund_params = {"payment_intent": pi_id}
             refund_params["reverse_transfer"] = True
             refund_params["refund_application_fee"] = True
-            stripe_mod.Refund.create(**refund_params)
+            stripe_mod.Refund.create(
+                **refund_params,
+                idempotency_key=stable_idempotency_key("refund", tournament_id, user_id, pi_id),
+            )
             await mark_entry_refunded(tournament_id, user_id)
             refunded += 1
             total_refunded_cents += amount
@@ -589,8 +695,8 @@ async def process_tournament_payout(tournament_id: int, winner_discord_id: str =
                 entries_with_pi = [e for e in entries if e.get("stripe_payment_intent_id")]
                 if entries_with_pi:
                     first_pi = entries_with_pi[0]["stripe_payment_intent_id"]
-                    pi_obj = stripe_mod.PaymentIntent.retrieve(first_pi)
-                    source_charge = pi_obj.get("latest_charge") if pi_obj else None
+                    pi_obj = as_stripe_dict(stripe_mod.PaymentIntent.retrieve(first_pi))
+                    source_charge = stripe_id(pi_obj.get("latest_charge")) or None
                 else:
                     source_charge = None
 
@@ -606,6 +712,9 @@ async def process_tournament_payout(tournament_id: int, winner_discord_id: str =
                             "prize_type": "winner",
                             "winner_discord_id": winner_discord_id,
                         },
+                        idempotency_key=stable_idempotency_key(
+                            "winner-prize", tournament_id, winner_discord_id, prize_amount
+                        ),
                     )
                     logger.info(
                         f"Prize payout: tournament {tournament_id} winner {winner_discord_id} "
