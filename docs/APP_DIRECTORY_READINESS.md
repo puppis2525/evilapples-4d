@@ -58,7 +58,7 @@ Compared on November 6, 2026 in this VM. The rate limiter and `tests/test_rate_l
 | | SHA | Worktree |
 | --- | --- | --- |
 | PR base (`origin/main`) | `b572ae756beff60569efd16f266c4917ed89e3e7` | `/tmp/evilapples-base-b572ae7` (detached) |
-| PR head | `bc70f62f6aa847e893ed9a067d11a8fca1e29a98` | `/workspace` |
+| Code under test | `bc70f62f6aa847e893ed9a067d11a8fca1e29a98` | `/workspace` at the time of the pytest and Postgres runs. The commit that added this section does not change `server.py` or the rate-limiter test. |
 
 `git diff` of `class RateLimiter` through `rate_limiter = RateLimiter()` between those SHAs was empty. `git hash-object tests/test_rate_limiter.py` was `62a9a0bcba32b8ccc87fc86dc157b3fd18490f44` on both, and `cmp` said the files were identical.
 
