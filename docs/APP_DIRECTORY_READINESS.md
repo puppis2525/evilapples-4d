@@ -49,7 +49,75 @@ python3 -m pytest tests/test_game_session.py tests/test_slug_generation.py \
 
 Together that is the whole `tests/` tree: **128 passed, 3 failed**.
 
-The three failures are `TestRateLimiterDBBehavior` in `tests/test_rate_limiter.py`. They expect `RateLimiter.is_allowed` to query `rate_limit_entries` and to fail closed on the strict tier when the database raises. `server.py` keeps the buckets in process memory and does not call the database. This branch did not change that method. The privacy page describes the in-memory limiter on purpose.
+The three failures are `TestRateLimiterDBBehavior` in `tests/test_rate_limiter.py`. They expect `RateLimiter.is_allowed` to query `rate_limit_entries` and to fail closed on the strict tier when the database raises. `server.py` keeps the buckets in process memory and does not call the database. The privacy page describes the in-memory limiter on purpose.
+
+### Rate-limiter baseline, same three cases
+
+Compared on November 6, 2026 in this VM. The rate limiter and `tests/test_rate_limiter.py` were not edited to change the result. Mature-content enforcement was not changed.
+
+| | SHA | Worktree |
+| --- | --- | --- |
+| PR base (`origin/main`) | `b572ae756beff60569efd16f266c4917ed89e3e7` | `/tmp/evilapples-base-b572ae7` (detached) |
+| PR head | `bc70f62f6aa847e893ed9a067d11a8fca1e29a98` | `/workspace` |
+
+`git diff` of `class RateLimiter` through `rate_limiter = RateLimiter()` between those SHAs was empty. `git hash-object tests/test_rate_limiter.py` was `62a9a0bcba32b8ccc87fc86dc157b3fd18490f44` on both, and `cmp` said the files were identical.
+
+Same interpreter and packages for both runs: Python 3.12, FastAPI 0.135.1, Starlette 0.52.1, pytest 9.2.0, asyncpg 0.32.0, stripe 16.1.0. `SESSION_SECRET` was the test placeholder. `DATABASE_URL` was empty. No Discord, Stripe, or Venice credentials.
+
+```text
+cd /tmp/evilapples-base-b572ae7
+SESSION_SECRET=test_secret_key_for_testing_only_1234567890abcdef DATABASE_URL= \
+  python3 -m pytest \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_strict_fails_closed_on_db_error \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_blocked_when_over_limit \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_uses_atomic_cte_query \
+  -q --tb=short
+# 3 failed in 0.40s
+
+cd /workspace
+SESSION_SECRET=test_secret_key_for_testing_only_1234567890abcdef DATABASE_URL= \
+  python3 -m pytest \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_strict_fails_closed_on_db_error \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_blocked_when_over_limit \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_uses_atomic_cte_query \
+  -q --tb=short
+# 3 failed in 0.41s
+```
+
+The same three cases failed on both SHAs, with the same assertions:
+
+- `test_strict_fails_closed_on_db_error`: `assert True is False` (line 96). The in-memory limiter allows the request and never calls `db.get_db_pool`.
+- `test_blocked_when_over_limit`: `assert True is False` (line 132). The mocked count of 100 is not read.
+- `test_uses_atomic_cte_query`: `TypeError: 'NoneType' object is not subscriptable` (line 143). `fetchrow` was not called, so there is no SQL to inspect.
+
+That is a pre-existing failure, not a regression on this branch.
+
+### Local Postgres, migrations and webhooks
+
+Run. Not a hosted or live database. PostgreSQL 16.15 was installed from Ubuntu packages and started only on this VM (`pg_ctlcluster 16 main`). Two databases, `ea_qa_base` and `ea_qa_head`, used peer auth on the local socket `postgresql:///<db>?host=/var/run/postgresql`. No password, and no Discord, Stripe, or Venice credentials. The webhook secret was the literal `whsec_local_disposable`.
+
+Base SHA, `db.init_db()` only:
+
+- `schema_migrations` versions: 1 through 13
+- `stripe_webhook_events` does not exist (`to_regclass` returned null)
+
+Head SHA, FastAPI `TestClient` startup (which calls `init_db`) against `ea_qa_head`:
+
+- versions 1 through 14, including migration 14
+- table `stripe_webhook_events` exists
+- Discord bot startup was skipped because no token was set
+- store seeding read local files only and inserted 58 decks into this disposable database
+
+Signed webhook posts to `/api/stripe/webhook` on that local app:
+
+| Request | Result |
+| --- | --- |
+| Unknown event, bad signature | HTTP 400 `Invalid webhook signature`. No row. |
+| `evt_local_qa_1` / `ping.unknown`, valid signature | HTTP 200 `{"received": true}` |
+| Same event posted again | HTTP 200 `{"received": true, "duplicate": true}` |
+| Rows after those posts | one row: `evt_local_qa_1` / `ping.unknown` |
+
+A `checkout.session.completed` payload did not reach premium activation. With stripe-python 16.1.0, `stripe.Webhook.construct_event` returns a `StripeObject`, and `session.get(...)` raises `AttributeError` (`StripeObject` is not a dict). Both the first post and the retry returned HTTP 500 `Webhook processing failed`, and `evt_local_qa_fail` was not left in the table, so the failure path released the id instead of treating the retry as a duplicate. The same `.get` calls are already in the base file `stripe_routes.py`, and constructing that event with the same stripe 16.1.0 install raises the same `AttributeError` on the base worktree. This branch did not change those lines into a dict lookup. It also did not add a Stripe version pin. `pyproject.toml` still says `stripe>=14.4.1`.
 
 Also executed:
 
