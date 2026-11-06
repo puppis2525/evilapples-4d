@@ -40,37 +40,45 @@
 
     <main class="max-w-4xl mx-auto px-6 py-16">
         <h2 class="font-brand text-4xl md:text-5xl mb-8 purple-glow text-evil-300 text-center">Privacy Policy</h2>
-        <p class="text-evil-400 text-sm text-center mb-12">Last updated: March 14, 2026</p>
+        <p class="text-evil-400 text-sm text-center mb-6">Last updated: November 6, 2026. This replaces the March 14, 2026 page so it matches the running code. It is not a finished legal instrument.</p>
+        <div class="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-6 mb-8 text-sm text-yellow-100/90">
+            <p class="font-bold text-yellow-200 mb-2">Owner confirmation required</p>
+            <p>This repository does not contain a legal entity name, a postal address, a governing-law state, or proof that a mailbox is monitored. The public site currently prints <strong>support@evilapples4d.com</strong>. That address is repeated here because it is already published, not because this change verified it. The operator must confirm the contact, the entity, the age rule, and any privacy-law additions (for example GDPR or CCPA) before App Directory submission.</p>
+        </div>
 
         <div class="bg-evil-surface border border-evil-800/50 rounded-2xl p-8 space-y-8 text-evil-200/80 leading-relaxed">
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">1. Introduction</h3>
-                <p>Evil Apples 4D ("we", "us", "our") operates the website <strong class="text-evil-300">evilapples4d.com</strong> and the Evil Apples 4D Discord bot. This Privacy Policy explains what information we collect, how we use it, and your rights regarding that information.</p>
+                <p>Evil Apples 4D ("the service") is the website, the Discord bot, and the separate Telegram bot that share one PostgreSQL database. This page describes what that code stores and sends. It does not name an operator, because the codebase does not.</p>
             </section>
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">2. Information We Collect</h3>
                 <div class="space-y-4">
                     <div>
-                        <h4 class="text-evil-300 font-semibold mb-1">Discord Account Data</h4>
-                        <p>When you interact with our Discord bot or log in via Discord OAuth, we receive and store your Discord user ID, username, and avatar URL. We do not access your email address, friend list, or private messages.</p>
+                        <h4 class="text-evil-300 font-semibold mb-1">Discord account data</h4>
+                        <p>Website login uses Discord OAuth with the <strong class="text-evil-300">identify</strong> scope only. The code requests your user id, username, global display name, and avatar, then stores them in an HttpOnly session cookie named <code>evil_session</code> for 30 days. The cookie is signed with the server's <code>SESSION_SECRET</code>. Login does not request email, guilds, or messages. The bot also stores Discord user ids and the display names players use in a game. It does not read your friend list. It does not store a general message history. It does store command inputs, button choices, wildcard answers, and an optional direct-message card number for a round that is already in progress.</p>
                     </div>
                     <div>
-                        <h4 class="text-evil-300 font-semibold mb-1">Game Data</h4>
-                        <p>We store gameplay statistics including rounds played, rounds won, cards submitted, tournament results, and leaderboard rankings. This data is linked to your Discord user ID.</p>
+                        <h4 class="text-evil-300 font-semibold mb-1">Game data</h4>
+                        <p>PostgreSQL stores active game sessions as JSON, finished rounds (prompt, winning card, winner id, winner name, and a public slug), leaderboard rows (id, name, wins, games played), tournaments, teams, and custom decks. Round pages and the leaderboard are public. Custom deck text and wildcard answers are stored and can be sent to the AI provider described below. Telegram rows use the same tables, distinguished by a platform column, and Telegram user ids are stored with a <code>tg_</code> prefix where that code path writes them.</p>
                     </div>
                     <div>
-                        <h4 class="text-evil-300 font-semibold mb-1">Payment Information</h4>
-                        <p>If you purchase premium features, deck packs, or enter paid tournaments, payment processing is handled entirely by <strong class="text-evil-300">Stripe</strong>. We do not store your credit card number, bank account details, or other financial credentials. We store only the Stripe customer ID and transaction metadata (amounts, timestamps, and status) for record-keeping.</p>
+                        <h4 class="text-evil-300 font-semibold mb-1">Payment information</h4>
+                        <p>Card numbers are entered on Stripe Checkout, not on this service. The code stores Stripe customer ids, subscription ids, Checkout session ids, payment intent ids, connected-account ids, amounts, and status. Checkout metadata includes Discord or Telegram ids, names, guild or chat ids, plan name, tournament id, and sponsor name. Webhook deliveries are verified with <code>STRIPE_WEBHOOK_SECRET</code> and the event id is recorded so a retry does not apply the same payment twice. Keys can be supplied as environment variables. A Replit connector is used only when those variables are empty and the connector is configured.</p>
                     </div>
                     <div>
-                        <h4 class="text-evil-300 font-semibold mb-1">Server and Guild Data</h4>
-                        <p>We store Discord server (guild) IDs and channel IDs where the bot is active. This is used to manage game sessions, premium status, and tournament associations.</p>
+                        <h4 class="text-evil-300 font-semibold mb-1">Server and guild data</h4>
+                        <p>The service stores Discord guild ids, channel ids, premium plan, who activated it, tournament links, and a periodic count of guilds the bot is in. It does not request the guild members or presence intents in the default configuration.</p>
                     </div>
                     <div>
-                        <h4 class="text-evil-300 font-semibold mb-1">Automatically Collected Data</h4>
-                        <p>When you visit our website, our server logs may record your IP address, browser type, and pages visited. This data is used for security, debugging, and aggregate analytics only.</p>
+                        <h4 class="text-evil-300 font-semibold mb-1">Telegram</h4>
+                        <p>The Telegram bot stores chat ids, group titles, user ids, display names, game stats, and one-time group-unlock payments. It is a separate process and keeps working when the Discord bot changes. Its site is served from the Telegram templates and, on the shared host, may be reached through the <code>evilapples4tg.com</code> proxy.</p>
+                    </div>
+                    <div>
+                        <h4 class="text-evil-300 font-semibold mb-1">Automatically collected data</h4>
+                        <p>Rate limiting keeps recent request times in process memory, keyed by the first <code>X-Forwarded-For</code> address when that header is present, otherwise by the connection address. A <code>rate_limit_entries</code> table is created by migrations, but the limiter in <code>server.py</code> does not write to it. The app logs rate-limit warnings and Discord login id plus display name. Host or proxy logs may also record IP addresses; that depends on where the operator runs the process. Ad clicks increment a counter and redirect to the advertiser's URL. They are not stored with a user id. If <code>ADSENSE_PUBLISHER_ID</code> is set, public pages can load Google AdSense.</p>
                     </div>
                 </div>
             </section>
@@ -100,15 +108,19 @@
                         <p>Payment processing is handled by Stripe. When you make a payment, your financial information is transmitted directly to Stripe and is subject to <a href="https://stripe.com/privacy" class="text-evil-400 hover:text-evil-300 underline" target="_blank" rel="noopener">Stripe's Privacy Policy</a>.</p>
                     </div>
                     <div>
-                        <h4 class="text-evil-300 font-semibold mb-1">Venice AI</h4>
-                        <p>We use Venice.ai's API to generate card content, prompts, and AI judge commentary. Game prompts and player-submitted text may be sent to Venice.ai for processing. Venice.ai does not receive your Discord identity or personal information.</p>
+                        <h4 class="text-evil-300 font-semibold mb-1">Venice.ai</h4>
+                        <p>Card generation, judging, and the Dr. Evil roast call Venice.ai's chat API with the prompt text and the answer text. Those requests send the card lines. They do not include a Discord user id, email, or the session cookie. Venice receives whatever is inside the card text itself.</p>
+                    </div>
+                    <div>
+                        <h4 class="text-evil-300 font-semibold mb-1">Google</h4>
+                        <p>Optional. AdSense loads only when a publisher id is configured. The service also loads Google fonts on these pages.</p>
                     </div>
                 </div>
             </section>
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">5. Data Storage and Security</h3>
-                <p>Your data is stored in a PostgreSQL database hosted on Replit's infrastructure. We use industry-standard security measures including encrypted connections (HTTPS/TLS), secure session management, and access controls. However, no method of electronic transmission or storage is 100% secure, and we cannot guarantee absolute security.</p>
+                <p>The database is whatever PostgreSQL instance <code>DATABASE_URL</code> points at. Replit is one possible host, not a requirement. The app expects HTTPS in production, signs session cookies, and rejects Stripe webhooks when the webhook secret is missing or the signature does not match. No storage method is perfectly secure.</p>
             </section>
 
             <section>
@@ -129,7 +141,7 @@
 
             <section>
                 <h3 class="text-white font-bold text-xl mb-3">8. Children's Privacy</h3>
-                <p>Evil Apples 4D is not intended for users under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware that we have collected data from a child under 13, we will take steps to delete that information promptly.</p>
+                <p>The card pool and AI prompts include sexual, violent, and substance-related humor. This build's Discord gameplay commands are age-restricted and, by default, run only in channels marked Age-Restricted. Discord limits those commands to members who are 18 or older. The March 14, 2026 page said the service was not for users under 13. The operator has not confirmed which age floor should be the legal rule. The code does not collect a date of birth. See the terms for the same open question.</p>
             </section>
 
             <section>
@@ -141,8 +153,9 @@
                 <h3 class="text-white font-bold text-xl mb-3">10. Contact Us</h3>
                 <p>If you have questions about this Privacy Policy or wish to exercise your data rights, please reach out:</p>
                 <div class="mt-3 bg-evil-card/50 rounded-xl p-4 text-sm">
-                    <p><strong class="text-evil-300">Email:</strong> support@evilapples4d.com</p>
+                    <p><strong class="text-evil-300">Published email (unconfirmed):</strong> support@evilapples4d.com</p>
                     <p><strong class="text-evil-300">Website:</strong> <a href="https://evilapples4d.com" class="text-evil-400 hover:text-evil-300 underline">evilapples4d.com</a></p>
+                    <p class="mt-2">There is no postal address in this repository. Data-deletion requests cannot be completed from the product UI; they need the operator.</p>
                 </div>
             </section>
 

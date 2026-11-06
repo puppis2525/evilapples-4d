@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Privacy Policy — Evil Apples for Telegram{% endblock %}
+
+{% block content %}
+<div class="content">
+    <h1>Privacy Policy</h1>
+    <p>Last updated November 6, 2026. This page matches the Telegram bot and the shared database. It is not a finished legal instrument. The operator still needs to confirm the legal entity, a monitored contact, a postal address, and the age rule. The address printed on the public Discord site is support@evilapples4d.com, and this repository does not prove that mailbox is monitored.</p>
+
+    <h2>What this bot stores</h2>
+    <ul>
+        <li>Telegram user ids, display names, chat ids, and group titles used for games, leaderboards, and the one-time group unlock.</li>
+        <li>Game sessions, rounds, scores, tournament rows, and custom deck text in the shared PostgreSQL database. Telegram rows are marked with a platform column. Some user ids are stored with a <code>tg_</code> prefix.</li>
+        <li>Stripe Checkout session ids, payment status, and the metadata needed to unlock a group or deliver a deck. Card numbers stay with Stripe.</li>
+        <li>Prompt text and answer text sent to Venice.ai for card generation, judging, and roasts. Those calls do not include your Telegram user id.</li>
+    </ul>
+
+    <h2>What it does not collect</h2>
+    <p>The Telegram bot does not ask Telegram for your phone number. The Discord website login, which is separate, uses the Discord <code>identify</code> scope and does not request email.</p>
+
+    <h2>Payments and retries</h2>
+    <p>Webhook signatures are checked with <code>STRIPE_WEBHOOK_SECRET</code>. A stored event id stops the same Stripe retry from unlocking a group or granting a deck twice. Keys can be environment variables. The Replit connector is only a fallback when those variables are empty.</p>
+
+    <h2>Age</h2>
+    <p>The card text is mature. The Discord build gates gameplay to Age-Restricted channels. The Telegram bot does not have an equivalent platform age gate in code. The operator has not confirmed a legal minimum age. Do not treat this page as permission to offer the game to minors.</p>
+
+    <p>The longer Discord-site policy is at <a href="https://evilapples4d.com/privacy">evilapples4d.com/privacy</a>. Where the two disagree about implementation, the code in this repository is the source for what is stored.</p>
+</div>
+{% endblock %}

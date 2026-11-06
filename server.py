@@ -201,13 +201,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database init failed (will retry on first request): {e}")
 
-    is_production = os.environ.get("REPLIT_DEPLOYMENT") == "1"
-    if is_production or not os.environ.get("REPLIT_DEV_DOMAIN"):
+    from app_config import should_start_discord_bot
+    if should_start_discord_bot():
         bot_thread = threading.Thread(target=delayed_bot_start, daemon=True)
         bot_thread.start()
         logger.info("Bot thread launched (will connect after 5s delay)")
     else:
-        logger.info("Skipping bot startup in development (deployed version handles Discord)")
+        logger.info("Discord bot startup skipped (no token, disabled, or Replit dev workflow)")
 
     yield
     logger.info("Application shutting down...")
@@ -241,7 +241,8 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(TelegramProxyMiddleware)
 
 from stripe_routes import router as stripe_router
-from stripe_client import get_stripe_client
+from stripe_client import get_stripe_client, checkout_idempotency_key
+from app_config import public_base_url
 from discord_auth import router as auth_router, get_discord_user
 app.include_router(stripe_router)
 app.include_router(auth_router)
@@ -666,9 +667,7 @@ async def api_join_tournament(tournament_id: int, request: Request):
             existing = await get_tournament_entry(tournament_id, user["discord_id"])
             if not existing or existing["status"] != "paid":
                 stripe_mod = await get_stripe_client()
-                host = request.headers.get("host", "localhost:5000")
-                protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-                base_url = f"{protocol}://{host}"
+                base_url = public_base_url(request)
 
                 fee_percent = tournament.get("platform_fee_percent", 10)
                 application_fee = int(entry_fee * fee_percent / 100)
@@ -705,7 +704,12 @@ async def api_join_tournament(tournament_id: int, request: Request):
                         "transfer_data": {"destination": host_account},
                     }
 
-                session = stripe_mod.checkout.Session.create(**checkout_params)
+                session = stripe_mod.checkout.Session.create(
+                    **checkout_params,
+                    idempotency_key=checkout_idempotency_key(
+                        "tournament-team-entry", tournament_id, user["discord_id"], team_id
+                    ),
+                )
                 return JSONResponse(content={"payment_required": True, "url": session.url})
 
         discord_name = user.get("global_name", user.get("username", "Unknown"))
@@ -827,9 +831,7 @@ async def api_sponsor_tournament(tournament_id: int, request: Request):
         sponsor_price = tournament.get("sponsor_price_cents", 0)
         if sponsor_price > 0:
             stripe_mod = await get_stripe_client()
-            host = request.headers.get("host", "localhost:5000")
-            protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-            base_url = f"{protocol}://{host}"
+            base_url = public_base_url(request)
 
             fee_percent = tournament.get("platform_fee_percent", 10)
             application_fee = int(sponsor_price * fee_percent / 100)
@@ -867,7 +869,12 @@ async def api_sponsor_tournament(tournament_id: int, request: Request):
                     "transfer_data": {"destination": host_account},
                 }
 
-            session = stripe_mod.checkout.Session.create(**checkout_params)
+            session = stripe_mod.checkout.Session.create(
+                **checkout_params,
+                idempotency_key=checkout_idempotency_key(
+                    "tournament-sponsor", tournament_id, user["discord_id"], sponsor_name
+                ),
+            )
             return JSONResponse(content={"payment_required": True, "url": session.url})
 
         sponsor_id = await create_tournament_sponsor(tournament_id, sponsor_name, 0, logo_url=logo_url)
@@ -1134,9 +1141,7 @@ async def store_checkout(request: Request):
 
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         total_cents = sum(l["price_cents"] for l in listings)
         discount = len(listings) >= 3
@@ -1173,6 +1178,9 @@ async def store_checkout(request: Request):
                 "discord_user_id": discord_user_id,
                 "user_id": discord_user_id,
             },
+            idempotency_key=checkout_idempotency_key(
+                "deck-purchase", discord_user_id, ",".join(str(l["id"]) for l in listings)
+            ),
         )
 
         return JSONResponse(content={"url": session.url})
@@ -1405,13 +1413,12 @@ async def api_random_ad():
         ad = await get_random_active_ad()
         if ad:
             await record_ad_impression(ad["id"])
-            host = os.environ.get("REPLIT_DOMAINS", "evilapples4d.com").split(",")[0]
             return JSONResponse(content={
                 "id": ad["id"],
                 "title": ad["title"],
                 "body": ad["body"],
                 "display_name": ad.get("display_name", ""),
-                "click_url": f"https://{host}/ad/click/{ad['id']}"
+                "click_url": f"{public_base_url(request)}/ad/click/{ad['id']}"
             })
         return JSONResponse(content={})
     except Exception as e:

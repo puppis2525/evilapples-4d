@@ -46,8 +46,8 @@ class TestWebhookEndpoint:
         routes = [r.path for r in app.routes if hasattr(r, 'path')]
         assert any("webhook" in p for p in routes)
 
-    def test_webhook_rejects_without_secret(self):
-        os.environ["STRIPE_WEBHOOK_SECRET"] = ""
+    def test_webhook_rejects_without_secret(self, monkeypatch):
+        monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "")
         from server import app
         with TestClient(app, raise_server_exceptions=False) as client:
             payload = json.dumps({"type": "test"}).encode()

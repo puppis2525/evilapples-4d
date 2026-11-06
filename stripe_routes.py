@@ -1,8 +1,16 @@
 import os
 import logging
+import stripe
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from stripe_client import get_stripe_client, get_publishable_key
+from app_config import public_base_url
+from stripe_client import (
+    get_stripe_client,
+    get_publishable_key,
+    checkout_idempotency_key,
+    stable_idempotency_key,
+)
+from stripe_events import begin_webhook_event, complete_webhook_event, release_webhook_event
 from db import activate_premium, deactivate_premium
 
 logger = logging.getLogger("stripe_routes")
@@ -61,9 +69,7 @@ async def create_checkout(request: Request):
 
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         price_id = PLAN_PRICE_MAP[plan]
 
@@ -83,6 +89,7 @@ async def create_checkout(request: Request):
                 "user_name": user_name[:128],
                 "plan": plan,
             },
+            idempotency_key=checkout_idempotency_key("premium", guild_id, user_id, plan),
         )
 
         return JSONResponse(content={"url": session.url})
@@ -95,19 +102,34 @@ async def create_checkout(request: Request):
 async def stripe_webhook(request: Request):
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    if not webhook_secret:
+        logger.error("STRIPE_WEBHOOK_SECRET not set — rejecting webhook for security")
+        return JSONResponse(content={"error": "Webhook not configured"}, status_code=500)
 
     try:
-        stripe_mod = await get_stripe_client()
-        webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+        event = stripe.Webhook.construct_event(payload, sig, webhook_secret)
+    except stripe.SignatureVerificationError:
+        logger.warning("Rejected Stripe webhook with an invalid signature")
+        return JSONResponse(content={"error": "Invalid webhook signature"}, status_code=400)
+    except Exception:
+        logger.exception("Stripe webhook could not be verified")
+        return JSONResponse(content={"error": "Invalid webhook"}, status_code=400)
 
-        if not webhook_secret:
-            logger.error("STRIPE_WEBHOOK_SECRET not set — rejecting webhook for security")
-            return JSONResponse(content={"error": "Webhook not configured"}, status_code=500)
+    event_type = event.get("type", "") if isinstance(event, dict) else event["type"]
+    try:
+        event_id = event.get("id", "") if isinstance(event, dict) else event["id"]
+    except Exception:
+        event_id = ""
+    event_id = str(event_id or "")
 
-        event = stripe_mod.Webhook.construct_event(payload, sig, webhook_secret)
+    state = await begin_webhook_event(event_id, str(event_type or ""))
+    if state == "duplicate":
+        logger.info("Ignoring duplicate Stripe webhook id=%s type=%s", event_id, event_type)
+        return JSONResponse(content={"received": True, "duplicate": True})
 
-        event_type = event.get("type", "") if isinstance(event, dict) else event["type"]
-
+    try:
         if event_type == "checkout.session.completed":
             session = event["data"]["object"]
             metadata = session.get("metadata", {})
@@ -243,10 +265,12 @@ async def stripe_webhook(request: Request):
                     await reactivate_premium(subscription_id)
                     logger.info(f"Premium reactivated for subscription {subscription_id}")
 
+        await complete_webhook_event(event_id)
         return JSONResponse(content={"received": True})
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+        await release_webhook_event(event_id)
+        logger.error("Webhook processing error: %s", e)
+        return JSONResponse(content={"error": "Webhook processing failed"}, status_code=500)
 
 
 async def reactivate_premium(subscription_id: str):
@@ -300,9 +324,7 @@ async def connect_onboard(request: Request):
             account_id = account.id
             await save_connected_account(discord_id, account_id, False)
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         link = stripe_mod.AccountLink.create(
             account=account_id,
@@ -346,9 +368,7 @@ async def connect_onboard_refresh(request: Request, account_id: str = ""):
     try:
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         link = stripe_mod.AccountLink.create(
             account=account_id,
@@ -428,9 +448,7 @@ async def tournament_entry_checkout(request: Request):
 
         stripe_mod = await get_stripe_client()
 
-        host = request.headers.get("host", "localhost:5000")
-        protocol = "https" if "replit" in host or "evilapples4d" in host else "http"
-        base_url = f"{protocol}://{host}"
+        base_url = public_base_url(request)
 
         fee_percent = tournament.get("platform_fee_percent", PLATFORM_FEE_PERCENT)
         application_fee = int(entry_fee * fee_percent / 100)
@@ -469,7 +487,12 @@ async def tournament_entry_checkout(request: Request):
                 },
             }
 
-        session = stripe_mod.checkout.Session.create(**checkout_params)
+        session = stripe_mod.checkout.Session.create(
+            **checkout_params,
+            idempotency_key=checkout_idempotency_key(
+                "tournament-entry", tournament_id, discord_user_id
+            ),
+        )
 
         return JSONResponse(content={"url": session.url})
     except Exception as e:
@@ -506,7 +529,10 @@ async def refund_tournament_entries(tournament_id: int):
             refund_params = {"payment_intent": pi_id}
             refund_params["reverse_transfer"] = True
             refund_params["refund_application_fee"] = True
-            stripe_mod.Refund.create(**refund_params)
+            stripe_mod.Refund.create(
+                **refund_params,
+                idempotency_key=stable_idempotency_key("refund", tournament_id, user_id, pi_id),
+            )
             await mark_entry_refunded(tournament_id, user_id)
             refunded += 1
             total_refunded_cents += amount
@@ -606,6 +632,9 @@ async def process_tournament_payout(tournament_id: int, winner_discord_id: str =
                             "prize_type": "winner",
                             "winner_discord_id": winner_discord_id,
                         },
+                        idempotency_key=stable_idempotency_key(
+                            "winner-prize", tournament_id, winner_discord_id, prize_amount
+                        ),
                     )
                     logger.info(
                         f"Prize payout: tournament {tournament_id} winner {winner_discord_id} "
