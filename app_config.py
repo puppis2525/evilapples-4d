@@ -38,6 +38,7 @@ def mature_content_enforcement() -> str:
     """nsfw_channel (default) or off.
 
     off does not make the app eligible for the Discord App Directory.
+    Distribution is an invite link. Discovery stays off either way.
     """
     raw = os.environ.get("MATURE_CONTENT_ENFORCEMENT", "nsfw_channel").strip().lower()
     if raw in ("off", "0", "false", "no"):

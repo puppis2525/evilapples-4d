@@ -6,9 +6,38 @@ Evil Apples is a mature party card game. This repository runs three pieces:
 - a discord.py bot (`bot.py`) started from that site
 - a Telegram bot and site (`telegram/`) that shares the same Postgres database
 
-Slash commands are the Discord interface. `!` commands still exist and stay off unless you opt in. Nothing in this repo chooses a production host, submits the Discord App Directory listing, or ships a license.
+Slash commands are the Discord interface. `!` commands still exist and stay off unless you opt in. Nothing in this repo chooses a production host, submits an App Directory listing, or ships a license.
 
-The card pool and AI judge include sexual, violent, and substance-related humor. That content is an App Directory eligibility blocker. See [docs/APP_DIRECTORY_READINESS.md](docs/APP_DIRECTORY_READINESS.md). This README does not claim the app is approved.
+The owner decision is to **keep the mature game and share the bot by a guild-install invite link**. Do not enable App Directory discovery, and do not clear the age-restricted command flag to chase a listing. An invite link is not an exemption from Discord's developer policy, community guidelines, or content rules. Paid-entry tournaments, third-party deck names, and the unfinished legal pages stay open questions. Detail is in [docs/APP_DIRECTORY_READINESS.md](docs/APP_DIRECTORY_READINESS.md).
+
+## Invite link
+
+Distribution is a guild install OAuth URL. This repository does not know the application id and does not create or submit the invite. The id is the Application ID on the Developer Portal General Information page. It is the same value as `DISCORD_CLIENT_ID` once you copy it into the environment. Until then the placeholder is `YOUR_DISCORD_APPLICATION_ID`.
+
+```text
+https://discord.com/oauth2/authorize?client_id=YOUR_DISCORD_APPLICATION_ID&permissions=19456&integration_type=0&scope=bot%20applications.commands
+```
+
+`integration_type=0` is a guild install. `scope` is only `bot` and `applications.commands`. Do not add `identify`, `email`, `guilds`, `guilds.members.read`, or `messages.read` to this install link. The website login is a separate OAuth flow and requests `identify` only.
+
+`permissions=19456` is the slash-mode minimum:
+
+| Permission | Bit |
+| --- | --- |
+| View Channel | 1024 |
+| Send Messages | 2048 |
+| Embed Links | 16384 |
+
+The bot posts embeds and buttons in the channel. It does not need Manage Messages, Mention Everyone, or Attach Files for that. Read Message History is not part of this minimum. Add it, and turn on the Message Content intent, only if you set `ENABLE_LEGACY_PREFIX_COMMANDS=true`. An installer who unchecks Send Messages or Embed Links will get a bot that cannot run the game.
+
+These Developer Portal choices are manual. This repo does not change them:
+
+- Leave Discovery off. Do not submit the app to the App Directory.
+- Leave gameplay commands age-restricted. The default `MATURE_CONTENT_ENFORCEMENT=nsfw_channel` sets that when commands sync.
+- Public Bot, if turned on, lets another server admin open the invite link. That is not Directory discovery. If it stays off, only the app team can add the bot.
+- Installation contexts: guild install on, user install off. The game runs in a server channel.
+- Privileged intents stay off: Message Content, Server Members, and Presence. Message Content is only for the legacy `!` fallback.
+- Privacy and terms URLs, a support server, and a description can be filled in later. They are not set from this repository.
 
 ## Run it locally
 
@@ -78,8 +107,8 @@ The guild members intent and the presence intent stay off. Winner names come fro
 
 Command registration:
 
-- `DISCORD_COMMAND_SCOPE=global` (default) syncs commands for every server. Discord can take up to an hour.
-- `DISCORD_COMMAND_SCOPE=guild` with `DISCORD_GUILD_ID` syncs one server for testing. That scope is not what the directory install uses.
+- `DISCORD_COMMAND_SCOPE=global` (default) syncs commands to servers that installed the bot. Discord can take up to an hour. It does not list the app in the App Directory.
+- `DISCORD_COMMAND_SCOPE=guild` with `DISCORD_GUILD_ID` syncs one server for testing.
 
 ## Stripe outside Replit
 
@@ -114,7 +143,8 @@ Both describe the current data flow and mark contact, entity, age rule, and gove
 ## What this repo will not do
 
 - pick or provision a production host
-- submit the App Directory listing
+- enable App Directory discovery or submit a listing
+- clear age-restricted command flags to look eligible for discovery
 - merge, deploy, or spend
 - add a license
-- print or commit secret values
+- print or commit secret values, including a real application id
