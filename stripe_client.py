@@ -15,6 +15,49 @@ import logging
 logger = logging.getLogger("stripe_client")
 
 
+def as_stripe_dict(value):
+    """Copy a Stripe resource into a plain dict.
+
+    stripe-python's documented way to read an API resource is
+    ``StripeObject.to_dict()``. Current SDKs do not subclass ``dict``, and
+    calling ``.get`` on them raises. Dicts are copied too, so nested SDK
+    objects do not leak through.
+    https://github.com/stripe/stripe-python#working-with-api-resources
+    """
+    if value is None:
+        return {}
+    if isinstance(value, stripe.StripeObject):
+        converted = value.to_dict(recursive=True)
+        return converted if isinstance(converted, dict) else {}
+    if isinstance(value, dict):
+        copied = {}
+        for key, item in value.items():
+            if isinstance(item, (stripe.StripeObject, dict)):
+                copied[key] = as_stripe_dict(item)
+            elif isinstance(item, list):
+                copied[key] = [
+                    as_stripe_dict(entry) if isinstance(entry, (stripe.StripeObject, dict)) else entry
+                    for entry in item
+                ]
+            else:
+                copied[key] = item
+        return copied
+    return {}
+
+
+def stripe_id(value) -> str:
+    """Id string from a Stripe id, an expanded object, or a dict."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, stripe.StripeObject):
+        value = as_stripe_dict(value)
+    if isinstance(value, dict):
+        return str(value.get("id") or "")
+    return str(value)
+
+
 def checkout_idempotency_key(*parts) -> str:
     """Same UTC day, same parts -> same Stripe idempotency key.
 

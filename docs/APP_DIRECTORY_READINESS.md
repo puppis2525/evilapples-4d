@@ -117,7 +117,7 @@ Signed webhook posts to `/api/stripe/webhook` on that local app:
 | Same event posted again | HTTP 200 `{"received": true, "duplicate": true}` |
 | Rows after those posts | one row: `evt_local_qa_1` / `ping.unknown` |
 
-A `checkout.session.completed` payload did not reach premium activation. With stripe-python 16.1.0, `stripe.Webhook.construct_event` returns a `StripeObject`, and `session.get(...)` raises `AttributeError` (`StripeObject` is not a dict). Both the first post and the retry returned HTTP 500 `Webhook processing failed`, and `evt_local_qa_fail` was not left in the table, so the failure path released the id instead of treating the retry as a duplicate. The same `.get` calls are already in the base file `stripe_routes.py`, and constructing that event with the same stripe 16.1.0 install raises the same `AttributeError` on the base worktree. This branch did not change those lines into a dict lookup. It also did not add a Stripe version pin. `pyproject.toml` still says `stripe>=14.4.1`.
+A `checkout.session.completed` payload did not reach premium activation on that pass. With stripe-python 16.1.0, `stripe.Webhook.construct_event` returns a `StripeObject`, and `session.get(...)` raises `AttributeError`. That incompatibility is fixed later on this branch; see the Stripe SDK 16 section below. `pyproject.toml` still says `stripe>=14.4.1` and does not pin a version.
 
 Also executed:
 
@@ -148,3 +148,33 @@ These need owner input. Do not treat the offline suite as a substitute.
 - `PUBLIC_BASE_URL`, `DATABASE_URL`, Discord, Stripe, and Venice values for the host you pick. This work does not pick the host.
 - Confirmation that the Stripe prices match $19 and $99.
 - Whether legacy `!` commands should be on in production. Default is off.
+
+## Stripe SDK 16 premium entitlement
+
+Fixed on this branch without pinning stripe-python. `stripe.Webhook.construct_event` returns a `StripeObject`. Current stripe-python does not subclass `dict`, and `.get` raises. The documented conversion is `StripeObject.to_dict()` ([working with API resources](https://github.com/stripe/stripe-python#working-with-api-resources)). `as_stripe_dict()` does that for webhook events, expanded Checkout Sessions, Account retrieve, and PaymentIntent retrieve.
+
+Premium activation no longer uses `metadata.plan`. The granted plan is the single configured Price id on the session line items, or on `Session.retrieve(..., expand=["line_items", "subscription"])` when the event omits them. Metadata that names a different plan is ignored. An unknown Price, an unpaid session, or a guild id that is not 17–20 digits does not activate. `customer.subscription.updated` will not reactivate a subscription whose Price is present and not one of the configured ids.
+
+Checked with stripe-python 16.1.0, FastAPI 0.135.1, Starlette 0.52.1, and disposable local Postgres 16 (`ea_qa_stripe16` on the local socket only; no Stripe secret key and no network call):
+
+```text
+python3 -m pytest tests/test_stripe_sdk16_webhook.py \
+  tests/test_directory_prep.py::TestWebhookHttp::test_signature_duplicate_and_failure \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_strict_fails_closed_on_db_error \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_blocked_when_over_limit \
+  tests/test_rate_limiter.py::TestRateLimiterDBBehavior::test_uses_atomic_cte_query \
+  -q --tb=line
+# 11 passed, 3 failed in 20.67s
+```
+
+The 11 passes include: a signed `checkout.session.completed` whose metadata says `overlord` while the Price id is the configured Schemer price, and the database row is `schemer`; a duplicate event calls `activate_premium` once; a raised activation returns HTTP 500 without the exception text, the retry activates, and a third post is `duplicate: true`; invalid signature is HTTP 400 with no premium row; short guild id, unknown Price, and unpaid session do not activate; retrieve supplies the Price when the event has no line items; `customer.subscription.deleted` clears `active`.
+
+The 3 failures are the same pre-existing rate-limiter cases as the base SHA `b572ae756beff60569efd16f266c4917ed89e3e7`. This change does not touch `RateLimiter` or `tests/test_rate_limiter.py`.
+
+A full `python3 -m pytest tests -q --tb=line` on the entitlement code, before the in-memory webhook fixture was given `payment_status: paid` and a configured Price id, was **137 passed, 4 failed** in 461.54s. The extra failure was that fixture still expecting HTTP 500 for an unpaid session. After that fixture update, the targeted rerun above is the result. The other suite cases were not started again.
+
+Still unresolved for Stripe:
+
+- Tournament entry, deck purchase, and Telegram group unlock still select the record from metadata written by our checkout code. Those charges use one-off `price_data`, not the Schemer/Overlord Price ids, so there is no catalog Price to map. The metadata is on the signed event, not a raw client body.
+- If line items are absent, a failed `Session.retrieve` is treated as a retryable handler error. That path was mocked here. No live Stripe payment was made.
+- Mature-content enforcement was not changed.

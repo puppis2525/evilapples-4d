@@ -436,20 +436,29 @@ class TestWebhookHttp:
             assert second.status_code == 200
             assert second.json()["duplicate"] is True
 
+            saved_prices = dict(stripe_routes.PLAN_PRICE_MAP)
+            stripe_routes.PLAN_PRICE_MAP["overlord"] = "price_test_overlord"
             fail_payload = json.dumps({
                 "id": "evt_fail_1",
+                "object": "event",
                 "type": "checkout.session.completed",
                 "data": {"object": {
                     "id": "cs_fail",
+                    "object": "checkout.session",
+                    "payment_status": "paid",
                     "metadata": {
-                        "guild_id": "1",
+                        "guild_id": "123456789012345678",
                         "guild_name": "G",
-                        "user_id": "2",
+                        "user_id": "223456789012345678",
                         "user_name": "U",
-                        "plan": "overlord",
+                        "plan": "schemer",
                     },
                     "customer": "cus_test",
                     "subscription": "sub_test",
+                    "line_items": {
+                        "object": "list",
+                        "data": [{"id": "li_fail", "price": {"id": "price_test_overlord", "object": "price"}}],
+                    },
                 }},
             }).encode()
 
@@ -457,17 +466,21 @@ class TestWebhookHttp:
                 raise RuntimeError("database unavailable")
 
             monkeypatch.setattr(stripe_routes, "activate_premium", boom)
-            fail_sig = _sign(fail_payload, "whsec_test_only")
-            failed = client.post(
-                "/api/stripe/webhook",
-                content=fail_payload,
-                headers={"stripe-signature": fail_sig},
-            )
-            retried = client.post(
-                "/api/stripe/webhook",
-                content=fail_payload,
-                headers={"stripe-signature": fail_sig},
-            )
+            try:
+                fail_sig = _sign(fail_payload, "whsec_test_only")
+                failed = client.post(
+                    "/api/stripe/webhook",
+                    content=fail_payload,
+                    headers={"stripe-signature": fail_sig},
+                )
+                retried = client.post(
+                    "/api/stripe/webhook",
+                    content=fail_payload,
+                    headers={"stripe-signature": fail_sig},
+                )
+            finally:
+                stripe_routes.PLAN_PRICE_MAP.clear()
+                stripe_routes.PLAN_PRICE_MAP.update(saved_prices)
             assert failed.status_code == 500
             assert retried.status_code == 500
             assert retried.json().get("duplicate") is not True
